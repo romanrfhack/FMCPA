@@ -1,1 +1,19 @@
 .codex
+.env.local
+
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# Angular
+node_modules/
+.angular/
+dist/
+coverage/
+App_Data/
+
+# Editors
+.vs/
+.vscode/

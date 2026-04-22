@@ -1,0 +1,35 @@
+<div class="app-shell">
+  <header class="shell-header">
+    <div class="shell-heading">
+      <p class="shell-kicker">STAGE-07 Dashboard, History and Closeout</p>
+      <h1>FMCPA Platform</h1>
+      <p class="shell-copy">
+        MVP operativo cerrado por etapas aprobadas, con visibilidad ejecutiva, historico consultable,
+        bitacora visible y comisiones transversales sobre Angular 21, .NET 10 y SQL Server.
+      </p>
+    </div>
+
+    <div class="shell-badges">
+      <span>Angular 21</span>
+      <span>.NET 10</span>
+      <span>SQL Server Ready</span>
+    </div>
+  </header>
+
+  <div class="shell-main">
+    <nav class="shell-nav" aria-label="Navegacion principal">
+      @for (item of navigation; track item.path) {
+        <a
+          [routerLink]="item.path"
+          routerLinkActive="is-active"
+          [routerLinkActiveOptions]="{ exact: item.exact ?? false }">
+          {{ item.label }}
+        </a>
+      }
+    </nav>
+
+    <main class="shell-content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

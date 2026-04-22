@@ -1,0 +1,14 @@
+html {
+  font-size: 16px;
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  background: #f4f2eb;
+}
+
+* {
+  box-sizing: border-box;
+}
