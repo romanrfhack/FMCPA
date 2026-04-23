@@ -11,7 +11,8 @@
 - El MVP queda documentalmente cerrado como `Cerrado con reservas`, sujeto a aprobacion formal.
 - `Track 1: Hardening y consistencia operativa` ya tiene implementacion inicial, endurecimiento documental minimo, estabilizacion del entorno local, tooling operativo local minimo, smoke MVP automatizado, wiring local estable entre frontend y API, y ergonomia operativa local mejorada entregados, pero sigue pendiente de aprobacion formal.
 - `Track 1: Hardening y consistencia operativa` tambien incorpora ya regularizacion retrospectiva controlada del historico legado y endurecimiento minimo de transiciones/cierre, pero sigue pendiente de aprobacion formal en conjunto.
-- Ningun track tecnico posterior a `Track 1` esta aprobado aun.
+- `Track 2: Seguridad transversal` ya cuenta con una base minima de autenticacion backend/frontend, una autorizacion minima por roles base y una gestion minima de usuarios internos implementadas y validadas localmente, pero sigue pendiente de aprobacion formal.
+- Ningun track tecnico posterior a `Track 2` esta aprobado aun.
 
 ## Historial
 
@@ -37,3 +38,6 @@
 | 2026-04-21 | Track 1 post-MVP ampliado con tooling y ergonomia operativa local | Pendiente de aprobacion | Por definir | `.config/dotnet-tools.json`, `scripts/local/dev-up.sh`, `scripts/local/dev-down.sh`, salida de configuracion efectiva reforzada y nota `docs/05-post-mvp/hardening-track-tooling-and-ergonomics-implementation-note.md` |
 | 2026-04-21 | Track 1 post-MVP ampliado con regularizacion retrospectiva del historico legado | Pendiente de aprobacion | Por definir | Distincion `FORMAL_CLOSE_EVENT` / `LEGACY_CLOSE_NORMALIZED` / `LEGACY_TIMESTAMP_FALLBACK`, script `scripts/local/normalize-legacy-history.sh`, ajuste de Bitacora e Historico y nota `docs/05-post-mvp/hardening-track-legacy-history-normalization-implementation-note.md` |
 | 2026-04-21 | Track 1 post-MVP ampliado con endurecimiento minimo de transiciones y cierre | Pendiente de aprobacion | Por definir | `StateTransitionSupport`, bloqueo de cierres invalidos y mutaciones sobre padres terminales, mensajes claros en API/frontend y nota `docs/05-post-mvp/hardening-track-state-transitions-implementation-note.md` |
+| 2026-04-21 | Track 2 post-MVP abierto con foundation minima de autenticacion | Pendiente de aprobacion | Por definir | `ApplicationUser`, migracion `Track2SecurityAuthFoundation`, `/api/auth/*`, proteccion de `/api`, login/guard/interceptor Angular, smoke autenticado y nota `docs/05-post-mvp/security-track-auth-foundation-implementation-note.md` |
+| 2026-04-21 | Track 2 post-MVP ampliado con autorizacion minima por roles base | Pendiente de aprobacion | Por definir | `RoleCode` en `ApplicationUser`, migracion `Track2SecurityRoleAuthorization`, politicas `read/write/admin`, bootstrap local de `operator` y `readonly`, restriccion de endpoints por rol, reflejo minimo en Angular y nota `docs/05-post-mvp/security-track-role-authorization-implementation-note.md` |
+| 2026-04-22 | Track 2 post-MVP ampliado con gestion minima de usuarios internos | Pendiente de aprobacion | Por definir | Endpoints `ADMIN` `/api/admin/users/*`, migracion `Track2SecurityUserManagementAdmin`, `SecurityStamp` para invalidacion de tokens, trazabilidad `SECURITY` en bitacora, pantalla Angular `/admin/users` y nota `docs/05-post-mvp/security-track-user-management-implementation-note.md` |

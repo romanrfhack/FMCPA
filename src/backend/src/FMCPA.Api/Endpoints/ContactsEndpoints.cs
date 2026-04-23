@@ -1,3 +1,4 @@
+using FMCPA.Api.Auth;
 using System.Net.Mail;
 using FMCPA.Api.Contracts.Shared;
 using FMCPA.Domain.Entities.Shared;
@@ -10,10 +11,15 @@ public static class ContactsEndpoints
 {
     public static IEndpointRouteBuilder MapContactsEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api")
-            .WithTags("Contacts");
+        var readGroup = app.MapGroup("/api")
+            .WithTags("Contacts")
+            .RequireReadAccess();
 
-        group.MapGet(
+        var writeGroup = app.MapGroup("/api")
+            .WithTags("Contacts")
+            .RequireWriteAccess();
+
+        readGroup.MapGet(
             "/contact-types",
             async (PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -32,7 +38,7 @@ public static class ContactsEndpoints
                 return Results.Ok(response);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/contacts",
             async (PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -59,7 +65,7 @@ public static class ContactsEndpoints
                 return Results.Ok(response);
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/contacts",
             async (CreateContactRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {

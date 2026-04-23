@@ -20,6 +20,7 @@ import {
   FederationDonationSummary
 } from '../../core/models/federation.models';
 import { CatalogItem, Contact, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
+import { AuthService } from '../../core/services/auth.service';
 import { FederationService } from '../../core/services/federation.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
@@ -144,7 +145,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 </label>
 
                 <div class="form-actions full-width">
-                  <button type="submit" [disabled]="isSubmittingAction()">Registrar gestion</button>
+                  <button type="submit" [disabled]="isSubmittingAction() || !canWrite()">Registrar gestion</button>
                   <button type="button" class="ghost" (click)="resetActionForm()">Limpiar</button>
                 </div>
               </form>
@@ -242,8 +243,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     type="button"
                     class="ghost"
                     (click)="closeSelectedAction()"
-                    [disabled]="actionDetail.statusIsClosed"
-                    [attr.title]="actionDetail.statusIsClosed ? 'La gestión ya se encuentra en estado terminal.' : 'Registrar cierre formal.'">
+                    [disabled]="!canAdminister() || actionDetail.statusIsClosed"
+                    [attr.title]="!canAdminister()
+                      ? 'Solo ADMIN puede registrar cierre formal.'
+                      : actionDetail.statusIsClosed
+                        ? 'La gestión ya se encuentra en estado terminal.'
+                        : 'Registrar cierre formal.'">
                     {{ actionDetail.statusIsClosed ? 'Ya terminal' : 'Cerrar formalmente' }}
                   </button>
                 </div>
@@ -315,7 +320,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     </label>
 
                     <div class="form-actions full-width">
-                      <button type="submit" [disabled]="isSubmittingParticipant()">Agregar participante</button>
+                      <button type="submit" [disabled]="isSubmittingParticipant() || !canWrite()">Agregar participante</button>
                       <button type="button" class="ghost" (click)="resetParticipantForm()">Limpiar</button>
                     </div>
                   </form>
@@ -470,7 +475,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 </label>
 
                 <div class="form-actions full-width">
-                  <button type="submit" [disabled]="isSubmittingDonation()">Registrar donacion</button>
+                  <button type="submit" [disabled]="isSubmittingDonation() || !canWrite()">Registrar donacion</button>
                   <button type="button" class="ghost" (click)="resetDonationForm()">Limpiar</button>
                 </div>
               </form>
@@ -577,8 +582,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     type="button"
                     class="ghost"
                     (click)="closeSelectedDonation()"
-                    [disabled]="donationDetail.statusIsClosed"
-                    [attr.title]="donationDetail.statusIsClosed ? 'La donación ya se encuentra en estado terminal.' : 'Registrar cierre formal.'">
+                    [disabled]="!canAdminister() || donationDetail.statusIsClosed"
+                    [attr.title]="!canAdminister()
+                      ? 'Solo ADMIN puede registrar cierre formal.'
+                      : donationDetail.statusIsClosed
+                        ? 'La donación ya se encuentra en estado terminal.'
+                        : 'Registrar cierre formal.'">
                     {{ donationDetail.statusIsClosed ? 'Ya terminal' : 'Cerrar formalmente' }}
                   </button>
                 </div>
@@ -670,7 +679,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     </label>
 
                     <div class="form-actions full-width">
-                      <button type="submit" [disabled]="isSubmittingApplication()">Registrar aplicacion</button>
+                      <button type="submit" [disabled]="isSubmittingApplication() || !canWrite()">Registrar aplicacion</button>
                       <button type="button" class="ghost" (click)="resetApplicationForm()">Limpiar</button>
                     </div>
                   </form>
@@ -798,7 +807,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     </label>
 
                     <div class="form-actions full-width">
-                      <button type="submit" [disabled]="isSubmittingCommission() || !selectedApplication()">Registrar comision</button>
+                      <button type="submit" [disabled]="isSubmittingCommission() || !selectedApplication() || !canWrite()">Registrar comision</button>
                       <button type="button" class="ghost" (click)="resetCommissionForm()">Limpiar</button>
                     </div>
                   </form>
@@ -899,7 +908,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     }
 
                     <div class="form-actions full-width">
-                      <button type="submit" [disabled]="isSubmittingEvidence() || !selectedApplication()">Cargar evidencia</button>
+                      <button type="submit" [disabled]="isSubmittingEvidence() || !selectedApplication() || !canWrite()">Cargar evidencia</button>
                       <button type="button" class="ghost" (click)="resetEvidenceForm()">Limpiar</button>
                     </div>
                   </form>
@@ -936,9 +945,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
                             <div class="row-actions">
                               <span>{{ evidence.uploadedUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</span>
-                              <a [href]="evidenceDownloadUrl(evidence.id)" target="_blank" rel="noopener noreferrer">
+                              <button
+                                type="button"
+                                class="ghost"
+                                (click)="downloadEvidence(evidence)">
                                 Descargar evidencia
-                              </a>
+                              </button>
                             </div>
                           </article>
                         }
@@ -1256,9 +1268,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 })
 export class FederationPageComponent {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly authService = inject(AuthService);
   private readonly federationService = inject(FederationService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
+  protected readonly canWrite = this.authService.canWrite;
+  protected readonly canAdminister = this.authService.canAdminister;
   protected readonly actionTypes = [
     { value: 'AGREEMENT', label: 'Convenio' },
     { value: 'MEETING', label: 'Reunion' },
@@ -1951,8 +1966,14 @@ export class FederationPageComponent {
     }
   }
 
-  protected evidenceDownloadUrl(evidenceId: string): string {
-    return this.federationService.getEvidenceDownloadUrl(evidenceId);
+  protected async downloadEvidence(evidence: FederationDonationApplicationEvidence): Promise<void> {
+    this.pageError.set(null);
+
+    try {
+      await this.federationService.downloadEvidence(evidence.id, evidence.originalFileName);
+    } catch (error) {
+      this.pageError.set(getApiErrorMessage(error, 'No fue posible descargar la evidencia.'));
+    }
   }
 
   private async bootstrap(): Promise<void> {

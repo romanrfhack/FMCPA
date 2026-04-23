@@ -1,3 +1,4 @@
+using FMCPA.Api.Auth;
 using FMCPA.Api.Contracts.Shared;
 using FMCPA.Domain.Entities.Shared;
 using FMCPA.Infrastructure.Persistence;
@@ -9,10 +10,15 @@ public static class SharedCatalogEndpoints
 {
     public static IEndpointRouteBuilder MapSharedCatalogEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api")
-            .WithTags("Shared Catalogs");
+        var readGroup = app.MapGroup("/api")
+            .WithTags("Shared Catalogs")
+            .RequireReadAccess();
 
-        group.MapGet(
+        var adminGroup = app.MapGroup("/api")
+            .WithTags("Shared Catalogs")
+            .RequireAdminAccess();
+
+        readGroup.MapGet(
             "/commission-types",
             async (PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -32,7 +38,7 @@ public static class SharedCatalogEndpoints
                 return Results.Ok(response);
             });
 
-        group.MapPost(
+        adminGroup.MapPost(
             "/commission-types",
             async (CreateCatalogItemRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -45,7 +51,7 @@ public static class SharedCatalogEndpoints
                     cancellationToken);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/evidence-types",
             async (PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -65,7 +71,7 @@ public static class SharedCatalogEndpoints
                 return Results.Ok(response);
             });
 
-        group.MapPost(
+        adminGroup.MapPost(
             "/evidence-types",
             async (CreateCatalogItemRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -78,7 +84,7 @@ public static class SharedCatalogEndpoints
                     cancellationToken);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/module-statuses",
             async (string? moduleCode, string? contextCode, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -118,7 +124,7 @@ public static class SharedCatalogEndpoints
                 return Results.Ok(response);
             });
 
-        group.MapPost(
+        adminGroup.MapPost(
             "/module-statuses",
             async (CreateModuleStatusCatalogEntryRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {

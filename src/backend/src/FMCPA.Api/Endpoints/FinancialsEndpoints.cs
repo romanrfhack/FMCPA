@@ -1,3 +1,4 @@
+using FMCPA.Api.Auth;
 using FMCPA.Api.Contracts.Closeout;
 using FMCPA.Api.Contracts.Financials;
 using FMCPA.Api.Extensions;
@@ -35,10 +36,19 @@ public static class FinancialsEndpoints
 
     public static IEndpointRouteBuilder MapFinancialsEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/financials")
-            .WithTags("Financials");
+        var readGroup = app.MapGroup("/api/financials")
+            .WithTags("Financials")
+            .RequireReadAccess();
 
-        group.MapGet(
+        var writeGroup = app.MapGroup("/api/financials")
+            .WithTags("Financials")
+            .RequireWriteAccess();
+
+        var adminGroup = app.MapGroup("/api/financials")
+            .WithTags("Financials")
+            .RequireAdminAccess();
+
+        readGroup.MapGet(
             "/alerts/permits",
             async (PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -46,7 +56,7 @@ public static class FinancialsEndpoints
                 return Results.Ok(alerts);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             string.Empty,
             async (string? statusCode, bool? alertsOnly, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -124,7 +134,7 @@ public static class FinancialsEndpoints
                 return Results.Ok(summaries);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/{permitId:guid}",
             async (Guid permitId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -142,7 +152,7 @@ public static class FinancialsEndpoints
                 return Results.Ok(detail);
             });
 
-        group.MapPost(
+        adminGroup.MapPost(
             "/{permitId:guid}/close",
             async (Guid permitId, CloseRecordRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -226,7 +236,7 @@ public static class FinancialsEndpoints
                         reason));
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             string.Empty,
             async (CreateFinancialPermitRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -299,7 +309,7 @@ public static class FinancialsEndpoints
                 return Results.Created($"/api/financials/{permit.Id}", response);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/{permitId:guid}/credits",
             async (Guid permitId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -327,7 +337,7 @@ public static class FinancialsEndpoints
                 return Results.Ok(response);
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/{permitId:guid}/credits",
             async (Guid permitId, CreateFinancialCreditRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -459,7 +469,7 @@ public static class FinancialsEndpoints
                 return Results.Created($"/api/financials/{permitId}/credits/{credit.Id}", response);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/credits/{creditId:guid}/commissions",
             async (Guid creditId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -482,7 +492,7 @@ public static class FinancialsEndpoints
                 return Results.Ok(commissions.Select(MapFinancialCreditCommissionResponse).ToList());
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/credits/{creditId:guid}/commissions",
             async (Guid creditId, CreateFinancialCreditCommissionRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {

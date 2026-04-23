@@ -9,7 +9,8 @@
 - La apertura de `RB-003` a `RB-008` fue solicitada de forma explicita para continuar la ejecucion tecnica del MVP.
 - El MVP queda documentalmente cerrado como `Cerrado con reservas`, pero su aprobacion formal sigue pendiente.
 - `Track 1` ya tiene implementacion inicial, hardening documental minimo, estabilizacion del entorno local, tooling operativo local minimo, smoke MVP automatizado, wiring local estable entre frontend y API, ergonomia operativa local mejorada, regularizacion retrospectiva controlada del historico legado y endurecimiento minimo de transiciones/cierre entregados y validados localmente, pero sigue pendiente de aprobacion formal.
-- Ningun track tecnico posterior a `Track 1` esta aprobado.
+- `Track 2` ya tiene una base minima de autenticacion, una autorizacion minima por roles base y una gestion minima de usuarios internos entregadas y validadas localmente, pero sigue pendiente de aprobacion formal.
+- Ningun track tecnico posterior a `Track 2` esta aprobado.
 
 ## Backlog del MVP ejecutado
 
@@ -31,7 +32,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | RB-010 | Control | Decision de cierre formal del MVP | Confirmar si el MVP queda formalmente aprobado como `Cerrado con reservas`. | RB-009 | Alta | Pendiente |
 | RB-011 | Track | Track 1: Hardening y consistencia operativa | Implementar bitacora transversal minima real, cierre formal, mejora de historico y endurecimiento documental minimo sin rehacer el MVP. | RB-010 | Alta | Entregado, pendiente de aprobacion |
-| RB-012 | Track | Track 2: Seguridad transversal | Evaluar y aprobar el track de autenticacion, autorizacion futura y acceso seguro a archivos. | RB-011 | Alta | Bloqueado hasta aprobar RB-011 |
+| RB-012 | Track | Track 2: Seguridad transversal | Implementar y evaluar una base minima de autenticacion, preparar autorizacion futura y endurecer acceso a archivos sin abrir todavia RBAC fino. | RB-011 | Alta | Entregado, pendiente de aprobacion |
 | RB-013 | Track | Track 3: Estrategia documental transversal | Evaluar y aprobar el track de politica documental, respaldo y retencion. | RB-011, RB-012 | Media | Bloqueado hasta aprobar RB-011 y RB-012 |
 | RB-014 | Track | Track 4: Analitica y reporteo | Evaluar y aprobar el track de dashboard analitico, exportaciones y consolidacion operativa mas fuerte. | RB-011 a RB-013 | Media | Bloqueado hasta aprobar tracks previos |
 | RB-015 | Track | Track 5: Evolucion funcional posterior | Mantener en espera la evolucion funcional posterior hasta cerrar los tracks transversales prioritarios. | RB-011 a RB-014 | Media | En espera |
@@ -43,6 +44,9 @@
 | RB-021 | Hardening | Tooling y ergonomia operativa local | Versionar `dotnet-ef`, clarificar configuracion efectiva en scripts y agregar `dev-up.sh` / `dev-down.sh` como flujo corto para sesiones locales gestionadas. | RB-017, RB-018, RB-020 | Alta | Entregado, pendiente de aprobacion |
 | RB-022 | Hardening | Regularizacion retrospectiva del historico legado | Reducir la dependencia de `LEGACY_TIMESTAMP_FALLBACK` generando eventos `LEGACY_CLOSE_NORMALIZED` de forma controlada, idempotente y trazable para registros cerrados o archivados previos al hardening. | RB-011 | Alta | Entregado, pendiente de aprobacion |
 | RB-023 | Hardening | Endurecimiento minimo de transiciones y cierre | Bloquear cierres formales invalidos y mutaciones nuevas sobre padres terminales en Mercados, Donatarias, Financieras y Federacion, con errores claros y sin generar eventos falsos en bitacora. | RB-011, RB-022 | Alta | Entregado, pendiente de aprobacion |
+| RB-024 | Security | Foundation minima de autenticacion | Dejar login JWT, bootstrap local controlado, proteccion de `/api`, guard/interceptor Angular, logout minimo y smoke autenticado sin abrir aun RBAC ni gestion completa de usuarios. | RB-012 | Alta | Entregado, pendiente de aprobacion |
+| RB-025 | Security | Autorizacion minima por roles base | Agregar `ADMIN`, `OPERATOR` y `READONLY`, claim de rol en JWT, politicas `read/write/admin`, proteccion minima de endpoints y reflejo minimo del rol en frontend sin abrir aun permisos finos por modulo/accion. | RB-012, RB-024 | Alta | Entregado, pendiente de aprobacion |
+| RB-026 | Security | Gestion minima de usuarios internos | Permitir que `ADMIN` liste, consulte, cree, cambie rol, active/desactive y resetee password de usuarios internos, con invalidacion de tokens previos y pantalla Angular minima, sin abrir self-service ni recuperacion avanzada. | RB-012, RB-024, RB-025 | Alta | Entregado, pendiente de aprobacion |
 
 ## Referencias
 - [Current Phase](./current-phase.md)

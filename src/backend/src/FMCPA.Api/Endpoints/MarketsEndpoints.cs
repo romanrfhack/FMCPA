@@ -1,4 +1,5 @@
 using System.Net.Mail;
+using FMCPA.Api.Auth;
 using FMCPA.Api.Contracts.Closeout;
 using FMCPA.Api.Contracts.Markets;
 using FMCPA.Api.Extensions;
@@ -29,10 +30,19 @@ public static class MarketsEndpoints
 
     public static IEndpointRouteBuilder MapMarketsEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/markets")
-            .WithTags("Markets");
+        var readGroup = app.MapGroup("/api/markets")
+            .WithTags("Markets")
+            .RequireReadAccess();
 
-        group.MapGet(
+        var writeGroup = app.MapGroup("/api/markets")
+            .WithTags("Markets")
+            .RequireWriteAccess();
+
+        var adminGroup = app.MapGroup("/api/markets")
+            .WithTags("Markets")
+            .RequireAdminAccess();
+
+        readGroup.MapGet(
             "/alerts/tenants",
             async (PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -40,7 +50,7 @@ public static class MarketsEndpoints
                 return Results.Ok(alerts);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/tenants/{tenantId:guid}/cedula",
             async (Guid tenantId, PlatformDbContext dbContext, IMarketTenantCertificateStorage certificateStorage, IDocumentBinaryStore documentBinaryStore, CancellationToken cancellationToken) =>
             {
@@ -95,7 +105,7 @@ public static class MarketsEndpoints
                 return Results.File(download.Content, download.ContentType, download.OriginalFileName);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             string.Empty,
             async (string? statusCode, bool? alertsOnly, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -168,7 +178,7 @@ public static class MarketsEndpoints
                 return Results.Ok(response);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/{marketId:guid}",
             async (Guid marketId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -186,7 +196,7 @@ public static class MarketsEndpoints
                 return Results.Ok(detail);
             });
 
-        group.MapPost(
+        adminGroup.MapPost(
             "/{marketId:guid}/close",
             async (Guid marketId, CloseRecordRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -269,7 +279,7 @@ public static class MarketsEndpoints
                         reason));
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             string.Empty,
             async (CreateMarketRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -364,7 +374,7 @@ public static class MarketsEndpoints
                 return Results.Created($"/api/markets/{market.Id}", response);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/{marketId:guid}/tenants",
             async (Guid marketId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -392,7 +402,7 @@ public static class MarketsEndpoints
                 return Results.Ok(response);
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/{marketId:guid}/tenants",
             async ([FromRoute] Guid marketId, [FromForm] CreateMarketTenantRequest request, PlatformDbContext dbContext, IMarketTenantCertificateStorage certificateStorage, CancellationToken cancellationToken) =>
             {
@@ -528,7 +538,7 @@ public static class MarketsEndpoints
             })
             .DisableAntiforgery();
 
-        group.MapGet(
+        readGroup.MapGet(
             "/{marketId:guid}/issues",
             async (Guid marketId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -556,7 +566,7 @@ public static class MarketsEndpoints
                 return Results.Ok(response);
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/{marketId:guid}/issues",
             async (Guid marketId, CreateMarketIssueRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {

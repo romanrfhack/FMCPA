@@ -46,6 +46,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   <option value="DONATARIAS">Donatarias</option>
                   <option value="FINANCIALS">Financieras</option>
                   <option value="FEDERATION">Federación</option>
+                  <option value="SECURITY">Seguridad</option>
                 </select>
               </label>
 
@@ -68,6 +69,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   <option value="FEDERATION_DONATION_APPLICATION">Aplicación de federación</option>
                   <option value="FEDERATION_DONATION_APPLICATION_EVIDENCE">Evidencia de federación</option>
                   <option value="FEDERATION_DONATION_APPLICATION_COMMISSION">Comisión de federación</option>
+                  <option value="APPLICATION_USER">Usuario interno</option>
                 </select>
               </label>
 

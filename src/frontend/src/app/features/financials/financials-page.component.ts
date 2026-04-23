@@ -13,6 +13,7 @@ import {
   FinancialPermitSummary
 } from '../../core/models/financials.models';
 import { CatalogItem, Contact, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
+import { AuthService } from '../../core/services/auth.service';
 import { FinancialsService } from '../../core/services/financials.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
@@ -137,7 +138,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               </label>
 
               <div class="form-actions full-width">
-                <button type="submit" [disabled]="isSubmittingPermit()">Registrar oficio</button>
+                <button type="submit" [disabled]="isSubmittingPermit() || !canWrite()">Registrar oficio</button>
                 <button type="button" class="ghost" (click)="resetPermitForm()">Limpiar</button>
               </div>
             </form>
@@ -242,8 +243,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     type="button"
                     class="ghost"
                     (click)="closeSelectedPermit()"
-                    [disabled]="permitDetail.statusIsClosed"
-                    [attr.title]="permitDetail.statusIsClosed ? 'El oficio ya se encuentra en estado terminal.' : 'Registrar cierre formal.'">
+                    [disabled]="!canAdminister() || permitDetail.statusIsClosed"
+                    [attr.title]="!canAdminister()
+                      ? 'Solo ADMIN puede registrar cierre formal.'
+                      : permitDetail.statusIsClosed
+                        ? 'El oficio ya se encuentra en estado terminal.'
+                        : 'Registrar cierre formal.'">
                     {{ permitDetail.statusIsClosed ? 'Ya terminal' : 'Cerrar formalmente' }}
                   </button>
                 </div>
@@ -350,7 +355,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   </label>
 
                   <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingCredit()">Registrar crédito</button>
+                    <button type="submit" [disabled]="isSubmittingCredit() || !canWrite()">Registrar crédito</button>
                     <button type="button" class="ghost" (click)="resetCreditForm()">Limpiar</button>
                   </div>
                 </form>
@@ -477,7 +482,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   </label>
 
                   <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingCommission() || !selectedCredit()">Registrar comisión</button>
+                    <button type="submit" [disabled]="isSubmittingCommission() || !selectedCredit() || !canWrite()">Registrar comisión</button>
                     <button type="button" class="ghost" (click)="resetCommissionForm()">Limpiar</button>
                   </div>
                 </form>
@@ -830,9 +835,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 })
 export class FinancialsPageComponent {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly authService = inject(AuthService);
   private readonly financialsService = inject(FinancialsService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
+  protected readonly canWrite = this.authService.canWrite;
+  protected readonly canAdminister = this.authService.canAdminister;
   protected readonly recipientCategories = [
     { value: 'COMPANY', label: 'Empresa' },
     { value: 'THIRD_PARTY', label: 'Intermediario / tercero' },

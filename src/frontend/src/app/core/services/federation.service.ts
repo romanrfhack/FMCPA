@@ -23,12 +23,14 @@ import {
   FederationDonationSummary,
   FederationModuleAlerts
 } from '../models/federation.models';
+import { ProtectedDownloadService } from './protected-download.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class FederationService {
   private readonly httpClient = inject(HttpClient);
+  private readonly protectedDownloadService = inject(ProtectedDownloadService);
   private readonly apiBaseUrl = `${environment.apiBaseUrl}/api/federation`;
 
   getAlerts() {
@@ -122,8 +124,10 @@ export class FederationService {
       formData);
   }
 
-  getEvidenceDownloadUrl(evidenceId: string) {
-    return `${this.apiBaseUrl}/applications/evidences/${evidenceId}/download`;
+  downloadEvidence(evidenceId: string, fallbackFileName: string) {
+    return this.protectedDownloadService.download(
+      `${this.apiBaseUrl}/applications/evidences/${evidenceId}/download`,
+      fallbackFileName);
   }
 
   getApplicationCommissions(applicationId: string) {

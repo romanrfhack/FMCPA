@@ -13,6 +13,7 @@ import {
   DonationSummary
 } from '../../core/models/donations.models';
 import { Contact, CatalogItem, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
+import { AuthService } from '../../core/services/auth.service';
 import { DonationsService } from '../../core/services/donations.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
@@ -127,7 +128,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               </label>
 
               <div class="form-actions full-width">
-                <button type="submit" [disabled]="isSubmittingDonation()">Registrar donación</button>
+                <button type="submit" [disabled]="isSubmittingDonation() || !canWrite()">Registrar donación</button>
                 <button type="button" class="ghost" (click)="resetDonationForm()">Limpiar</button>
               </div>
             </form>
@@ -233,8 +234,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     type="button"
                     class="ghost"
                     (click)="closeSelectedDonation()"
-                    [disabled]="donationDetail.statusIsClosed"
-                    [attr.title]="donationDetail.statusIsClosed ? 'La donación ya se encuentra en estado terminal.' : 'Registrar cierre formal.'">
+                    [disabled]="!canAdminister() || donationDetail.statusIsClosed"
+                    [attr.title]="!canAdminister()
+                      ? 'Solo ADMIN puede registrar cierre formal.'
+                      : donationDetail.statusIsClosed
+                        ? 'La donación ya se encuentra en estado terminal.'
+                        : 'Registrar cierre formal.'">
                     {{ donationDetail.statusIsClosed ? 'Ya terminal' : 'Cerrar formalmente' }}
                   </button>
                 </div>
@@ -341,7 +346,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   </label>
 
                   <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingApplication()">Registrar aplicación</button>
+                    <button type="submit" [disabled]="isSubmittingApplication() || !canWrite()">Registrar aplicación</button>
                     <button type="button" class="ghost" (click)="resetApplicationForm()">Limpiar</button>
                   </div>
                 </form>
@@ -442,7 +447,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   }
 
                   <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingEvidence() || !selectedApplication()">Cargar evidencia</button>
+                    <button type="submit" [disabled]="isSubmittingEvidence() || !selectedApplication() || !canWrite()">Cargar evidencia</button>
                     <button type="button" class="ghost" (click)="resetEvidenceForm()">Limpiar</button>
                   </div>
                 </form>
@@ -479,9 +484,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
                           <div class="row-actions">
                             <span>{{ evidence.uploadedUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</span>
-                            <a [href]="evidenceDownloadUrl(evidence.id)" target="_blank" rel="noopener noreferrer">
+                            <button
+                              type="button"
+                              class="ghost"
+                              (click)="downloadEvidence(evidence)">
                               Descargar evidencia
-                            </a>
+                            </button>
                           </div>
                         </article>
                       }
@@ -794,9 +802,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 })
 export class DonatariasPageComponent {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly authService = inject(AuthService);
   private readonly donationsService = inject(DonationsService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
+  protected readonly canWrite = this.authService.canWrite;
+  protected readonly canAdminister = this.authService.canAdminister;
   protected readonly isBootstrapping = signal(true);
   protected readonly pageError = signal<string | null>(null);
 
@@ -1157,8 +1168,14 @@ export class DonatariasPageComponent {
     }
   }
 
-  protected evidenceDownloadUrl(evidenceId: string): string {
-    return this.donationsService.getEvidenceDownloadUrl(evidenceId);
+  protected async downloadEvidence(evidence: DonationApplicationEvidence): Promise<void> {
+    this.pageError.set(null);
+
+    try {
+      await this.donationsService.downloadEvidence(evidence.id, evidence.originalFileName);
+    } catch (error) {
+      this.pageError.set(getApiErrorMessage(error, 'No fue posible descargar la evidencia.'));
+    }
   }
 
   private async bootstrap(): Promise<void> {

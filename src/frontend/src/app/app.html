@@ -1,35 +1,49 @@
-<div class="app-shell">
-  <header class="shell-header">
-    <div class="shell-heading">
-      <p class="shell-kicker">STAGE-07 Dashboard, History and Closeout</p>
-      <h1>FMCPA Platform</h1>
-      <p class="shell-copy">
-        MVP operativo cerrado por etapas aprobadas, con visibilidad ejecutiva, historico consultable,
-        bitacora visible y comisiones transversales sobre Angular 21, .NET 10 y SQL Server.
-      </p>
+@if (isAuthenticated()) {
+  <div class="app-shell">
+    <header class="shell-header">
+      <div class="shell-heading">
+        <p class="shell-kicker">Track 2 Seguridad · Autenticación y autorización mínima por rol</p>
+        <h1>FMCPA Platform</h1>
+        <p class="shell-copy">
+          MVP operativo con JWT local, sesión autenticada, rutas protegidas y una separación mínima
+          entre lectura, operación normal, administración funcional y gestión interna mínima de usuarios.
+        </p>
+      </div>
+
+      <div class="shell-status">
+        <div class="shell-badges">
+          <span>Angular 21</span>
+          <span>.NET 10</span>
+          <span>JWT Local</span>
+        </div>
+
+        @if (currentUser(); as user) {
+          <div class="shell-session">
+            <p>{{ user.displayName }}</p>
+            <small>{{ user.userName }} · {{ currentRoleLabel() }}</small>
+            <button type="button" (click)="logout()">Cerrar sesion</button>
+          </div>
+        }
+      </div>
+    </header>
+
+    <div class="shell-main">
+      <nav class="shell-nav" aria-label="Navegacion principal">
+        @for (item of visibleNavigation(); track item.path) {
+          <a
+            [routerLink]="item.path"
+            routerLinkActive="is-active"
+            [routerLinkActiveOptions]="{ exact: item.exact ?? false }">
+            {{ item.label }}
+          </a>
+        }
+      </nav>
+
+      <main class="shell-content">
+        <router-outlet />
+      </main>
     </div>
-
-    <div class="shell-badges">
-      <span>Angular 21</span>
-      <span>.NET 10</span>
-      <span>SQL Server Ready</span>
-    </div>
-  </header>
-
-  <div class="shell-main">
-    <nav class="shell-nav" aria-label="Navegacion principal">
-      @for (item of navigation; track item.path) {
-        <a
-          [routerLink]="item.path"
-          routerLinkActive="is-active"
-          [routerLinkActiveOptions]="{ exact: item.exact ?? false }">
-          {{ item.label }}
-        </a>
-      }
-    </nav>
-
-    <main class="shell-content">
-      <router-outlet />
-    </main>
   </div>
-</div>
+} @else {
+  <router-outlet />
+}

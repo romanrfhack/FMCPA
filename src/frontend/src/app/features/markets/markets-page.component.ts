@@ -15,6 +15,7 @@ import {
   MarketTenantAlert
 } from '../../core/models/markets.models';
 import { Contact, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
+import { AuthService } from '../../core/services/auth.service';
 import { MarketsService } from '../../core/services/markets.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
@@ -129,7 +130,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               </label>
 
               <div class="form-actions full-width">
-                <button type="submit" [disabled]="isSubmittingMarket()">Registrar mercado</button>
+                <button type="submit" [disabled]="isSubmittingMarket() || !canWrite()">Registrar mercado</button>
                 <button type="button" class="ghost" (click)="resetMarketForm()">Limpiar</button>
               </div>
             </form>
@@ -228,8 +229,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     type="button"
                     class="ghost"
                     (click)="closeSelectedMarket()"
-                    [disabled]="marketDetail.statusIsClosed"
-                    [attr.title]="marketDetail.statusIsClosed ? 'El mercado ya se encuentra en estado terminal.' : 'Registrar cierre formal.'">
+                    [disabled]="!canAdminister() || marketDetail.statusIsClosed"
+                    [attr.title]="!canAdminister()
+                      ? 'Solo ADMIN puede registrar cierre formal.'
+                      : marketDetail.statusIsClosed
+                        ? 'El mercado ya se encuentra en estado terminal.'
+                        : 'Registrar cierre formal.'">
                     {{ marketDetail.statusIsClosed ? 'Ya terminal' : 'Cerrar formalmente' }}
                   </button>
                 </div>
@@ -333,7 +338,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   </label>
 
                   <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingTenant()">Registrar locatario</button>
+                    <button type="submit" [disabled]="isSubmittingTenant() || !canWrite()">Registrar locatario</button>
                     <button type="button" class="ghost" (click)="resetTenantForm()">Limpiar</button>
                   </div>
                 </form>
@@ -388,9 +393,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
                         <div class="row-actions">
                           @if (tenant.hasDigitalCertificate) {
-                            <a [href]="tenantCertificateUrl(tenant.id)" target="_blank" rel="noopener noreferrer">
+                            <button
+                              type="button"
+                              class="ghost"
+                              (click)="downloadTenantCertificate(tenant)">
                               Descargar cédula
-                            </a>
+                            </button>
                           }
                           @if (tenant.notes) {
                             <span>{{ tenant.notes }}</span>
@@ -462,7 +470,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   </label>
 
                   <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingIssue()">Registrar incidencia</button>
+                    <button type="submit" [disabled]="isSubmittingIssue() || !canWrite()">Registrar incidencia</button>
                     <button type="button" class="ghost" (click)="resetIssueForm()">Limpiar</button>
                   </div>
                 </form>
@@ -857,9 +865,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 })
 export class MarketsPageComponent {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly authService = inject(AuthService);
   private readonly marketsService = inject(MarketsService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
+  protected readonly canWrite = this.authService.canWrite;
+  protected readonly canAdminister = this.authService.canAdminister;
   protected readonly contacts = signal<Contact[]>([]);
   protected readonly marketStatuses = signal<ModuleStatusCatalogEntry[]>([]);
   protected readonly issueStatuses = signal<ModuleStatusCatalogEntry[]>([]);
@@ -1226,8 +1237,16 @@ export class MarketsPageComponent {
     return `Vigente por ${daysUntilExpiration} dia(s)`;
   }
 
-  protected tenantCertificateUrl(tenantId: string) {
-    return this.marketsService.getTenantCertificateDownloadUrl(tenantId);
+  protected async downloadTenantCertificate(tenant: MarketTenant) {
+    this.pageError.set(null);
+
+    try {
+      await this.marketsService.downloadTenantCertificate(
+        tenant.id,
+        `cedula-${tenant.certificateNumber || tenant.id}`);
+    } catch (error) {
+      this.pageError.set(getApiErrorMessage(error, 'No fue posible descargar la cédula digitalizada.'));
+    }
   }
 
   private async loadPage(preferredMarketId?: string | null) {

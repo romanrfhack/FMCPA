@@ -16,12 +16,14 @@ import {
   MarketTenant,
   MarketTenantAlert
 } from '../models/markets.models';
+import { ProtectedDownloadService } from './protected-download.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class MarketsService {
   private readonly httpClient = inject(HttpClient);
+  private readonly protectedDownloadService = inject(ProtectedDownloadService);
   private readonly apiBaseUrl = `${environment.apiBaseUrl}/api/markets`;
 
   listMarkets(filters?: { statusCode?: string | null; alertsOnly?: boolean }) {
@@ -99,7 +101,9 @@ export class MarketsService {
     return this.httpClient.get<MarketTenantAlert[]>(`${this.apiBaseUrl}/alerts/tenants`);
   }
 
-  getTenantCertificateDownloadUrl(tenantId: string) {
-    return `${this.apiBaseUrl}/tenants/${tenantId}/cedula`;
+  downloadTenantCertificate(tenantId: string, fallbackFileName: string) {
+    return this.protectedDownloadService.download(
+      `${this.apiBaseUrl}/tenants/${tenantId}/cedula`,
+      fallbackFileName);
   }
 }

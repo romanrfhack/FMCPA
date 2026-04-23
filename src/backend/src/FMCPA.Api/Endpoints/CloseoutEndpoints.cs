@@ -1,4 +1,5 @@
 using FMCPA.Api.Contracts.Closeout;
+using FMCPA.Api.Auth;
 using FMCPA.Api.Extensions;
 using FMCPA.Application.Abstractions.Storage;
 using FMCPA.Domain.Entities.Audit;
@@ -45,7 +46,13 @@ public static class CloseoutEndpoints
 
     public static IEndpointRouteBuilder MapCloseoutEndpoints(this IEndpointRouteBuilder app)
     {
-        var dashboardGroup = app.MapGroup("/api/dashboard")
+        var readApiGroup = app.MapGroup("/api")
+            .RequireReadAccess();
+
+        var adminApiGroup = app.MapGroup("/api")
+            .RequireAdminAccess();
+
+        var dashboardGroup = readApiGroup.MapGroup("/dashboard")
             .WithTags("Dashboard");
 
         dashboardGroup.MapGet(
@@ -64,8 +71,8 @@ public static class CloseoutEndpoints
                 return Results.Ok(alerts);
             });
 
-        app.MapGet(
-                "/api/commissions/consolidated",
+        readApiGroup.MapGet(
+                "/commissions/consolidated",
                 async (string? sourceModuleCode, int? commissionTypeId, string? recipientCategory, DateOnly? fromDate, DateOnly? toDate, string? q, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
                 {
                     var response = await BuildConsolidatedCommissionsAsync(
@@ -82,8 +89,8 @@ public static class CloseoutEndpoints
                 })
             .WithTags("Commissions");
 
-        app.MapGet(
-                "/api/bitacora",
+        readApiGroup.MapGet(
+                "/bitacora",
                 async (string? moduleCode, string? entityType, string? entityId, DateOnly? fromDate, DateOnly? toDate, string? q, int? take, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
                 {
                     var response = await BuildBitacoraAsync(
@@ -100,8 +107,8 @@ public static class CloseoutEndpoints
                 })
             .WithTags("Bitacora");
 
-        app.MapGet(
-                "/api/history/closed-items",
+        readApiGroup.MapGet(
+                "/history/closed-items",
                 async (string? moduleCode, string? q, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
                 {
                     var response = await BuildClosedItemsAsync(dbContext, moduleCode, q, cancellationToken);
@@ -109,8 +116,8 @@ public static class CloseoutEndpoints
                 })
             .WithTags("History");
 
-        app.MapPost(
-                "/api/history/normalize-legacy-closures",
+        adminApiGroup.MapPost(
+                "/history/normalize-legacy-closures",
                 async (bool? dryRun, IHostEnvironment environment, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
                 {
                     if (!environment.IsDevelopment())
@@ -126,8 +133,8 @@ public static class CloseoutEndpoints
                 })
             .WithTags("History");
 
-        app.MapGet(
-                "/api/documents/integrity",
+        readApiGroup.MapGet(
+                "/documents/integrity",
                 async (string? moduleCode, string? entityType, string? entityId, int? take, PlatformDbContext dbContext, IDocumentBinaryStore documentBinaryStore, CancellationToken cancellationToken) =>
                 {
                     var response = await BuildDocumentIntegrityAsync(

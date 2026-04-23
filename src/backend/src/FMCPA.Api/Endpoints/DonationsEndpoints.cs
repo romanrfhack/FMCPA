@@ -1,3 +1,4 @@
+using FMCPA.Api.Auth;
 using FMCPA.Api.Contracts.Closeout;
 using FMCPA.Api.Contracts.Donations;
 using FMCPA.Api.Extensions;
@@ -28,10 +29,19 @@ public static class DonationsEndpoints
 
     public static IEndpointRouteBuilder MapDonationsEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/donations")
-            .WithTags("Donations");
+        var readGroup = app.MapGroup("/api/donations")
+            .WithTags("Donations")
+            .RequireReadAccess();
 
-        group.MapGet(
+        var writeGroup = app.MapGroup("/api/donations")
+            .WithTags("Donations")
+            .RequireWriteAccess();
+
+        var adminGroup = app.MapGroup("/api/donations")
+            .WithTags("Donations")
+            .RequireAdminAccess();
+
+        readGroup.MapGet(
             "/alerts",
             async (PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -39,7 +49,7 @@ public static class DonationsEndpoints
                 return Results.Ok(alerts);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/applications/evidences/{evidenceId:guid}/download",
             async (Guid evidenceId, PlatformDbContext dbContext, IDonationApplicationEvidenceStorage evidenceStorage, IDocumentBinaryStore documentBinaryStore, CancellationToken cancellationToken) =>
             {
@@ -94,7 +104,7 @@ public static class DonationsEndpoints
                 return Results.File(download.Content, download.ContentType, download.OriginalFileName);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             string.Empty,
             async (string? statusCode, bool? alertsOnly, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -165,7 +175,7 @@ public static class DonationsEndpoints
                 return Results.Ok(summaries);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/{donationId:guid}",
             async (Guid donationId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -183,7 +193,7 @@ public static class DonationsEndpoints
                 return Results.Ok(detail);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/{donationId:guid}/progress",
             async (Guid donationId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -213,7 +223,7 @@ public static class DonationsEndpoints
                         applications.Count));
             });
 
-        group.MapPost(
+        adminGroup.MapPost(
             "/{donationId:guid}/close",
             async (Guid donationId, CloseRecordRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -296,7 +306,7 @@ public static class DonationsEndpoints
                         reason));
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             string.Empty,
             async (CreateDonationRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -378,7 +388,7 @@ public static class DonationsEndpoints
                 return Results.Created($"/api/donations/{donation.Id}", response);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/{donationId:guid}/applications",
             async (Guid donationId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -408,7 +418,7 @@ public static class DonationsEndpoints
                 return Results.Ok(response);
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/{donationId:guid}/applications",
             async (Guid donationId, CreateDonationApplicationRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -547,7 +557,7 @@ public static class DonationsEndpoints
                 return Results.Created($"/api/donations/{donationId}/applications/{application.Id}", response);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/applications/{applicationId:guid}/evidences",
             async (Guid applicationId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -570,7 +580,7 @@ public static class DonationsEndpoints
                 return Results.Ok(evidences.Select(MapDonationApplicationEvidenceResponse).ToList());
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/applications/{applicationId:guid}/evidences",
             async ([FromRoute] Guid applicationId, [FromForm] CreateDonationApplicationEvidenceRequest request, PlatformDbContext dbContext, IDonationApplicationEvidenceStorage evidenceStorage, CancellationToken cancellationToken) =>
             {

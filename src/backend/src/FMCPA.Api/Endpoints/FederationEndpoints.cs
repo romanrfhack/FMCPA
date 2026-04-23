@@ -1,3 +1,4 @@
+using FMCPA.Api.Auth;
 using FMCPA.Api.Contracts.Closeout;
 using FMCPA.Api.Contracts.Federation;
 using FMCPA.Api.Extensions;
@@ -53,10 +54,19 @@ public static class FederationEndpoints
 
     public static IEndpointRouteBuilder MapFederationEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/federation")
-            .WithTags("Federation");
+        var readGroup = app.MapGroup("/api/federation")
+            .WithTags("Federation")
+            .RequireReadAccess();
 
-        group.MapGet(
+        var writeGroup = app.MapGroup("/api/federation")
+            .WithTags("Federation")
+            .RequireWriteAccess();
+
+        var adminGroup = app.MapGroup("/api/federation")
+            .WithTags("Federation")
+            .RequireAdminAccess();
+
+        readGroup.MapGet(
             "/alerts",
             async (PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -65,7 +75,7 @@ public static class FederationEndpoints
                 return Results.Ok(new FederationModuleAlertsResponse(actionAlerts, donationAlerts));
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/actions",
             async (string? statusCode, bool? alertsOnly, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -129,7 +139,7 @@ public static class FederationEndpoints
                 return Results.Ok(summaries);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/actions/{actionId:guid}",
             async (Guid actionId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -147,7 +157,7 @@ public static class FederationEndpoints
                 return Results.Ok(detail);
             });
 
-        group.MapPost(
+        adminGroup.MapPost(
             "/actions/{actionId:guid}/close",
             async (Guid actionId, CloseRecordRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -230,7 +240,7 @@ public static class FederationEndpoints
                         reason));
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/actions",
             async (CreateFederationActionRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -300,7 +310,7 @@ public static class FederationEndpoints
                 return Results.Created($"/api/federation/actions/{action.Id}", response);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/actions/{actionId:guid}/participants",
             async (Guid actionId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -325,7 +335,7 @@ public static class FederationEndpoints
                 return Results.Ok(participants.Select(MapActionParticipantResponse).ToList());
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/actions/{actionId:guid}/participants",
             async (Guid actionId, CreateFederationActionParticipantRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -424,7 +434,7 @@ public static class FederationEndpoints
                         participant.CreatedUtc));
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/donations",
             async (string? statusCode, bool? alertsOnly, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -498,7 +508,7 @@ public static class FederationEndpoints
                 return Results.Ok(summaries);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/donations/{donationId:guid}",
             async (Guid donationId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -516,7 +526,7 @@ public static class FederationEndpoints
                 return Results.Ok(detail);
             });
 
-        group.MapPost(
+        adminGroup.MapPost(
             "/donations/{donationId:guid}/close",
             async (Guid donationId, CloseRecordRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -599,7 +609,7 @@ public static class FederationEndpoints
                         reason));
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/donations",
             async (CreateFederationDonationRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -682,7 +692,7 @@ public static class FederationEndpoints
                 return Results.Created($"/api/federation/donations/{donation.Id}", response);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/donations/{donationId:guid}/applications",
             async (Guid donationId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -715,7 +725,7 @@ public static class FederationEndpoints
                         .ToList());
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/donations/{donationId:guid}/applications",
             async (Guid donationId, CreateFederationDonationApplicationRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -827,7 +837,7 @@ public static class FederationEndpoints
                         application.CreatedUtc));
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/applications/{applicationId:guid}/evidences",
             async (Guid applicationId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -850,7 +860,7 @@ public static class FederationEndpoints
                 return Results.Ok(evidences.Select(MapDonationApplicationEvidenceResponse).ToList());
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/applications/{applicationId:guid}/evidences",
             async ([FromRoute] Guid applicationId, [FromForm] CreateFederationDonationApplicationEvidenceRequest request, PlatformDbContext dbContext, IFederationDonationApplicationEvidenceStorage evidenceStorage, CancellationToken cancellationToken) =>
             {
@@ -974,7 +984,7 @@ public static class FederationEndpoints
             })
             .DisableAntiforgery();
 
-        group.MapGet(
+        readGroup.MapGet(
             "/applications/evidences/{evidenceId:guid}/download",
             async (Guid evidenceId, PlatformDbContext dbContext, IFederationDonationApplicationEvidenceStorage evidenceStorage, IDocumentBinaryStore documentBinaryStore, CancellationToken cancellationToken) =>
             {
@@ -1029,7 +1039,7 @@ public static class FederationEndpoints
                 return Results.File(download.Content, download.ContentType, download.OriginalFileName);
             });
 
-        group.MapGet(
+        readGroup.MapGet(
             "/applications/{applicationId:guid}/commissions",
             async (Guid applicationId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {
@@ -1052,7 +1062,7 @@ public static class FederationEndpoints
                 return Results.Ok(commissions.Select(MapDonationApplicationCommissionResponse).ToList());
             });
 
-        group.MapPost(
+        writeGroup.MapPost(
             "/applications/{applicationId:guid}/commissions",
             async (Guid applicationId, CreateFederationDonationApplicationCommissionRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
             {

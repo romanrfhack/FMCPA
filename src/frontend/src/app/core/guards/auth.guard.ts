@@ -1,0 +1,45 @@
+import { inject } from '@angular/core';
+import { CanActivateChildFn, CanActivateFn, Router } from '@angular/router';
+
+import { AuthService } from '../services/auth.service';
+
+function redirectToLogin(targetUrl: string) {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (authService.isAuthenticated()) {
+    return true;
+  }
+
+  return router.createUrlTree(['/login'], {
+    queryParams: {
+      returnUrl: targetUrl
+    }
+  });
+}
+
+export const authGuard: CanActivateFn = (_, state) => redirectToLogin(state.url);
+
+export const authChildGuard: CanActivateChildFn = (_, state) => redirectToLogin(state.url);
+
+export const guestOnlyGuard: CanActivateFn = () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  return authService.isAuthenticated()
+    ? router.createUrlTree(['/dashboard'])
+    : true;
+};
+
+export const adminOnlyGuard: CanActivateFn = (_, state) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (!authService.isAuthenticated()) {
+    return redirectToLogin(state.url);
+  }
+
+  return authService.canAdminister()
+    ? true
+    : router.createUrlTree(['/dashboard']);
+};

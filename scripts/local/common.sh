@@ -19,6 +19,20 @@ fi
 : "${FMCPA_API_PORT:=5080}"
 : "${FMCPA_WEB_PORT:=4200}"
 : "${FMCPA_STORAGE_ROOT:=App_Data}"
+: "${FMCPA_AUTH_BOOTSTRAP_ENABLED:=true}"
+: "${FMCPA_AUTH_BOOTSTRAP_USER_NAME:=admin}"
+: "${FMCPA_AUTH_BOOTSTRAP_DISPLAY_NAME:=Administrador local}"
+: "${FMCPA_AUTH_BOOTSTRAP_PASSWORD:=}"
+: "${FMCPA_AUTH_OPERATOR_USER_NAME:=operator}"
+: "${FMCPA_AUTH_OPERATOR_DISPLAY_NAME:=Operador local}"
+: "${FMCPA_AUTH_OPERATOR_PASSWORD:=}"
+: "${FMCPA_AUTH_READONLY_USER_NAME:=readonly}"
+: "${FMCPA_AUTH_READONLY_DISPLAY_NAME:=Consulta local}"
+: "${FMCPA_AUTH_READONLY_PASSWORD:=}"
+: "${FMCPA_AUTH_JWT_ISSUER:=FMCPA.Local}"
+: "${FMCPA_AUTH_JWT_AUDIENCE:=FMCPA.Web.Local}"
+: "${FMCPA_AUTH_JWT_TOKEN_LIFETIME_MINUTES:=480}"
+: "${FMCPA_AUTH_JWT_SIGNING_KEY:=}"
 : "${FMCPA_LOCAL_STATE_ROOT:=/tmp/fmcpa-local}"
 : "${FMCPA_FRONTEND_PROXY_CONFIG_PATH:=/tmp/fmcpa-angular-proxy.${FMCPA_WEB_PORT}.${FMCPA_API_PORT}.json}"
 
@@ -39,6 +53,20 @@ export FMCPA_DB_NAME
 export FMCPA_API_PORT
 export FMCPA_WEB_PORT
 export FMCPA_STORAGE_ROOT
+export FMCPA_AUTH_BOOTSTRAP_ENABLED
+export FMCPA_AUTH_BOOTSTRAP_USER_NAME
+export FMCPA_AUTH_BOOTSTRAP_DISPLAY_NAME
+export FMCPA_AUTH_BOOTSTRAP_PASSWORD
+export FMCPA_AUTH_OPERATOR_USER_NAME
+export FMCPA_AUTH_OPERATOR_DISPLAY_NAME
+export FMCPA_AUTH_OPERATOR_PASSWORD
+export FMCPA_AUTH_READONLY_USER_NAME
+export FMCPA_AUTH_READONLY_DISPLAY_NAME
+export FMCPA_AUTH_READONLY_PASSWORD
+export FMCPA_AUTH_JWT_ISSUER
+export FMCPA_AUTH_JWT_AUDIENCE
+export FMCPA_AUTH_JWT_TOKEN_LIFETIME_MINUTES
+export FMCPA_AUTH_JWT_SIGNING_KEY
 export FMCPA_LOCAL_STATE_ROOT
 export FMCPA_LOCAL_STATE_DIR
 export FMCPA_FRONTEND_PROXY_CONFIG_PATH
@@ -48,6 +76,20 @@ export ConnectionStrings__PlatformDatabase="Server=127.0.0.1,${FMCPA_SQL_PORT};D
 export Storage__Markets__MarketTenantCertificatesPath="${FMCPA_STORAGE_ROOT}/markets/tenant-certificates"
 export Storage__Donations__ApplicationEvidencePath="${FMCPA_STORAGE_ROOT}/donations/application-evidences"
 export Storage__Federation__ApplicationEvidencePath="${FMCPA_STORAGE_ROOT}/federation/application-evidences"
+export Auth__Bootstrap__Enabled="${FMCPA_AUTH_BOOTSTRAP_ENABLED}"
+export Auth__Bootstrap__UserName="${FMCPA_AUTH_BOOTSTRAP_USER_NAME}"
+export Auth__Bootstrap__DisplayName="${FMCPA_AUTH_BOOTSTRAP_DISPLAY_NAME}"
+export Auth__Bootstrap__Password="${FMCPA_AUTH_BOOTSTRAP_PASSWORD}"
+export Auth__Bootstrap__Operator__UserName="${FMCPA_AUTH_OPERATOR_USER_NAME}"
+export Auth__Bootstrap__Operator__DisplayName="${FMCPA_AUTH_OPERATOR_DISPLAY_NAME}"
+export Auth__Bootstrap__Operator__Password="${FMCPA_AUTH_OPERATOR_PASSWORD}"
+export Auth__Bootstrap__ReadOnly__UserName="${FMCPA_AUTH_READONLY_USER_NAME}"
+export Auth__Bootstrap__ReadOnly__DisplayName="${FMCPA_AUTH_READONLY_DISPLAY_NAME}"
+export Auth__Bootstrap__ReadOnly__Password="${FMCPA_AUTH_READONLY_PASSWORD}"
+export Auth__Jwt__Issuer="${FMCPA_AUTH_JWT_ISSUER}"
+export Auth__Jwt__Audience="${FMCPA_AUTH_JWT_AUDIENCE}"
+export Auth__Jwt__TokenLifetimeMinutes="${FMCPA_AUTH_JWT_TOKEN_LIFETIME_MINUTES}"
+export Auth__Jwt__SigningKey="${FMCPA_AUTH_JWT_SIGNING_KEY}"
 
 command_exists() {
   command -v "$1" >/dev/null 2>&1
@@ -278,12 +320,40 @@ EOF
 }
 
 print_local_convention() {
+  local bootstrap_password_state="missing"
+  local operator_password_state="missing"
+  local readonly_password_state="missing"
+  local jwt_signing_key_state="ephemeral-on-backend-start"
+
+  if [[ -n "${FMCPA_AUTH_BOOTSTRAP_PASSWORD}" ]]; then
+    bootstrap_password_state="configured"
+  fi
+
+  if [[ -n "${FMCPA_AUTH_OPERATOR_PASSWORD}" ]]; then
+    operator_password_state="configured"
+  fi
+
+  if [[ -n "${FMCPA_AUTH_READONLY_PASSWORD}" ]]; then
+    readonly_password_state="configured"
+  fi
+
+  if [[ -n "${FMCPA_AUTH_JWT_SIGNING_KEY}" ]]; then
+    jwt_signing_key_state="configured"
+  fi
+
   cat <<EOF
 Convencion local FMCPA
 - FMCPA_SQL_CONTAINER_NAME=${FMCPA_SQL_CONTAINER_NAME} (127.0.0.1:${FMCPA_SQL_PORT})
 - FMCPA_DB_NAME=${FMCPA_DB_NAME}
 - FMCPA_API_PORT=${FMCPA_API_PORT} -> http://127.0.0.1:${FMCPA_API_PORT}
 - FMCPA_WEB_PORT=${FMCPA_WEB_PORT} -> http://127.0.0.1:${FMCPA_WEB_PORT}
+- FMCPA_AUTH_BOOTSTRAP_USER_NAME=${FMCPA_AUTH_BOOTSTRAP_USER_NAME}
+- FMCPA_AUTH_BOOTSTRAP_PASSWORD=${bootstrap_password_state}
+- FMCPA_AUTH_OPERATOR_USER_NAME=${FMCPA_AUTH_OPERATOR_USER_NAME}
+- FMCPA_AUTH_OPERATOR_PASSWORD=${operator_password_state}
+- FMCPA_AUTH_READONLY_USER_NAME=${FMCPA_AUTH_READONLY_USER_NAME}
+- FMCPA_AUTH_READONLY_PASSWORD=${readonly_password_state}
+- FMCPA_AUTH_JWT_SIGNING_KEY=${jwt_signing_key_state}
 - FMCPA_FRONTEND_PROXY_CONFIG_PATH=${FMCPA_FRONTEND_PROXY_CONFIG_PATH}
 - FMCPA_STORAGE_ROOT=${FMCPA_STORAGE_ROOT}
 - FMCPA_LOCAL_STATE_DIR=${FMCPA_LOCAL_STATE_DIR}

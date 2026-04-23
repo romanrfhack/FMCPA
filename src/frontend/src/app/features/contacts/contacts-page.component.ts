@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
+import { AuthService } from '../../core/services/auth.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
 import { Contact, ContactType } from '../../core/models/shared-catalogs.models';
@@ -29,7 +30,9 @@ import { Contact, ContactType } from '../../core/models/shared-catalogs.models';
               <h3>Alta minima</h3>
               <p>Captura base reutilizable para operacion interna y externa.</p>
             </div>
-            @if (isSubmitting()) {
+            @if (!canWrite()) {
+              <span class="badge neutral">Solo lectura</span>
+            } @else if (isSubmitting()) {
               <span class="badge neutral">Guardando...</span>
             }
           </div>
@@ -89,7 +92,7 @@ import { Contact, ContactType } from '../../core/models/shared-catalogs.models';
             </label>
 
             <div class="form-actions full-width">
-              <button type="submit" [disabled]="isSubmitting()">Registrar contacto</button>
+              <button type="submit" [disabled]="isSubmitting() || !canWrite()">Registrar contacto</button>
               <button type="button" class="ghost" (click)="resetForm()">Limpiar</button>
             </div>
           </form>
@@ -361,8 +364,10 @@ import { Contact, ContactType } from '../../core/models/shared-catalogs.models';
 })
 export class ContactsPageComponent {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly authService = inject(AuthService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
+  protected readonly canWrite = this.authService.canWrite;
   protected readonly contactTypes = signal<ContactType[]>([]);
   protected readonly contacts = signal<Contact[]>([]);
   protected readonly isLoading = signal(true);

@@ -17,12 +17,14 @@ import {
   DonationProgress,
   DonationSummary
 } from '../models/donations.models';
+import { ProtectedDownloadService } from './protected-download.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class DonationsService {
   private readonly httpClient = inject(HttpClient);
+  private readonly protectedDownloadService = inject(ProtectedDownloadService);
   private readonly apiBaseUrl = `${environment.apiBaseUrl}/api/donations`;
 
   listDonations(filters?: { statusCode?: string | null; alertsOnly?: boolean }) {
@@ -86,7 +88,9 @@ export class DonationsService {
       formData);
   }
 
-  getEvidenceDownloadUrl(evidenceId: string) {
-    return `${this.apiBaseUrl}/applications/evidences/${evidenceId}/download`;
+  downloadEvidence(evidenceId: string, fallbackFileName: string) {
+    return this.protectedDownloadService.download(
+      `${this.apiBaseUrl}/applications/evidences/${evidenceId}/download`,
+      fallbackFileName);
   }
 }

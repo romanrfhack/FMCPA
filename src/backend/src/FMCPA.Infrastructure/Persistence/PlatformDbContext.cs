@@ -6,6 +6,7 @@ using FMCPA.Domain.Entities.Documents;
 using FMCPA.Domain.Entities.Federation;
 using FMCPA.Domain.Entities.Financials;
 using FMCPA.Domain.Entities.Markets;
+using FMCPA.Domain.Entities.Security;
 using FMCPA.Domain.Entities.Shared;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,7 @@ public sealed class PlatformDbContext : DbContext, IPlatformDbContext
     }
 
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+    public DbSet<ApplicationUser> ApplicationUsers => Set<ApplicationUser>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<StoredDocument> StoredDocuments => Set<StoredDocument>();
     public DbSet<Contact> Contacts => Set<Contact>();

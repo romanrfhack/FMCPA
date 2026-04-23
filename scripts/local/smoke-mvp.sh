@@ -9,6 +9,7 @@ API_BASE_URL="http://127.0.0.1:${FMCPA_API_PORT}"
 SMOKE_MVP_TAG="${SMOKE_MVP_TAG:-SMOKE-MVP-$(date +%Y%m%d%H%M%S)}"
 today_utc="$(date -u +%F)"
 permit_valid_to="$(date -u -d '+10 days' +%F)"
+API_AUTH_TOKEN=""
 
 ok_count=0
 fail_count=0
@@ -55,15 +56,89 @@ require_command() {
   exit 1
 }
 
+require_auth_bootstrap_password() {
+  if [[ -n "${FMCPA_AUTH_BOOTSTRAP_PASSWORD}" ]]; then
+    report_ok "Credencial bootstrap local configurada"
+    return 0
+  fi
+
+  report_fail "FMCPA_AUTH_BOOTSTRAP_PASSWORD es requerida para smoke MVP autenticado"
+  exit 1
+}
+
+build_login_payload() {
+  node -e '
+const [userName, password] = process.argv.slice(1);
+process.stdout.write(JSON.stringify({ userName, password }));
+' "${FMCPA_AUTH_BOOTSTRAP_USER_NAME}" "${FMCPA_AUTH_BOOTSTRAP_PASSWORD}"
+}
+
+auth_login() {
+  local response
+
+  if ! response="$(curl -fsS -H 'Content-Type: application/json' -X POST -d "$(build_login_payload)" "${API_BASE_URL}/api/auth/login" 2>&1)"; then
+    report_fail "POST /api/auth/login fallo: ${response}"
+    exit 1
+  fi
+
+  printf '%s' "${response}"
+}
+
+api_get_status_unauth() {
+  local path="${1:?path requerido}"
+  local status
+
+  if ! status="$(curl -s -o /dev/null -w '%{http_code}' "${API_BASE_URL}${path}" 2>&1)"; then
+    report_fail "GET ${path} sin token fallo: ${status}"
+    exit 1
+  fi
+
+  printf '%s' "${status}"
+}
+
 api_get() {
   local path="${1:?path requerido}"
-  curl -fsS "${API_BASE_URL}${path}"
+  local response
+
+  if [[ -n "${API_AUTH_TOKEN}" ]]; then
+    if ! response="$(curl -fsS -H "Authorization: Bearer ${API_AUTH_TOKEN}" "${API_BASE_URL}${path}" 2>&1)"; then
+      report_fail "GET ${path} fallo: ${response}"
+      exit 1
+    fi
+
+    printf '%s' "${response}"
+    return 0
+  fi
+
+  if ! response="$(curl -fsS "${API_BASE_URL}${path}" 2>&1)"; then
+    report_fail "GET ${path} fallo: ${response}"
+    exit 1
+  fi
+
+  printf '%s' "${response}"
 }
 
 api_post_json() {
   local path="${1:?path requerido}"
   local payload="${2:?payload requerido}"
-  curl -fsS -H 'Content-Type: application/json' -X POST -d "${payload}" "${API_BASE_URL}${path}"
+  local response
+
+  if [[ -n "${API_AUTH_TOKEN}" ]]; then
+    if ! response="$(curl -fsS -H "Authorization: Bearer ${API_AUTH_TOKEN}" -H 'Content-Type: application/json' -X POST -d "${payload}" "${API_BASE_URL}${path}" 2>&1)"; then
+      report_fail "POST ${path} fallo: ${response}"
+      exit 1
+    fi
+
+    printf '%s' "${response}"
+    return 0
+  fi
+
+  if ! response="$(curl -fsS -H 'Content-Type: application/json' -X POST -d "${payload}" "${API_BASE_URL}${path}" 2>&1)"; then
+    report_fail "POST ${path} fallo: ${response}"
+    exit 1
+  fi
+
+  printf '%s' "${response}"
 }
 
 json_query() {
@@ -161,11 +236,26 @@ require_command curl
 require_command docker
 require_command dotnet
 require_command node
+require_auth_bootstrap_password
 wait_for_sqlserver
 report_ok "SQL Server local accesible en '${FMCPA_SQL_CONTAINER_NAME}'"
 
 health_response="$(api_get "/health")"
 assert_contains "${health_response}" "Healthy" "El endpoint /health responde sano"
+
+dashboard_unauthorized_status="$(api_get_status_unauth "/api/dashboard/summary")"
+if [[ "${dashboard_unauthorized_status}" != "401" ]]; then
+  report_fail "dashboard/summary debe rechazar acceso sin token y devolvio ${dashboard_unauthorized_status}"
+  exit 1
+fi
+report_ok "dashboard/summary rechaza acceso sin token"
+
+login_response="$(auth_login)"
+API_AUTH_TOKEN="$(extract_json_value "${login_response}" "data.accessToken" "Token JWT obtenido")"
+assert_json_predicate "${login_response}" "data.user.userName === \"${FMCPA_AUTH_BOOTSTRAP_USER_NAME}\" && typeof data.accessToken === \"string\" && data.accessToken.length > 20" "login responde con usuario y token"
+
+session_response="$(api_get "/api/auth/session")"
+assert_json_predicate "${session_response}" "data.user.userName === \"${FMCPA_AUTH_BOOTSTRAP_USER_NAME}\"" "auth/session devuelve la sesion autenticada"
 
 dashboard_summary_initial="$(api_get "/api/dashboard/summary")"
 assert_json_predicate "${dashboard_summary_initial}" "data.totals.activeAlertCount >= 0 && data.totals.closedRecordsCount >= 0" "dashboard/summary responde con totales validos"
