@@ -28,6 +28,7 @@ La suite falla si un endpoint real queda publico fuera del allowlist, si un endp
 | Sesion actual | `GET /api/auth/session` | Usuario autenticado y token vivo | Si | Si | Si |
 | Cambio self-service de password | `POST /api/auth/change-password` | Usuario autenticado y token vivo | Si | Si | Si |
 | Dashboard | `GET /api/dashboard/*` | `DASHBOARD_READ` | Si | Si | Si |
+| Centro operativo transversal | `GET /api/operations/summary`, `GET /api/operations/work-queue` | `DASHBOARD_READ` + filtrado interno por permisos de superficie; seguridad solo con `USERS_ADMIN` | Si, sin seguridad | Si, sin seguridad | Si |
 | History / Bitacora / Comisiones | `GET /api/bitacora`, `GET /api/history/*`, `GET /api/commissions/*` | `HISTORY_READ` | Si | Si | Si |
 | Catalogo documental transversal | `GET /api/documents`, `GET /api/documents/summary`, `GET /api/documents/by-entity`, `GET /api/documents/timeline/by-entity`, `GET /api/documents/rules`, `GET /api/documents/requirements/by-entity`, `GET /api/documents/completeness/by-entity`, `GET /api/documents/pending`, `GET /api/documents/work-queue`, `GET /api/documents/{documentId}`, `GET /api/documents/{documentId}/download`, `GET /api/documents/{documentId}/timeline` | Usuario autenticado + filtro efectivo por permisos `*_READ` del modulo documental | Si | Si | Si |
 | Metadata documental | `PATCH /api/documents/{documentId}/metadata` | `USERS_ADMIN` | No | No | Si |
@@ -61,6 +62,7 @@ La suite `FMCPA.Api.AuthorizationRegressionTests` valida una seleccion represent
 - Rechazo anonimo: `401` para sesion, cambio self-service, dashboard, history, modulo read/write/close, catalogos y usuarios.
 - Matriz por rol: lecturas para los tres roles, escrituras para `OPERATOR`/`ADMIN`, denegacion `403` para `READONLY`, cierres y admin-only denegados para `OPERATOR`/`READONLY`.
 - Catalogo documental: listado/detalle/descarga transversal sobre `StoredDocument`, consulta por entidad, contexto origen acotado, bandeja unificada `work-queue`, filtro por permisos de modulo, filtro de estado `ACTIVE`/`ARCHIVED`, filtro de clase documental, integridad `VALID` para descarga y no exposicion de rutas internas.
+- Centro operativo transversal: summary y work queue de negocio/documentos/seguridad, con seguridad omitida para no administradores y modulos no mapeados excluidos.
 - Metadata documental: edicion minima ADMIN-only de clase, proposito, notas e indicador principal; no permite modificar storage, hash, content-type, entidad, integridad ni estado.
 - Ciclo de vida documental: archivado/restauracion logica ADMIN-only, auditoria minima y denegacion `403` para `OPERATOR`/`READONLY`.
 - Revision de retencion documental: bandeja ADMIN-only, marcado revisado, diferimiento con fecha futura, auditoria minima y denegacion `403` para `OPERATOR`/`READONLY`.

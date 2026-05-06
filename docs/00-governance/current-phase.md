@@ -1,17 +1,23 @@
 # Current Phase
 
 ## Fase actual
-**Track 3 post-MVP: Estrategia documental transversal, catalogo, ciclo de vida, clasificacion, edicion minima, retencion operativa, overrides administrativos de retencion, hold administrativo minimo, estado operativo derivado, revision de retencion, reglas documentales, remediacion contextual, reemplazo minimo, timeline documental, bandeja operativa unificada y resumen ejecutivo sobre StoredDocument**
+**Track 4 post-MVP: Centro operativo ejecutivo transversal minimo**
 
 ## Estado actual
 - Fecha de inicio documentada: 2026-05-05
-- Estado de la fase: catalogo documental transversal minimo implementado sobre `StoredDocument`, con ciclo de vida logico `ACTIVE`/`ARCHIVED`, clasificacion minima transversal, edicion ADMIN-only de metadata, retencion minima operativa, overrides administrativos minimos de retencion validados runtime, hold administrativo minimo, estado operativo derivado, bandeja ADMIN-only de revision de retencion, navegacion contextual, registry canónico de reglas minimas de completitud documental, requisitos documentales visibles en contexto, remediacion directa desde el panel contextual, trazabilidad minima de reemplazo documental, timeline documental minimo por documento/entidad, bandeja documental unificada, resumen ejecutivo documental, filtros de estado/clase/retencion/estado operativo, archivado/restauracion ADMIN-only y auditoria minima, pendiente de aprobacion formal
+- Estado de la fase: Track 4 abierto con centro operativo transversal minimo, endpoints `GET /api/operations/summary` y `GET /api/operations/work-queue`, vista Angular `/operations`, composicion de dashboard, summary/work queue documental y observabilidad de seguridad, severidad simple `HIGH`/`MEDIUM`/`LOW` y filtrado por permisos efectivos; pendiente de aprobacion formal
 - Estado del MVP: **Cerrado con reservas**
-- Estado del track anterior: `Track 2` queda entregado y sigue pendiente de aprobacion formal
-- Enfoque: consultar, operar, clasificar, editar metadata minima, marcar retencion operativa, ajustar excepcionalmente retencion efectiva por `ADMIN`, pausar tratamiento operativo de retencion mediante hold administrativo reversible, exponer una senal operativa derivada por documento, revisar documentos vencidos/proximos, mostrar requisitos/completitud minima por entidad, permitir remediacion documental directa desde contexto, conservar trazabilidad minima cuando un documento sustituye a otro, exponer una historia documental simple, consolidar senales operativas documentales en una bandeja y resumir KPIs documentales transversales, reutilizando `StoredDocument`, `AuditEvent`, integridad documental, descargas/uploads endurecidos, work queue, navegacion contextual y permisos por modulo, sin abrir todavia borrado automatico, workflow complejo, versionado completo, retencion avanzada, legal hold complejo, backup real, storage externo, OCR, clasificacion automatica, analitica pesada, BI, cumplimiento documental complejo ni una plataforma documental completa
+- Estado del track anterior: `Track 3` queda entregado y sigue pendiente de aprobacion formal
+- Enfoque: consolidar senales clave de negocio, documentacion y seguridad en una superficie ejecutiva de lectura/priorizacion, reutilizando dashboard, documentos y observabilidad de seguridad ya existentes, sin abrir BI pesado, exportaciones complejas, scheduler, notificaciones, asignaciones, workflow complejo ni analitica avanzada
 
 ## Nota operativa
-- El MVP permanece cerrado con reservas; `Track 3` no reabre alcance funcional ni agrega modulos de negocio nuevos.
+- El MVP permanece cerrado con reservas; `Track 4` no reabre alcance funcional ni agrega modulos de negocio nuevos.
+- `Track 4` no reabre modulos de negocio ni sustituye las pantallas fuente; compone una vista ejecutiva de priorizacion sobre senales existentes.
+- `GET /api/operations/summary` consolida KPIs de negocio permitidos, summary documental filtrado por permisos de modulo y summary de seguridad solo cuando el usuario tiene `USERS_ADMIN`.
+- `GET /api/operations/work-queue` consolida alertas operativas de dashboard, items de `GET /api/documents/work-queue` y senales de seguridad ADMIN-only como usuarios bloqueados o actividad reciente.
+- La severidad transversal queda documentada como `HIGH` para bloqueos, integridad rota, vencimientos criticos o usuarios bloqueados; `MEDIUM` para atencion prioritaria sin bloqueo inmediato; `LOW` para seguimiento/contexto accionable.
+- La autorizacion del centro operativo usa `DASHBOARD_READ` como permiso de entrada y filtra internamente cada superficie por claims efectivos; seguridad no se expone a `OPERATOR` ni `READONLY`.
+- La UI Angular agrega `/operations` con KPIs principales, secciones de operacion, documentos y seguridad, y una bandeja transversal con enlaces a contexto/remediacion existente.
 - `Track 3` inicia con una superficie minima `/api/documents` autenticada y una pantalla Angular `/documents`.
 - El listado documental soporta filtros por `moduleCode`, `entityType`, `entityId`, `documentAreaCode`, `integrityState`, `documentOperationalStatusCode`, `documentClassCode`, `statusCode`, `includeArchived`, `fromUtc`, `toUtc`, `skip` y `take`.
 - La clasificacion minima usa clases documentadas: `CERTIFICATE`, `SIGNED_DOCUMENT`, `SUPPORTING_DOCUMENT`, `PHOTO_EVIDENCE`, `VIDEO_EVIDENCE` y `OTHER`.
@@ -165,6 +171,8 @@
 - Agregar guardrails automaticos para reducir deriva futura entre endpoints reales, metadata de autorizacion y el inventario documental.
 - Agregar una proteccion minima de origen para mutaciones web sin migrar a cookies ni introducir antiforgery MVC complejo.
 - Exponer una superficie minima ADMIN-only de observabilidad y operacion de seguridad reutilizando `AuditEvent`, lockout y gestion de usuarios.
+- Exponer un centro operativo transversal minimo con resumen y bandeja unificada, sin persistir metricas ni abrir BI.
+- Respetar permisos efectivos por superficie al consolidar negocio, documentos y seguridad.
 
 ## Entregables esperados de esta fase
 - Endpoint `GET /api/documents`
@@ -276,6 +284,12 @@
 - Reutilizacion de unlock existente desde la vista de seguridad
 - `smoke.sh` actualizado con validacion opcional de `READONLY`
 - Nota de implementacion del track bajo `docs/05-post-mvp`
+- Endpoint `GET /api/operations/summary`
+- Endpoint `GET /api/operations/work-queue`
+- Contratos de centro operativo transversal
+- Vista Angular `/operations`
+- Convencion de severidad transversal `HIGH`/`MEDIUM`/`LOW`
+- Pruebas de regresion de composicion y permisos del centro operativo
 
 ## Criterios de salida de la fase
 - Backend compila.
@@ -352,13 +366,18 @@
 - Las mutaciones browser sensibles sin header web esperado reciben `400` y con origen no permitido reciben `403`.
 - `ADMIN` puede consultar resumen/eventos/usuarios bloqueados de seguridad y limpiar lockout desde la vista.
 - `OPERATOR` y `READONLY` reciben `403` en la superficie `/api/admin/security`.
+- Existe `GET /api/operations/summary` y consolida negocio, documentos y seguridad segun permisos.
+- Existe `GET /api/operations/work-queue` y consolida alertas operativas, bandeja documental y seguridad ADMIN-only segun permisos.
+- La UI `/operations` muestra una vista transversal util con KPIs, secciones y bandeja accionable.
+- Modulos o superficies no permitidos no aparecen en el centro operativo.
+- No se abre BI pesado, exportaciones complejas, scheduler, notificaciones ni workflow de asignacion.
 - No existe todavia RBAC fino por endpoint/accion individual, permisos manuales por usuario ni self-service completo.
 - No existe todavia antivirus, DLP, storage externo ni politica documental completa.
 - No existe todavia WAF, CAPTCHA, IdP externo ni antifraude avanzado.
 - La documentacion de etapa, riesgos, decisiones y runbook local queda actualizada.
 
 ## Siguiente decision esperada
-- Revisar y aceptar o rechazar la apertura de `Track 3` con catalogo documental transversal minimo.
+- Revisar y aceptar o rechazar la apertura de `Track 4` con centro operativo ejecutivo transversal minimo.
 - Revisar y aceptar o rechazar el ciclo de vida documental minimo `ACTIVE`/`ARCHIVED`.
 - Revisar y aceptar o rechazar la clasificacion documental minima transversal.
 - Revisar y aceptar o rechazar la edicion administrativa minima de metadata documental.
@@ -388,6 +407,8 @@
 - [Security Track Admin Security Observability Implementation Note](../05-post-mvp/security-track-admin-security-observability-implementation-note.md)
 - [Security Authorization Surface Inventory](../05-post-mvp/security-authorization-surface-inventory.md)
 - [Document Management Track](../05-post-mvp/document-management-track.md)
+- [Analytics Track](../05-post-mvp/analytics-track.md)
+- [Operations Center Implementation Note](../05-post-mvp/analytics-track-operations-center-implementation-note.md)
 - [Document Management Track Transversal Catalog Implementation Note](../05-post-mvp/document-management-track-transversal-catalog-implementation-note.md)
 - [Document Management Track Document Lifecycle Implementation Note](../05-post-mvp/document-management-track-document-lifecycle-implementation-note.md)
 - [Document Management Track Document Classification Implementation Note](../05-post-mvp/document-management-track-document-classification-implementation-note.md)

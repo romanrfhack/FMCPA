@@ -124,6 +124,7 @@ app.MapContactsEndpoints();
 app.MapSharedCatalogEndpoints();
 app.MapUserManagementEndpoints();
 app.MapSecurityOperationsEndpoints();
+app.MapOperationsEndpoints();
 app.MapMarketsEndpoints();
 app.MapDonationsEndpoints();
 app.MapFinancialsEndpoints();

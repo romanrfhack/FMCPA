@@ -23,6 +23,15 @@ describe('app routes', () => {
     expect(adminSecurityRoute?.data?.['requiredPermission']).toBe('USERS_ADMIN');
   });
 
+  it('protects the operations route with DASHBOARD_READ permission', () => {
+    const shellRoute = routes.find((route) => route.path === '');
+    const operationsRoute = shellRoute?.children?.find((route) => route.path === 'operations');
+
+    expect(operationsRoute).toBeDefined();
+    expect(operationsRoute?.canActivate).toContain(permissionGuard);
+    expect(operationsRoute?.data?.['requiredPermission']).toBe('DASHBOARD_READ');
+  });
+
   it('exposes self-service password change only under the authenticated shell', () => {
     const shellRoute = routes.find((route) => route.path === '');
     const changePasswordRoute = shellRoute?.children?.find((route) => route.path === 'account/password');

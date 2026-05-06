@@ -153,7 +153,7 @@ public static class CloseoutEndpoints
         return app;
     }
 
-    private static async Task<DashboardSummaryResponse> BuildDashboardSummaryAsync(
+    internal static async Task<DashboardSummaryResponse> BuildDashboardSummaryAsync(
         PlatformDbContext dbContext,
         CancellationToken cancellationToken)
     {
@@ -311,7 +311,7 @@ public static class CloseoutEndpoints
         return new DashboardSummaryResponse(marketsSummary, donationsSummary, financialsSummary, federationSummary, totals);
     }
 
-    private static async Task<DashboardAlertsResponse> BuildDashboardAlertsAsync(
+    internal static async Task<DashboardAlertsResponse> BuildDashboardAlertsAsync(
         PlatformDbContext dbContext,
         CancellationToken cancellationToken)
     {

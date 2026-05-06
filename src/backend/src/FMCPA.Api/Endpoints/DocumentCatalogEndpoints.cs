@@ -1646,7 +1646,7 @@ public static class DocumentCatalogEndpoints
                && !document.IsSuperseded;
     }
 
-    private static async Task<DocumentSummaryResponse> BuildDocumentSummaryAsync(
+    internal static async Task<DocumentSummaryResponse> BuildDocumentSummaryAsync(
         PlatformDbContext dbContext,
         IDocumentBinaryStore documentBinaryStore,
         IReadOnlyList<string> allowedModuleCodes,
@@ -1767,7 +1767,7 @@ public static class DocumentCatalogEndpoints
             .ToArray();
     }
 
-    private static async Task<IReadOnlyList<DocumentWorkQueueItemResponse>> BuildDocumentWorkQueueAsync(
+    internal static async Task<IReadOnlyList<DocumentWorkQueueItemResponse>> BuildDocumentWorkQueueAsync(
         PlatformDbContext dbContext,
         IDocumentBinaryStore documentBinaryStore,
         IReadOnlyList<string> allowedModuleCodes,

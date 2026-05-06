@@ -21,6 +21,7 @@ export class App {
     requiredAnyPermissions?: ApplicationPermissionCode[];
   }[] = [
     { path: '/dashboard', label: 'Dashboard', exact: true, requiredPermission: 'DASHBOARD_READ' },
+    { path: '/operations', label: 'Operaciones', requiredPermission: 'DASHBOARD_READ' },
     { path: '/history', label: 'Historico', requiredPermission: 'HISTORY_READ' },
     { path: '/commissions', label: 'Comisiones', requiredPermission: 'HISTORY_READ' },
     { path: '/bitacora', label: 'Bitacora', requiredPermission: 'HISTORY_READ' },

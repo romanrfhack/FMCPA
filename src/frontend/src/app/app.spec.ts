@@ -68,6 +68,7 @@ describe('App', () => {
       .map((item) => item.textContent?.trim());
 
     expect(visibleLabels).toContain('Dashboard');
+    expect(visibleLabels).toContain('Operaciones');
     expect(visibleLabels).toContain('Mercados');
     expect(visibleLabels).toContain('Documentos');
     expect(visibleLabels).toContain('Bandeja documental');

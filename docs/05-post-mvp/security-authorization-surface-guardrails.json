@@ -46,6 +46,13 @@
     },
     {
       "method": "GET",
+      "routePattern": "/api/operations/*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Dashboard.Read"],
+      "reason": "Centro operativo transversal de lectura con secciones filtradas por permisos efectivos."
+    },
+    {
+      "method": "GET",
       "routePattern": "/api/commissions/*",
       "authorization": "policy",
       "requiredPolicies": ["Platform.History.Read"],

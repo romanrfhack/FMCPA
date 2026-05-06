@@ -549,6 +549,10 @@ curl -i http://127.0.0.1:5080/api/admin/security/summary -H "Authorization: Bear
 curl -s http://127.0.0.1:4200/
 curl -s http://127.0.0.1:4200/documents
 curl -s http://127.0.0.1:4200/documents/review
+curl -s http://127.0.0.1:4200/operations
+curl -s http://127.0.0.1:5080/api/operations/summary -H "Authorization: Bearer ${ADMIN_TOKEN}"
+curl -s "http://127.0.0.1:5080/api/operations/work-queue?take=20" -H "Authorization: Bearer ${ADMIN_TOKEN}"
+curl -s "http://127.0.0.1:5080/api/operations/work-queue?categoryCode=SECURITY&take=20" -H "Authorization: Bearer ${READONLY_TOKEN}"
 curl -s http://127.0.0.1:4200/admin/users
 ./scripts/local/smoke-mvp.sh
 ```
@@ -564,6 +568,8 @@ curl -s http://127.0.0.1:4200/admin/users
 - Si el login de `operator` o `readonly` falla con `401`, verificar que `FMCPA_AUTH_OPERATOR_PASSWORD` o `FMCPA_AUTH_READONLY_PASSWORD` existan en el entorno local y repetir `dev-up.sh` para que el backend sincronice esos usuarios.
 - Si un usuario recibe `423 Locked`, esperar el cooldown configurado o entrar como `ADMIN` y usar `/admin/users` para limpiar el lockout.
 - Si `/admin/security` no muestra eventos esperados, generar primero actividad de auth, por ejemplo un login fallido, lockout o reset administrativo.
+- Si `/operations` no muestra seguridad con `OPERATOR` o `READONLY`, es el comportamiento esperado; la seccion se incluye solo con `USERS_ADMIN`.
+- Si `/api/operations/work-queue?categoryCode=SECURITY` responde sin items para un rol no admin, confirma el filtrado por permisos de superficie.
 - Si el bootstrap local no crea o sincroniza un usuario, revisar que la password configurada cumpla la politica minima; el backend registra un warning y omite ese usuario si la password es debil.
 - Si un usuario cambia su propia password, la sesion local se limpia y el token anterior queda invalido por `SecurityStamp`; debe iniciar sesion con la nueva password.
 - Si un usuario gestionado cambia de rol, se desactiva o se le resetea el password, cualquier token previo deja de servir; volver a iniciar sesion con el rol/password vigentes.

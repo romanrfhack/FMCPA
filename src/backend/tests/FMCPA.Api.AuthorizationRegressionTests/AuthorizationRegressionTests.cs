@@ -179,6 +179,8 @@ public sealed class AuthorizationRegressionTests : IClassFixture<AuthorizationRe
             new("Auth session", HttpMethod.Get.Method, "/api/auth/session", allRoles, []),
             new("Auth self-service password change", HttpMethod.Post.Method, "/api/auth/change-password", allRoles, []),
             new("Dashboard read", HttpMethod.Get.Method, "/api/dashboard/summary", allRoles, []),
+            new("Operations summary read", HttpMethod.Get.Method, "/api/operations/summary", allRoles, []),
+            new("Operations work queue read", HttpMethod.Get.Method, "/api/operations/work-queue?take=1", allRoles, []),
             new("History read", HttpMethod.Get.Method, "/api/bitacora?take=1", allRoles, []),
             new("Document catalog read", HttpMethod.Get.Method, "/api/documents?take=1", allRoles, []),
             new("Document summary read", HttpMethod.Get.Method, "/api/documents/summary", allRoles, []),

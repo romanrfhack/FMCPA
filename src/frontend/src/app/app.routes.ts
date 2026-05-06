@@ -34,6 +34,14 @@ export const routes: Routes = [
             (module) => module.DashboardPageComponent)
       },
       {
+        path: 'operations',
+        canActivate: [permissionGuard],
+        data: { requiredPermission: 'DASHBOARD_READ' },
+        loadComponent: () =>
+          import('./features/operations/operations-page.component').then(
+            (module) => module.OperationsPageComponent)
+      },
+      {
         path: 'markets',
         canActivate: [permissionGuard],
         data: { requiredPermission: 'MARKETS_READ' },
