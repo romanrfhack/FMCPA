@@ -41,6 +41,10 @@ public sealed class ApplicationUser
 
     public DateTimeOffset? LastLoginUtc { get; private set; }
 
+    public int AccessFailedCount { get; private set; }
+
+    public DateTimeOffset? LockoutEndUtc { get; private set; }
+
     public void SyncBootstrapProfile(string displayName, string passwordHash, string roleCode)
     {
         var normalizedDisplayName = NormalizeRequired(displayName, nameof(displayName));
@@ -66,6 +70,7 @@ public sealed class ApplicationUser
         if (!string.Equals(PasswordHash, normalizedPasswordHash, StringComparison.Ordinal))
         {
             PasswordHash = normalizedPasswordHash;
+            ResetAccessFailureState();
             hasChanges = true;
             requiresSecurityStampRotation = true;
         }
@@ -86,7 +91,59 @@ public sealed class ApplicationUser
     public void RecordSuccessfulLogin()
     {
         LastLoginUtc = DateTimeOffset.UtcNow;
+        ResetAccessFailureState();
         Touch(rotateSecurityStamp: false);
+    }
+
+    public bool RecordFailedLogin(DateTimeOffset utcNow, int maxFailedAccessAttempts, TimeSpan cooldown)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxFailedAccessAttempts);
+
+        if (cooldown <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(cooldown), "Lockout cooldown must be greater than zero.");
+        }
+
+        AccessFailedCount++;
+
+        if (AccessFailedCount >= maxFailedAccessAttempts)
+        {
+            LockoutEndUtc = utcNow.Add(cooldown);
+            Touch(rotateSecurityStamp: false);
+            return true;
+        }
+
+        Touch(rotateSecurityStamp: false);
+        return false;
+    }
+
+    public bool IsLockedOut(DateTimeOffset utcNow)
+    {
+        return LockoutEndUtc is not null && LockoutEndUtc > utcNow;
+    }
+
+    public bool ReleaseExpiredLockout(DateTimeOffset utcNow)
+    {
+        if (LockoutEndUtc is null || LockoutEndUtc > utcNow)
+        {
+            return false;
+        }
+
+        ResetAccessFailureState();
+        Touch(rotateSecurityStamp: false);
+        return true;
+    }
+
+    public bool ClearAccessLockout()
+    {
+        if (AccessFailedCount == 0 && LockoutEndUtc is null)
+        {
+            return false;
+        }
+
+        ResetAccessFailureState();
+        Touch(rotateSecurityStamp: false);
+        return true;
     }
 
     public void ChangeRole(string roleCode)
@@ -116,6 +173,7 @@ public sealed class ApplicationUser
     {
         var normalizedPasswordHash = NormalizeRequired(passwordHash, nameof(passwordHash));
         PasswordHash = normalizedPasswordHash;
+        ResetAccessFailureState();
         Touch(rotateSecurityStamp: true);
     }
 
@@ -147,5 +205,11 @@ public sealed class ApplicationUser
     private static string GenerateSecurityStamp()
     {
         return Guid.NewGuid().ToString("N");
+    }
+
+    private void ResetAccessFailureState()
+    {
+        AccessFailedCount = 0;
+        LockoutEndUtc = null;
     }
 }

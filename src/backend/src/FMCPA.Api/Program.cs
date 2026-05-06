@@ -4,6 +4,7 @@ using FMCPA.Api.Extensions;
 using FMCPA.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -13,10 +14,15 @@ const string corsPolicyName = "FrontendLocal";
 
 var builder = WebApplication.CreateBuilder(args);
 var jwtAuthenticationSettings = JwtAuthenticationSettings.Resolve(builder.Configuration, builder.Environment);
+var httpBoundarySecuritySettings = HttpBoundarySecuritySettings.Resolve(builder.Configuration, builder.Environment);
+var credentialSecuritySettings = CredentialSecuritySettings.Resolve(builder.Configuration);
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddSingleton(jwtAuthenticationSettings);
+builder.Services.AddSingleton(httpBoundarySecuritySettings);
+builder.Services.AddSingleton(credentialSecuritySettings);
 builder.Services.AddSingleton<PasswordHashingService>();
+builder.Services.AddSingleton<PasswordPolicyService>();
 builder.Services.AddSingleton<JwtTokenIssuer>();
 builder.Services.AddScoped<ApplicationUserTokenValidationService>();
 builder.Services
@@ -53,15 +59,13 @@ builder.Services
         };
     });
 builder.Services.AddAuthorization(PlatformAuthorizationPolicies.Configure);
+builder.Services.AddRateLimiter(options => PlatformRateLimitingPolicies.Configure(options, httpBoundarySecuritySettings));
 builder.Services.AddCors(options =>
 {
-    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-        ?? ["http://localhost:4200", "http://127.0.0.1:4200"];
-
     options.AddPolicy(
         corsPolicyName,
         policy => policy
-            .WithOrigins(allowedOrigins)
+            .WithOrigins(httpBoundarySecuritySettings.AllowedCorsOrigins.ToArray())
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
@@ -85,8 +89,11 @@ if (jwtAuthenticationSettings.UsesEphemeralSigningKey)
 
 await AuthBootstrapper.EnsureDevelopmentBootstrapUsersAsync(app);
 
+app.UseHttpSecurityHeaders();
 app.UseCors(corsPolicyName);
+app.UseWebOriginProtection();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
@@ -116,10 +123,14 @@ app.MapHealthChecks(
 app.MapContactsEndpoints();
 app.MapSharedCatalogEndpoints();
 app.MapUserManagementEndpoints();
+app.MapSecurityOperationsEndpoints();
 app.MapMarketsEndpoints();
 app.MapDonationsEndpoints();
 app.MapFinancialsEndpoints();
 app.MapFederationEndpoints();
+app.MapDocumentCatalogEndpoints();
 app.MapCloseoutEndpoints();
 
 app.Run();
+
+public partial class Program;

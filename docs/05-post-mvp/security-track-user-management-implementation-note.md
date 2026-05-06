@@ -73,6 +73,22 @@
 - Verificar `403` de `OPERATOR` y `READONLY` en `/api/admin/users`.
 - Consultar `GET /api/bitacora?moduleCode=SECURITY`.
 
+## Validacion runtime cerrada
+- Fecha de cierre runtime: `2026-04-23`.
+- Corrida realizada sobre un stack aislado con:
+  - SQL Server efimero en Docker del host: `fmcpa-sql-usermgmt-14335`
+  - Puerto SQL: `14335`
+  - Base: `FMCPA_UserMgmtValidation_20260423`
+  - Backend: `http://127.0.0.1:5092`
+- Resultado real confirmado:
+  - `ADMIN` pudo iniciar sesion, listar usuarios, consultar detalle, crear usuario, cambiar rol, desactivar, reactivar y resetear password.
+  - El usuario de prueba desactivado recibio `401` al intentar login.
+  - El mismo usuario pudo iniciar sesion con la password reseteada y, ya como `OPERATOR`, recibio `403` en `/api/admin/users`.
+  - `READONLY` tambien recibio `403` en `/api/admin/users`.
+  - `npm run build` y `vitest` de guards/rutas Angular pasaron sin cambios de codigo funcional.
+- Observacion operativa:
+  - En la corrida aislada se observo un timeout transitorio en el primer arranque del backend inmediatamente despues de migrar la base; al reintentar una vez sobre la misma base, el bootstrap termino correctamente y la validacion completa paso sin requerir fixes de codigo.
+
 ## Decisiones tomadas
 - Se reutiliza `ApplicationUser` en vez de introducir una plataforma completa de identidad.
 - Se usa `SecurityStamp` para invalidacion inmediata de tokens sensibles sin abandonar JWT bearer.

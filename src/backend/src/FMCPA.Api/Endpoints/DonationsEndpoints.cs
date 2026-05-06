@@ -31,15 +31,15 @@ public static class DonationsEndpoints
     {
         var readGroup = app.MapGroup("/api/donations")
             .WithTags("Donations")
-            .RequireReadAccess();
+            .RequireDonationsReadAccess();
 
         var writeGroup = app.MapGroup("/api/donations")
             .WithTags("Donations")
-            .RequireWriteAccess();
+            .RequireDonationsWriteAccess();
 
         var adminGroup = app.MapGroup("/api/donations")
             .WithTags("Donations")
-            .RequireAdminAccess();
+            .RequireDonationsFormalCloseAccess();
 
         readGroup.MapGet(
             "/alerts",
@@ -51,7 +51,7 @@ public static class DonationsEndpoints
 
         readGroup.MapGet(
             "/applications/evidences/{evidenceId:guid}/download",
-            async (Guid evidenceId, PlatformDbContext dbContext, IDonationApplicationEvidenceStorage evidenceStorage, IDocumentBinaryStore documentBinaryStore, CancellationToken cancellationToken) =>
+            async (Guid evidenceId, PlatformDbContext dbContext, IDonationApplicationEvidenceStorage evidenceStorage, IDocumentBinaryStore documentBinaryStore, HttpContext httpContext, CancellationToken cancellationToken) =>
             {
                 var evidence = await dbContext.DonationApplicationEvidences
                     .AsNoTracking()
@@ -101,7 +101,7 @@ public static class DonationsEndpoints
                         detail: "La evidencia física no se encuentra disponible en el storage local.");
                 }
 
-                return Results.File(download.Content, download.ContentType, download.OriginalFileName);
+                return DocumentDownloadResponseSupport.File(httpContext, download.Content, download.ContentType, download.OriginalFileName);
             });
 
         readGroup.MapGet(
@@ -608,6 +608,11 @@ public static class DonationsEndpoints
                 }
 
                 var errors = ValidateCreateDonationApplicationEvidenceRequest(request);
+                var validatedFile = await DocumentUploadSecurity.ValidateAsync(
+                    request.File,
+                    "file",
+                    errors,
+                    cancellationToken);
 
                 var evidenceType = await dbContext.EvidenceTypes
                     .AsNoTracking()
@@ -626,8 +631,8 @@ public static class DonationsEndpoints
                 await using var fileContent = request.File!.OpenReadStream();
                 var storedEvidence = await evidenceStorage.SaveAsync(
                     applicationId,
-                    request.File.FileName,
-                    request.File.ContentType,
+                    validatedFile!.OriginalFileName,
+                    validatedFile.ContentType,
                     fileContent,
                     cancellationToken);
 
@@ -1019,11 +1024,6 @@ public static class DonationsEndpoints
         if (request.EvidenceTypeId <= 0)
         {
             errors["evidenceTypeId"] = ["EvidenceTypeId is required."];
-        }
-
-        if (request.File is null || request.File.Length <= 0)
-        {
-            errors["file"] = ["A donation application evidence file is required."];
         }
 
         return errors;

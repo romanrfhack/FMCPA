@@ -2,11 +2,11 @@
   <div class="app-shell">
     <header class="shell-header">
       <div class="shell-heading">
-        <p class="shell-kicker">Track 2 Seguridad · Autenticación y autorización mínima por rol</p>
+        <p class="shell-kicker">Track 2 Seguridad · Autenticación y autorización mínima por módulo</p>
         <h1>FMCPA Platform</h1>
         <p class="shell-copy">
           MVP operativo con JWT local, sesión autenticada, rutas protegidas y una separación mínima
-          entre lectura, operación normal, administración funcional y gestión interna mínima de usuarios.
+          entre lectura, operación normal, administración funcional por superficie y gestión interna mínima de usuarios.
         </p>
       </div>
 
@@ -21,6 +21,7 @@
           <div class="shell-session">
             <p>{{ user.displayName }}</p>
             <small>{{ user.userName }} · {{ currentRoleLabel() }}</small>
+            <a routerLink="/account/password">Cambiar contraseña</a>
             <button type="button" (click)="logout()">Cerrar sesion</button>
           </div>
         }

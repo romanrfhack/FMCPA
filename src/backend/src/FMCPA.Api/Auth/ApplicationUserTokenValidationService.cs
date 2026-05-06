@@ -39,9 +39,26 @@ public sealed class ApplicationUserTokenValidationService
             return "The application user is no longer active.";
         }
 
+        var roleCode = principal.FindFirstValue(ClaimTypes.Role);
+        if (!string.Equals(user.RoleCode, roleCode, StringComparison.Ordinal))
+        {
+            return "The application user role claim is no longer valid.";
+        }
+
         if (!string.Equals(user.SecurityStamp, securityStamp, StringComparison.Ordinal))
         {
             return "The application user session is no longer valid.";
+        }
+
+        var currentPermissionClaims = principal
+            .FindAll(PlatformPermissionCodes.ClaimType)
+            .Select(claim => claim.Value)
+            .ToHashSet(StringComparer.Ordinal);
+        var expectedPermissions = PlatformPermissionCodes.ForRole(user.RoleCode);
+
+        if (!currentPermissionClaims.SetEquals(expectedPermissions))
+        {
+            return "The application user permission claims are no longer valid.";
         }
 
         return null;

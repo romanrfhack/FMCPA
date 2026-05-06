@@ -16,7 +16,6 @@ public static class UserManagementEndpoints
     private const string SecurityModuleName = "Seguridad";
     private const string ApplicationUserEntityType = "APPLICATION_USER";
     private const string UserAdministrationNavigationPath = "/admin/users";
-    private const int MinimumPasswordLength = 12;
     private const int MaximumUserNameLength = 64;
     private const int MaximumDisplayNameLength = 128;
 
@@ -24,7 +23,8 @@ public static class UserManagementEndpoints
     {
         var group = app.MapGroup("/api/admin/users")
             .WithTags("User Administration")
-            .RequireAdminAccess();
+            .RequireUsersAdminAccess()
+            .RequireRateLimiting(PlatformRateLimitingPolicies.SensitiveAdmin);
 
         group.MapGet(
             "/",
@@ -57,9 +57,9 @@ public static class UserManagementEndpoints
 
         group.MapPost(
             "/",
-            async (CreateApplicationUserRequest request, ClaimsPrincipal principal, PlatformDbContext dbContext, PasswordHashingService passwordHashingService, CancellationToken cancellationToken) =>
+            async (CreateApplicationUserRequest request, ClaimsPrincipal principal, PlatformDbContext dbContext, PasswordHashingService passwordHashingService, PasswordPolicyService passwordPolicyService, CancellationToken cancellationToken) =>
             {
-                var errors = ValidateCreateRequest(request);
+                var errors = ValidateCreateRequest(request, passwordPolicyService);
                 var normalizedUserName = string.IsNullOrWhiteSpace(request.UserName)
                     ? null
                     : ApplicationUser.NormalizeUserName(request.UserName);
@@ -208,9 +208,9 @@ public static class UserManagementEndpoints
 
         group.MapPost(
             "/{userId:guid}/reset-password",
-            async (Guid userId, ResetApplicationUserPasswordRequest request, ClaimsPrincipal principal, PlatformDbContext dbContext, PasswordHashingService passwordHashingService, CancellationToken cancellationToken) =>
+            async (Guid userId, ResetApplicationUserPasswordRequest request, ClaimsPrincipal principal, PlatformDbContext dbContext, PasswordHashingService passwordHashingService, PasswordPolicyService passwordPolicyService, CancellationToken cancellationToken) =>
             {
-                var errors = ValidateResetPasswordRequest(request);
+                var errors = ValidateResetPasswordRequest(request, passwordPolicyService);
                 var user = await dbContext.ApplicationUsers
                     .SingleOrDefaultAsync(item => item.Id == userId, cancellationToken);
 
@@ -224,6 +224,8 @@ public static class UserManagementEndpoints
                     return Results.ValidationProblem(errors);
                 }
 
+                var previousAccessFailedCount = user.AccessFailedCount;
+                var previousLockoutEndUtc = user.LockoutEndUtc;
                 user.ResetPassword(passwordHashingService.HashPassword(request.NewPassword));
                 dbContext.AuditEvents.Add(
                     CreateUserAuditEvent(
@@ -235,8 +237,49 @@ public static class UserManagementEndpoints
                         metadata: new
                         {
                             targetUserId = user.Id,
-                            targetUserName = user.UserName
+                            targetUserName = user.UserName,
+                            previousAccessFailedCount,
+                            previousLockoutEndUtc,
+                            lockoutCleared = previousAccessFailedCount > 0 || previousLockoutEndUtc is not null
                         }));
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+                return Results.Ok(BuildResponse(user));
+            });
+
+        group.MapPost(
+            "/{userId:guid}/unlock",
+            async (Guid userId, ClaimsPrincipal principal, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
+            {
+                var user = await dbContext.ApplicationUsers
+                    .SingleOrDefaultAsync(item => item.Id == userId, cancellationToken);
+
+                if (user is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var previousAccessFailedCount = user.AccessFailedCount;
+                var previousLockoutEndUtc = user.LockoutEndUtc;
+                var changed = user.ClearAccessLockout();
+
+                if (changed)
+                {
+                    dbContext.AuditEvents.Add(
+                        CreateUserAuditEvent(
+                            principal,
+                            user,
+                            actionType: "USER_LOCKOUT_RESET",
+                            title: "Lockout de usuario limpiado por administrador",
+                            detail: $"El lockout del usuario '{user.UserName}' fue limpiado por un administrador.",
+                            metadata: new
+                            {
+                                targetUserId = user.Id,
+                                targetUserName = user.UserName,
+                                previousAccessFailedCount,
+                                previousLockoutEndUtc
+                            }));
+                }
 
                 await dbContext.SaveChangesAsync(cancellationToken);
                 return Results.Ok(BuildResponse(user));
@@ -247,6 +290,8 @@ public static class UserManagementEndpoints
 
     private static ApplicationUserAdminResponse BuildResponse(ApplicationUser user)
     {
+        var now = DateTimeOffset.UtcNow;
+
         return new ApplicationUserAdminResponse(
             user.Id,
             user.UserName,
@@ -255,20 +300,20 @@ public static class UserManagementEndpoints
             user.IsActive,
             user.CreatedUtc,
             user.UpdatedUtc,
-            user.LastLoginUtc);
+            user.LastLoginUtc,
+            user.AccessFailedCount,
+            user.LockoutEndUtc,
+            user.IsLockedOut(now));
     }
 
-    private static Dictionary<string, string[]> ValidateCreateRequest(CreateApplicationUserRequest request)
+    private static Dictionary<string, string[]> ValidateCreateRequest(CreateApplicationUserRequest request, PasswordPolicyService passwordPolicyService)
     {
         var errors = ValidateCommonProfileFields(request.UserName, request.DisplayName, request.RoleCode);
 
-        if (string.IsNullOrWhiteSpace(request.Password))
+        var passwordErrors = passwordPolicyService.Validate(request.Password, "Password");
+        if (passwordErrors.Count > 0)
         {
-            errors["password"] = ["Password is required."];
-        }
-        else if (request.Password.Trim().Length < MinimumPasswordLength)
-        {
-            errors["password"] = [$"Password must contain at least {MinimumPasswordLength} characters."];
+            errors["password"] = passwordErrors.ToArray();
         }
 
         return errors;
@@ -279,17 +324,13 @@ public static class UserManagementEndpoints
         return ValidateRoleCode(request.RoleCode);
     }
 
-    private static Dictionary<string, string[]> ValidateResetPasswordRequest(ResetApplicationUserPasswordRequest request)
+    private static Dictionary<string, string[]> ValidateResetPasswordRequest(ResetApplicationUserPasswordRequest request, PasswordPolicyService passwordPolicyService)
     {
         var errors = new Dictionary<string, string[]>();
-
-        if (string.IsNullOrWhiteSpace(request.NewPassword))
+        var passwordErrors = passwordPolicyService.Validate(request.NewPassword, "NewPassword");
+        if (passwordErrors.Count > 0)
         {
-            errors["newPassword"] = ["NewPassword is required."];
-        }
-        else if (request.NewPassword.Trim().Length < MinimumPasswordLength)
-        {
-            errors["newPassword"] = [$"NewPassword must contain at least {MinimumPasswordLength} characters."];
+            errors["newPassword"] = passwordErrors.ToArray();
         }
 
         return errors;

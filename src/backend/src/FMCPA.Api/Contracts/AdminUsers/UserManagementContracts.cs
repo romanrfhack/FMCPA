@@ -8,7 +8,10 @@ public sealed record ApplicationUserAdminResponse(
     bool IsActive,
     DateTimeOffset CreatedUtc,
     DateTimeOffset? UpdatedUtc,
-    DateTimeOffset? LastLoginUtc);
+    DateTimeOffset? LastLoginUtc,
+    int AccessFailedCount,
+    DateTimeOffset? LockoutEndUtc,
+    bool IsLockedOut);
 
 public sealed record CreateApplicationUserRequest(
     string UserName,
@@ -21,3 +24,5 @@ public sealed record ChangeApplicationUserRoleRequest(string RoleCode);
 public sealed record SetApplicationUserActivationRequest(bool IsActive);
 
 public sealed record ResetApplicationUserPasswordRequest(string NewPassword);
+
+public sealed record UnlockApplicationUserResponse(ApplicationUserAdminResponse User);

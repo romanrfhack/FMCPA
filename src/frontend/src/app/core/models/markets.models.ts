@@ -57,6 +57,10 @@ export interface CreateMarketTenantRequest {
   certificateFile: File;
 }
 
+export interface UploadMarketTenantCertificateRequest {
+  certificateFile: File;
+}
+
 export interface MarketTenant {
   id: string;
   marketId: string;

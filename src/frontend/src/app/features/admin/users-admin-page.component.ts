@@ -19,8 +19,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         <p class="page-kicker">TRACK 2 SEGURIDAD</p>
         <h2>Administración mínima de usuarios internos</h2>
         <p>
-          Alta controlada, rol base, activación lógica y reset administrativo de password sobre la
-          capa de autenticación/autorización ya existente.
+          Alta controlada, rol base, activación lógica, reset administrativo de password y lockout
+          temporal sobre la capa de autenticación/autorización ya existente.
         </p>
       </article>
 
@@ -66,7 +66,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
             <label>
               <span>Password inicial</span>
-              <input type="password" formControlName="password" placeholder="Minimo 12 caracteres" />
+              <input type="password" formControlName="password" placeholder="12+ con mayúscula, minúscula y número" />
             </label>
 
             <div class="form-actions">
@@ -77,7 +77,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
           <p class="card-note">
             Los cambios de rol, activación o password invalidan tokens previos del usuario afectado.
-            Debe iniciar sesión de nuevo para continuar.
+            Los passwords temporales deben cumplir la política mínima documentada.
           </p>
         </article>
 
@@ -112,6 +112,9 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                       <span class="badge" [class.inactive]="!user.isActive">
                         {{ user.isActive ? 'Activo' : 'Inactivo' }}
                       </span>
+                      @if (user.isLockedOut) {
+                        <span class="badge inactive">Lockout</span>
+                      }
                     </div>
                   </div>
 
@@ -127,6 +130,14 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     <div>
                       <dt>Último login UTC</dt>
                       <dd>{{ user.lastLoginUtc ? (user.lastLoginUtc | date: 'yyyy-MM-dd HH:mm':'UTC') : 'Sin login registrado' }}</dd>
+                    </div>
+                    <div>
+                      <dt>Intentos fallidos</dt>
+                      <dd>{{ user.accessFailedCount }}</dd>
+                    </div>
+                    <div>
+                      <dt>Lockout hasta UTC</dt>
+                      <dd>{{ user.lockoutEndUtc ? (user.lockoutEndUtc | date: 'yyyy-MM-dd HH:mm':'UTC') : 'Sin bloqueo' }}</dd>
                     </div>
                   </dl>
 
@@ -164,15 +175,23 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                         type="password"
                         [value]="getPasswordDraft(user.id)"
                         [disabled]="isRowBusy(user.id)"
-                        placeholder="Nuevo password temporal"
+                        placeholder="12+ con mayúscula, minúscula y número"
                         (input)="setPasswordDraft(user.id, $any($event.target).value)" />
                     </label>
 
                     <button
                       type="button"
-                      [disabled]="isRowBusy(user.id) || getPasswordDraft(user.id).trim().length < 12"
+                      [disabled]="isRowBusy(user.id) || !passwordMeetsPolicy(getPasswordDraft(user.id))"
                       (click)="resetPassword(user)">
                       Resetear password
+                    </button>
+
+                    <button
+                      type="button"
+                      class="ghost"
+                      [disabled]="isRowBusy(user.id) || (user.accessFailedCount === 0 && !user.lockoutEndUtc)"
+                      (click)="unlockUser(user)">
+                      Limpiar lockout
                     </button>
                   </div>
                 </article>
@@ -342,7 +361,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
       .detail-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 0.9rem;
         margin: 0;
       }
@@ -363,7 +382,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
       .actions-grid {
         display: grid;
-        grid-template-columns: minmax(10rem, 12rem) auto auto minmax(12rem, 1fr) auto;
+        grid-template-columns: minmax(10rem, 12rem) auto auto minmax(12rem, 1fr) auto auto;
         gap: 0.75rem;
         align-items: end;
       }
@@ -409,6 +428,7 @@ export class UsersAdminPageComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly userManagementService = inject(UserManagementService);
+  private readonly passwordPolicyPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{12,}$/;
 
   protected readonly roleOptions: ApplicationRoleCode[] = ['ADMIN', 'OPERATOR', 'READONLY'];
   protected readonly users = signal<ApplicationUserAdmin[]>([]);
@@ -425,7 +445,7 @@ export class UsersAdminPageComponent {
     userName: ['', [Validators.required, Validators.maxLength(64)]],
     displayName: ['', [Validators.required, Validators.maxLength(128)]],
     roleCode: ['READONLY' as ApplicationRoleCode, [Validators.required]],
-    password: ['', [Validators.required, Validators.minLength(12)]]
+    password: ['', [Validators.required, Validators.minLength(12), Validators.pattern(this.passwordPolicyPattern)]]
   });
 
   constructor() {
@@ -471,7 +491,7 @@ export class UsersAdminPageComponent {
 
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.pageError.set('Completa userName, nombre visible, rol y un password inicial de al menos 12 caracteres.');
+      this.pageError.set('Completa userName, nombre visible, rol y un password inicial de 12+ caracteres con mayúscula, minúscula y número.');
       return;
     }
 
@@ -561,8 +581,8 @@ export class UsersAdminPageComponent {
 
   protected async resetPassword(user: ApplicationUserAdmin): Promise<void> {
     const newPassword = this.getPasswordDraft(user.id).trim();
-    if (newPassword.length < 12) {
-      this.pageError.set('El password temporal debe contener al menos 12 caracteres.');
+    if (!this.passwordMeetsPolicy(newPassword)) {
+      this.pageError.set('El password temporal debe tener 12+ caracteres e incluir mayúscula, minúscula y número.');
       return;
     }
 
@@ -578,6 +598,21 @@ export class UsersAdminPageComponent {
         await this.reload();
       },
       'No se pudo restablecer el password del usuario.');
+  }
+
+  protected async unlockUser(user: ApplicationUserAdmin): Promise<void> {
+    await this.runRowAction(
+      user.id,
+      async () => {
+        const updatedUser = await firstValueFrom(this.userManagementService.unlockUser(user.id));
+        this.pageSuccess.set(`Lockout limpiado para ${updatedUser.userName}.`);
+        await this.reload();
+      },
+      'No se pudo limpiar el lockout del usuario.');
+  }
+
+  protected passwordMeetsPolicy(value: string): boolean {
+    return this.passwordPolicyPattern.test(value.trim());
   }
 
   private async runRowAction(userId: string, action: () => Promise<void>, fallbackMessage: string): Promise<void> {

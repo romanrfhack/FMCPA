@@ -56,15 +56,15 @@ public static class FederationEndpoints
     {
         var readGroup = app.MapGroup("/api/federation")
             .WithTags("Federation")
-            .RequireReadAccess();
+            .RequireFederationReadAccess();
 
         var writeGroup = app.MapGroup("/api/federation")
             .WithTags("Federation")
-            .RequireWriteAccess();
+            .RequireFederationWriteAccess();
 
         var adminGroup = app.MapGroup("/api/federation")
             .WithTags("Federation")
-            .RequireAdminAccess();
+            .RequireFederationFormalCloseAccess();
 
         readGroup.MapGet(
             "/alerts",
@@ -888,6 +888,11 @@ public static class FederationEndpoints
                 }
 
                 var errors = ValidateCreateFederationDonationApplicationEvidenceRequest(request);
+                var validatedFile = await DocumentUploadSecurity.ValidateAsync(
+                    request.File,
+                    "file",
+                    errors,
+                    cancellationToken);
                 var evidenceType = await dbContext.EvidenceTypes
                     .AsNoTracking()
                     .SingleOrDefaultAsync(item => item.Id == request.EvidenceTypeId, cancellationToken);
@@ -905,8 +910,8 @@ public static class FederationEndpoints
                 await using var fileContent = request.File!.OpenReadStream();
                 var storedEvidence = await evidenceStorage.SaveAsync(
                     applicationId,
-                    request.File.FileName,
-                    request.File.ContentType,
+                    validatedFile!.OriginalFileName,
+                    validatedFile.ContentType,
                     fileContent,
                     cancellationToken);
 
@@ -986,7 +991,7 @@ public static class FederationEndpoints
 
         readGroup.MapGet(
             "/applications/evidences/{evidenceId:guid}/download",
-            async (Guid evidenceId, PlatformDbContext dbContext, IFederationDonationApplicationEvidenceStorage evidenceStorage, IDocumentBinaryStore documentBinaryStore, CancellationToken cancellationToken) =>
+            async (Guid evidenceId, PlatformDbContext dbContext, IFederationDonationApplicationEvidenceStorage evidenceStorage, IDocumentBinaryStore documentBinaryStore, HttpContext httpContext, CancellationToken cancellationToken) =>
             {
                 var evidence = await dbContext.FederationDonationApplicationEvidences
                     .AsNoTracking()
@@ -1036,7 +1041,7 @@ public static class FederationEndpoints
                         detail: "La evidencia física no se encuentra disponible en el storage local.");
                 }
 
-                return Results.File(download.Content, download.ContentType, download.OriginalFileName);
+                return DocumentDownloadResponseSupport.File(httpContext, download.Content, download.ContentType, download.OriginalFileName);
             });
 
         readGroup.MapGet(
@@ -1689,11 +1694,6 @@ public static class FederationEndpoints
         if (request.EvidenceTypeId <= 0)
         {
             errors["evidenceTypeId"] = ["EvidenceTypeId is required."];
-        }
-
-        if (request.File is null || request.File.Length <= 0)
-        {
-            errors["file"] = ["A non-empty evidence file is required."];
         }
 
         return errors;

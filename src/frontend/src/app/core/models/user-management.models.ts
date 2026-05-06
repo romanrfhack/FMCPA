@@ -9,6 +9,9 @@ export interface ApplicationUserAdmin {
   createdUtc: string;
   updatedUtc: string | null;
   lastLoginUtc: string | null;
+  accessFailedCount: number;
+  lockoutEndUtc: string | null;
+  isLockedOut: boolean;
 }
 
 export interface CreateApplicationUserRequest {

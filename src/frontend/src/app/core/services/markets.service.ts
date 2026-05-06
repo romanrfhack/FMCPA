@@ -14,7 +14,8 @@ import {
   MarketIssue,
   MarketSummary,
   MarketTenant,
-  MarketTenantAlert
+  MarketTenantAlert,
+  UploadMarketTenantCertificateRequest
 } from '../models/markets.models';
 import { ProtectedDownloadService } from './protected-download.service';
 
@@ -87,6 +88,13 @@ export class MarketsService {
     formData.append('certificateFile', request.certificateFile);
 
     return this.httpClient.post<MarketTenant>(`${this.apiBaseUrl}/${marketId}/tenants`, formData);
+  }
+
+  uploadTenantCertificate(tenantId: string, request: UploadMarketTenantCertificateRequest) {
+    const formData = new FormData();
+    formData.append('certificateFile', request.certificateFile);
+
+    return this.httpClient.post<MarketTenant>(`${this.apiBaseUrl}/tenants/${tenantId}/cedula`, formData);
   }
 
   getMarketIssues(marketId: string) {

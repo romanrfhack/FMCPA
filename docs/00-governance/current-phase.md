@@ -1,31 +1,155 @@
 # Current Phase
 
 ## Fase actual
-**Track 2 post-MVP: Seguridad transversal, autenticacion, autorizacion base y gestion minima de usuarios internos**
+**Track 3 post-MVP: Estrategia documental transversal, catalogo, ciclo de vida, clasificacion, edicion minima, retencion operativa, overrides administrativos de retencion, hold administrativo minimo, estado operativo derivado, revision de retencion, reglas documentales, remediacion contextual, reemplazo minimo, timeline documental, bandeja operativa unificada y resumen ejecutivo sobre StoredDocument**
 
 ## Estado actual
-- Fecha de inicio documentada: 2026-04-21
-- Estado de la fase: base minima de autenticacion, autorizacion por roles base y gestion minima de usuarios internos implementadas y validadas localmente, pendiente de aprobacion formal
+- Fecha de inicio documentada: 2026-05-05
+- Estado de la fase: catalogo documental transversal minimo implementado sobre `StoredDocument`, con ciclo de vida logico `ACTIVE`/`ARCHIVED`, clasificacion minima transversal, edicion ADMIN-only de metadata, retencion minima operativa, overrides administrativos minimos de retencion validados runtime, hold administrativo minimo, estado operativo derivado, bandeja ADMIN-only de revision de retencion, navegacion contextual, registry canónico de reglas minimas de completitud documental, requisitos documentales visibles en contexto, remediacion directa desde el panel contextual, trazabilidad minima de reemplazo documental, timeline documental minimo por documento/entidad, bandeja documental unificada, resumen ejecutivo documental, filtros de estado/clase/retencion/estado operativo, archivado/restauracion ADMIN-only y auditoria minima, pendiente de aprobacion formal
 - Estado del MVP: **Cerrado con reservas**
-- Estado del track anterior: `Track 1` queda entregado y sigue pendiente de aprobacion formal
-- Enfoque: exigir autenticacion para operar la app, introducir una diferenciacion pragmatica entre lectura, operacion y administracion, y dejar una gestion interna minima de usuarios sin abrir todavia RBAC fino ni self-service
+- Estado del track anterior: `Track 2` queda entregado y sigue pendiente de aprobacion formal
+- Enfoque: consultar, operar, clasificar, editar metadata minima, marcar retencion operativa, ajustar excepcionalmente retencion efectiva por `ADMIN`, pausar tratamiento operativo de retencion mediante hold administrativo reversible, exponer una senal operativa derivada por documento, revisar documentos vencidos/proximos, mostrar requisitos/completitud minima por entidad, permitir remediacion documental directa desde contexto, conservar trazabilidad minima cuando un documento sustituye a otro, exponer una historia documental simple, consolidar senales operativas documentales en una bandeja y resumir KPIs documentales transversales, reutilizando `StoredDocument`, `AuditEvent`, integridad documental, descargas/uploads endurecidos, work queue, navegacion contextual y permisos por modulo, sin abrir todavia borrado automatico, workflow complejo, versionado completo, retencion avanzada, legal hold complejo, backup real, storage externo, OCR, clasificacion automatica, analitica pesada, BI, cumplimiento documental complejo ni una plataforma documental completa
 
 ## Nota operativa
-- El MVP permanece cerrado con reservas; `Track 2` no reabre alcance funcional ni agrega modulos de negocio nuevos.
+- El MVP permanece cerrado con reservas; `Track 3` no reabre alcance funcional ni agrega modulos de negocio nuevos.
+- `Track 3` inicia con una superficie minima `/api/documents` autenticada y una pantalla Angular `/documents`.
+- El listado documental soporta filtros por `moduleCode`, `entityType`, `entityId`, `documentAreaCode`, `integrityState`, `documentOperationalStatusCode`, `documentClassCode`, `statusCode`, `includeArchived`, `fromUtc`, `toUtc`, `skip` y `take`.
+- La clasificacion minima usa clases documentadas: `CERTIFICATE`, `SIGNED_DOCUMENT`, `SUPPORTING_DOCUMENT`, `PHOTO_EVIDENCE`, `VIDEO_EVIDENCE` y `OTHER`.
+- Los uploads nuevos asignan clase automaticamente: cédulas de Mercados como `CERTIFICATE` principal; evidencias PDF como `SUPPORTING_DOCUMENT`; evidencias JPEG/PNG como `PHOTO_EVIDENCE`.
+- La migracion `Track3DocumentClassification` hace backfill compatible: documentos heredados de areas conocidas reciben clase/purpose coherentes y cualquier documento no mapeado conserva `OTHER`.
+- `PATCH /api/documents/{documentId}/metadata` permite a `ADMIN` editar solo metadata documental minima: clase, proposito, indicador principal y notas de clasificacion.
+- La edicion de metadata no permite cambiar ruta fisica, nombre fisico, tamano, hash, content-type, integridad, modulo, entidad ni estado documental.
+- La regla minima de documento principal permite solo un documento `ACTIVE` principal por `DocumentAreaCode + EntityType + EntityId`; si se marca uno nuevo, la API desmarca otros principales activos del mismo conjunto.
+- La retencion minima agrega `RetentionPolicyCode` y `RetentionUntilUtc` persistidos; `RetentionStatusCode` se calcula al consultar para evitar estado obsoleto sin jobs.
+- Las politicas iniciales son `CERTIFICATE_REVIEW`, `SIGNED_LONG_TERM`, `EVIDENCE_MEDIUM_TERM` y `GENERIC_REVIEW`, derivadas por clase documental y con backfill por `CreatedUtc`.
+- `RetentionPolicyCode` y `RetentionUntilUtc` permanecen como baseline; `RetentionOverridePolicyCode`, `RetentionOverrideUntilUtc` y `RetentionOverrideReason` permiten un override ADMIN-only explicito y reversible.
+- Las respuestas documentales distinguen baseline y effective; si no hay override, effective = baseline; si hay override, filtros de retencion, review queue, work queue y summary usan la retencion efectiva.
+- `PATCH /api/documents/{documentId}/retention-override` establece override con motivo obligatorio; `DELETE /api/documents/{documentId}/retention-override` lo limpia.
+- Establecer o limpiar override resetea la revision de retencion a `REVIEW_PENDING` para re-evaluar la senal operativa con la retencion efectiva vigente.
+- Los eventos `DOCUMENT_RETENTION_OVERRIDE_SET` y `DOCUMENT_RETENTION_OVERRIDE_CLEARED` quedan registrados en `AuditEvent`.
+- El hold administrativo minimo agrega `IsAdministrativeHold`, `HoldReason`, `HoldPlacedUtc`, `HoldReleasedUtc` y `HoldPlacedBy` a `StoredDocument`.
+- `POST /api/documents/{documentId}/hold` aplica hold con motivo breve; `DELETE /api/documents/{documentId}/hold` limpia el hold activo.
+- El hold administrativo no archiva, no borra, no mueve y no bloquea descarga autorizada; solo pausa el tratamiento accionable de retencion.
+- Los documentos con hold activo quedan excluidos de `GET /api/documents/review-queue` y de items `RETENTION_REVIEW` en `GET /api/documents/work-queue`; el summary muestra `administrativeHoldCount` y no los cuenta como pendientes accionables de retencion.
+- Los eventos `DOCUMENT_HOLD_SET` y `DOCUMENT_HOLD_CLEARED` quedan registrados en `AuditEvent` y visibles en timeline documental.
+- El estado operativo documental se calcula en lectura, sin columna nueva, con precedencia explicita: `INTEGRITY_ISSUE`, `ON_HOLD`, `SUPERSEDED`, `ARCHIVED`, `RETENTION_EXPIRED`, `REVIEW_DUE`, `ACTIVE_OK`.
+- La severidad operativa derivada queda acotada a `HIGH` para integridad, `MEDIUM` para retencion vencida, `LOW` para hold/revision/archivado/superseded y `NONE` para `ACTIVE_OK`.
+- Catalogo, detalle, summary y work queue exponen la senal derivada sin reemplazar campos base de integridad, hold, lifecycle, reemplazo ni retencion.
+- `EXPIRED_RETENTION` es solo una senal de revision operativa; no borra, no mueve, no archiva y no bloquea descargas autorizadas.
+- La revision de retencion agrega `RetentionReviewStatusCode`, `LastRetentionReviewUtc`, `NextRetentionReviewUtc` y `RetentionReviewNotes` como metadata operativa.
+- Los estados de revision son `REVIEW_PENDING`, `REVIEW_COMPLETED` y `REVIEW_DEFERRED`.
+- `GET /api/documents/review-queue` lista para `ADMIN` documentos `REVIEW_DUE` o `EXPIRED_RETENTION`; por defecto excluye revisiones completadas y difiere documentos hasta que `NextRetentionReviewUtc` venza.
+- `PATCH /api/documents/{documentId}/retention-review` permite a `ADMIN` marcar revision completada o diferirla con nota breve, sin cambiar clase, ciclo de vida, politica base, descarga ni storage.
+- Los eventos `DOCUMENT_RETENTION_REVIEWED` y `DOCUMENT_RETENTION_REVIEW_DEFERRED` quedan registrados en `AuditEvent`.
+- La UI Angular agrega `/documents/review` como bandeja simple ADMIN-only para listar, filtrar, marcar revisado, diferir y descargar documentos de la cola.
+- La completitud documental minima se calcula en lectura sin migracion nueva: `MarketTenant` requiere un documento activo `CERTIFICATE`; `DonationApplication` y `FederationDonationApplication` requieren al menos una evidencia documental activa asociada.
+- Las reglas documentales minimas viven en un registry canónico en codigo con `ruleCode`, `moduleCode`, `entityType`, area documental, entidad documental cubierta, clases requeridas, cardinalidad minima y mensajes de faltante.
+- `GET /api/documents/rules` expone en solo lectura las reglas activas visibles para los modulos que el usuario puede leer.
+- `GET /api/documents/requirements/by-entity` expone el requisito aplicable en contexto de una entidad, incluyendo estado, conteo actual, clases requeridas y remediacion operativa.
+- `GET /api/documents/completeness/by-entity` evalua una entidad puntual y `GET /api/documents/pending` lista pendientes documentales filtrados por permisos de lectura de modulo.
+- Las respuestas de completitud y pendientes incluyen `ruleCode`, clases documentales requeridas y cardinalidad minima para diagnostico operativo.
+- `GET /api/documents/work-queue` consolida en lectura pendientes de completitud, issues de integridad documental y documentos que entran a revision de retencion.
+- La severidad operativa de la bandeja queda como `HIGH` para faltantes requeridos e integridad, `MEDIUM` para `EXPIRED_RETENTION` y `LOW` para `REVIEW_DUE`.
+- La UI Angular agrega `/documents/work-queue` con filtros simples por modulo, tipo de item y severidad, y enlaces hacia contexto/remediacion existente.
+- `GET /api/documents/summary` calcula en lectura un resumen ejecutivo documental con totales, activos, archivados, holds administrativos activos, issues de integridad, entidades incompletas, revision proxima/vencida, desglose por modulo, desglose por clase, desglose por estado operativo derivado y categorias de work queue.
+- El resumen reutiliza `StoredDocument` y la composicion de `GET /api/documents/work-queue`; no persiste metricas ni introduce una capa de BI.
+- La UI `/documents` muestra una seccion de resumen ejecutivo con KPIs principales, desglose por modulo y acceso directo a la bandeja documental.
+- La UI `/documents` agrega una seccion de pendientes documentales, y el panel de documentos relacionados usado en Mercados, Donatarias y Federacion muestra requisito, estado, conteo y remediacion minima.
+- El panel contextual de documentos relacionados permite resolver faltantes directamente cuando el usuario tiene permiso de escritura del modulo: Mercados carga/reemplaza la cédula del locatario, Donatarias carga evidencia de aplicacion y Federacion carga evidencia de aplicacion.
+- Donatarias y Federacion reutilizan sus endpoints existentes de evidencia; Mercados agrega el puente minimo `POST /api/markets/tenants/{tenantId}/cedula` porque el flujo previo solo cargaba cédula al crear locatario.
+- La remediacion contextual sigue pasando por las validaciones endurecidas de upload, clasificacion automatica, `StoredDocument`, integridad y permisos por modulo.
+- La cola de pendientes en `/documents` conserva el diagnostico transversal y ofrece navegacion de remediacion hacia el origen; no se convierte en workflow ni task inbox.
+- La trazabilidad minima de reemplazo documental agrega `ReplacedDocumentId`, `SupersededByDocumentId` y `ReplacementGroupKey` a `StoredDocument`.
+- Al reemplazar cédula de `MarketTenant`, el documento previo queda `ARCHIVED` y superseded; el documento nuevo queda `ACTIVE`, principal y enlazado al anterior.
+- La completitud documental cuenta solo documentos `ACTIVE` no superseded; los documentos reemplazados no satisfacen requisitos minimos.
+- `GET /api/documents/{documentId}/timeline` expone historia minima por documento con carga inicial, eventos documentales auditados y relacion de reemplazo/superseded.
+- `GET /api/documents/timeline/by-entity` expone historia minima por entidad para `MarketTenant`, `DonationApplication` y `FederationDonationApplication`, reutilizando documentos relacionados, `AuditEvent` y permisos de lectura del modulo.
+- La UI `/documents` muestra una historia simple del documento seleccionado y el panel contextual de Mercados/Donatarias/Federacion muestra timeline documental de la entidad.
+- Por defecto el catalogo muestra solo documentos `ACTIVE`; `statusCode=ARCHIVED` permite ver archivados, `includeArchived=true` permite mezclar estados y `documentOperationalStatusCode` permite filtrar por la senal derivada.
+- El detalle documental expone modulo, area, entidad, nombre original, content-type, tamano, fecha, checksum disponible, clase, proposito, indicador de principal, notas breves de clasificacion, politica/fecha/estado de retencion, estado de hold administrativo, estado de integridad basico, estado documental y metadata de archivado sin exponer `StoredRelativePath` ni rutas fisicas internas.
+- La descarga unificada `GET /api/documents/{documentId}/download` reutiliza `IDocumentBinaryStore`, valida integridad `VALID` antes de servir y responde con los headers seguros ya existentes.
+- Los documentos archivados siguen siendo descargables para usuarios con permiso de lectura del modulo; el archivado es ocultamiento operativo del catalogo por defecto, no retencion legal ni bloqueo de evidencia.
+- `POST /api/documents/{documentId}/archive` y `POST /api/documents/{documentId}/restore` quedan restringidos a `ADMIN` por `USERS_ADMIN`, no eliminan archivos fisicos y registran `DOCUMENT_ARCHIVED` / `DOCUMENT_RESTORED` en `AuditEvent`.
+- La autorizacion transversal se resuelve filtrando documentos por permisos efectivos: `MARKETS_READ`, `DONATIONS_READ` y `FEDERATION_READ`.
+- Si aparece un `StoredDocument.ModuleCode` sin mapeo aprobado, la superficie transversal no lo lista ni lo descarga hasta documentar su permiso de lectura.
+- La UI `/documents` muestra filtros simples, listado, detalle y descarga reutilizando `ProtectedDownloadService`.
+- La subetapa de catalogo no requirio migracion; la subetapa de ciclo de vida agrega la migracion `Track3DocumentLifecycle`; la subetapa de clasificacion agrega `Track3DocumentClassification`; la subetapa de retencion agrega `Track3DocumentRetentionBaseline`; la subetapa de revision agrega `Track3DocumentRetentionReviewQueue`; la subetapa de reemplazo agrega `Track3DocumentReplacementTraceability`; la subetapa de overrides agrega `Track3RetentionOverrides`; la subetapa de hold administrativo agrega `Track3DocumentAdministrativeHold`; las subetapas de completitud, registry, requisitos en contexto, remediacion contextual, timeline documental, bandeja unificada y resumen ejecutivo reutilizan `StoredDocument`, `AuditEvent` y entidades existentes.
+- La superficie nueva queda registrada en el manifiesto operativo de guardrails de autorizacion para evitar deriva de endpoints.
+- El Track 2 ya queda como base reutilizada para autenticacion, autorizacion, invalidacion de token, hardening documental, guardrails y operacion de seguridad:
 - `Track 2` ya cuenta con login JWT, sesion actual, bootstrap local controlado, roles base `ADMIN`, `OPERATOR` y `READONLY`, y una administracion minima de usuarios internos solo para `ADMIN`.
 - `ApplicationUser` incorpora `RoleCode` persistido y el token emitido por `/api/auth/login` incluye el rol como claim estable.
 - `ApplicationUser` incorpora tambien `SecurityStamp`; cambios de rol, activacion/desactivacion y reset administrativo de password invalidan tokens previos del usuario afectado.
-- La API aplica tres politicas fijas:
-  - `read`: `READONLY`, `OPERATOR`, `ADMIN`
-  - `write`: `OPERATOR`, `ADMIN`
-  - `admin`: `ADMIN`
+- La validacion viva del token ocurre en `OnTokenValidated`: la API lee el usuario actual, exige `IsActive` y compara el `SecurityStamp` del JWT contra el persistido antes de autorizar.
+- El token y `/api/auth/session` exponen permisos derivados del rol; backend valida que esos claims coincidan con el rol vigente.
+- La API aplica policies por superficie funcional: `DASHBOARD_READ`, `HISTORY_READ`, `CONTACTS_*`, `MARKETS_*`, `DONATIONS_*`, `FINANCIALS_*`, `FEDERATION_*`, `CATALOGS_*`, `USERS_ADMIN` y `FORMAL_CLOSE_ADMIN`.
 - Los cierres formales y altas administrativas de catalogos quedan restringidos a `ADMIN`; las escrituras funcionales normales quedan para `OPERATOR` y `ADMIN`.
+- Los uploads documentales de cédulas de Mercados, evidencias de Donatarias y evidencias de Federacion validan archivo no vacio, tamano maximo `10 MB`, extensiones `.pdf/.jpg/.jpeg/.png`, content-types `application/pdf`, `image/jpeg`, `image/png`, nombre original saneado y firma basica del archivo.
+- Las descargas documentales existentes dependen del permiso de lectura del modulo correspondiente, verifican integridad local antes de servir, normalizan content-type de salida y agregan `X-Content-Type-Options: nosniff`, `Cache-Control: no-store` y `Content-Disposition` seguro sin exponer rutas fisicas.
+- `POST /api/auth/login` queda protegido por rate limit fijo de `10` solicitudes por minuto por cliente; `/api/admin/users` queda protegido por rate limit fijo de `60` solicitudes por minuto por cliente/usuario autenticado.
+- El backend agrega headers de seguridad simples en todas las respuestas (`nosniff`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`) y `no-store` en respuestas `/api`.
+- CORS mantiene los origins locales documentados en `Development`, rechaza wildcard y fuera de `Development` falla rapido si quedan origins localhost.
+- La configuracion JWT fuera de `Development` exige `SigningKey` explicita de al menos 32 bytes, issuer/audience especificos del entorno y lifetime positivo.
+- La politica minima de password exige al menos `12` caracteres, mayuscula, minuscula y numero, rechaza espacios al inicio/fin y passwords obvios; aplica a bootstrap local, alta admin y reset admin.
+- `ApplicationUser` incorpora `AccessFailedCount` y `LockoutEndUtc`; cinco fallos consecutivos bloquean temporalmente la cuenta por `15` minutos y el login exitoso, reset de password o desbloqueo admin limpian el contador.
+- La autenticacion registra eventos `SECURITY` en `AuditEvent` para login exitoso, login fallido, lockout temporal, rechazo durante lockout, expiracion de lockout y limpieza administrativa de lockout.
+- El usuario autenticado puede cambiar su propio password en `/api/auth/change-password` validando password actual, politica minima y confirmacion; el cambio rota `SecurityStamp`, invalida el token vigente y obliga a iniciar sesion de nuevo.
+- El frontend agrega `/account/password` como vista minima autenticada; al cambio exitoso muestra confirmacion breve, limpia sesion local y redirige a login.
+- La solucion backend agrega `FMCPA.Api.AuthorizationRegressionTests` para validar endpoints publicos minimos, rechazo anonimo `401`, matriz `READONLY`/`OPERATOR`/`ADMIN`, cierres formales, administracion de usuarios y cambio self-service de password sin levantar SQL Server ni Docker.
+- La superficie protegida queda inventariada en `docs/05-post-mvp/security-authorization-surface-inventory.md`.
+- El guardrail automatico de superficie usa `docs/05-post-mvp/security-authorization-surface-guardrails.json` como manifiesto operativo canónico y falla si un endpoint real queda publico fuera del allowlist, si un `/api` no esta cubierto por regla publica/protegida o si la metadata de policy no coincide.
+- El inventario humano se mantiene en Markdown y debe actualizarse junto con el manifiesto JSON cuando se agregue o cambie una superficie HTTP.
+- Las mutaciones `/api` desde contexto browser quedan protegidas por una capa minima de origen: `Origin`/`Referer` presente debe estar en `Cors:AllowedOrigins` y el frontend Angular envia `X-FMCPA-Client: FMCPA-Web` de forma centralizada para metodos inseguros.
+- Los scripts locales no-browser siguen pudiendo usar JWT sin el header web mientras no envien senales browser como `Origin`, `Referer` o `Sec-Fetch-*`.
+- `ADMIN` cuenta con `/api/admin/security/summary`, `/api/admin/security/events` y `/api/admin/security/locked-users` para consultar actividad SECURITY reciente, eventos filtrados y usuarios actualmente bloqueados.
+- El frontend agrega `/admin/security`, protegido por `USERS_ADMIN`, con resumen basico, listado de eventos, usuarios bloqueados y accion de unlock reutilizando `/api/admin/users/{id}/unlock`.
 - El bootstrap local sigue limitado a `Development`, sin versionar secretos reales; ahora admite tambien usuarios opcionales `operator` y `readonly` por configuracion local.
 - El frontend conserva el rol en `sessionStorage`, protege rutas administrativas de catalogos y deshabilita acciones visibles de escritura o cierre cuando el rol no las puede ejecutar.
+- El frontend conserva tambien permisos en sesion y usa helpers por superficie para navegacion, escritura de modulo, catalogos, usuarios y cierre formal.
+- El frontend limpia la sesion local y redirige a login ante `401` en requests protegidos, cubriendo tokens invalidados por cambios sensibles.
 - El frontend incorpora ademas una vista minima `/admin/users` protegida para `ADMIN`, con listado, alta, cambio de rol, activacion logica y reset de password.
-- No se implementa todavia autorizacion fina por modulo/accion, self-service completo, recuperacion avanzada de password, refresh token ni proveedor externo de identidad.
+- La validacion runtime de gestion minima de usuarios ya se cerro en un stack aislado local con SQL Server efimero, base dedicada y puertos dedicados, confirmando operaciones reales de `ADMIN` y `403` para `OPERATOR`/`READONLY`.
+- La validacion runtime de invalidacion de token ya confirmo `401` al reutilizar tokens emitidos antes de desactivacion, cambio de rol y reset administrativo de password.
+- La validacion runtime de autorizacion por modulo ya confirmo permisos en token, accesos `200/201` permitidos, `403` por permiso faltante y `401` de token viejo tras cambio de rol.
+- La validacion runtime de overrides administrativos de retencion se cerro sobre SQL Server local aislado `fmcpa-sql-retention-overrides`, base `FMCPA_RetentionOverrideRuntime_20260506`, API `5110` y bootstrap `ADMIN`/`OPERATOR`/`READONLY`, confirmando migracion real, set/clear, `403` a no administradores, baseline/effective, review queue, work queue, summary y auditoria.
+- La validacion de hold administrativo se cerro por suite in-memory `DocumentCatalogTests`; la aplicacion de migracion y pruebas HTTP reales quedaron bloqueadas en esta sesion porque el entorno WSL no tiene Docker y no hay SQL Server local accesible en `localhost,1433`.
+- No se implementa todavia RBAC ultra fino por endpoint/accion individual, edicion manual de permisos por usuario, self-service completo, recuperacion avanzada de password, refresh token, proveedor externo de identidad, antivirus/DLP, borrado fisico documental, storage externo, politica documental completa, WAF, CAPTCHA ni antifraude avanzado.
 
 ## Objetivos de la fase
+- Exponer una consulta transversal minima de documentos ya existentes.
+- Reutilizar `StoredDocument` como fuente de metadata documental sin schema change.
+- Permitir filtros basicos por modulo, entidad, area documental, fecha e integridad.
+- Permitir filtros por estado documental y operar archivado/restauracion logica sin borrado fisico.
+- Permitir filtros por clase documental y mostrar proposito/indicador principal en catalogo y detalle.
+- Asignar clasificacion coherente a uploads nuevos y backfill minimo a registros existentes.
+- Permitir que `ADMIN` edite metadata documental minima desde la superficie transversal.
+- Mantener la regla de un solo documento activo principal por area/entidad.
+- Agregar politica minima de retencion documental como metadata de consulta, sin borrar ni mover archivos.
+- Permitir overrides administrativos minimos y reversibles de retencion efectiva con baseline visible.
+- Permitir hold administrativo minimo y reversible para pausar tratamiento accionable de retencion sin bloquear descarga ni abrir legal hold formal.
+- Permitir filtros por politica y estado de retencion en el catalogo transversal.
+- Agregar una bandeja ADMIN-only para revisar documentos con `REVIEW_DUE` o `EXPIRED_RETENTION`.
+- Permitir marcar revision completada o diferir revision con nota operativa breve.
+- Definir reglas minimas de completitud documental para `MarketTenant`, `DonationApplication` y `FederationDonationApplication`.
+- Centralizar las reglas documentales minimas en una fuente canónica reusable y declarativa.
+- Exponer completitud puntual por entidad y listado transversal de pendientes documentales.
+- Exponer requisitos documentales por entidad y mostrarlos en el punto de uso con remediacion minima.
+- Permitir remediar faltantes documentales directamente desde el contexto de entidad cuando el usuario tiene permiso de escritura del modulo.
+- Exponer timeline documental minimo por documento y por entidad, usando `AuditEvent` y relaciones de reemplazo sin abrir versionado completo.
+- Exponer una bandeja documental unificada con senales de completitud, integridad y revision de retencion, sin persistir tareas ni abrir workflow.
+- Exponer un resumen ejecutivo documental calculado con KPIs principales y desglose por modulo, sin persistir analitica ni abrir BI.
+- Respetar permisos de lectura por modulo al listar, detallar y descargar documentos.
+- Restringir archivado/restauracion a `ADMIN`.
+- Evitar exposicion de rutas fisicas internas o `StoredRelativePath` en la nueva API/UI.
+- Mantener la descarga bajo verificacion de integridad y headers seguros.
+- Dejar una pantalla Angular `/documents` simple para consulta, detalle y descarga.
+- Dejar indicador visual y acciones ADMIN de archivar/restaurar en `/documents`.
+- Dejar indicador visual de clase documental y documento principal en `/documents`.
+- Dejar un formulario simple ADMIN en `/documents` para editar clase, proposito, notas e indicador principal.
+- Dejar indicador visual y filtros de retencion documental en `/documents`.
+- Dejar indicador visual de completitud y pendientes documentales en `/documents` y en paneles relacionados de Mercados, Donatarias y Federacion.
+- Dejar accion contextual de upload para resolver faltantes en `MarketTenant`, `DonationApplication` y `FederationDonationApplication`, refrescando documentos relacionados y completitud despues del upload.
+- Mantener fuera borrado fisico, borrado automatico, versionado, retencion avanzada, backup real, storage externo, OCR y clasificacion automatica.
+- Documentar decisiones, riesgos, convencion local y limites del paso.
 - Mantener una base minima y segura de autenticacion para backend y frontend.
 - Evitar que cualquier usuario autenticado tenga acceso total automatico.
 - Diferenciar de forma simple lectura, escritura funcional y administracion sensible.
@@ -33,41 +157,247 @@
 - Dejar una convencion local clara para probar al menos `ADMIN`, `OPERATOR` y `READONLY`.
 - Validar `401` sin token, `403` por rol insuficiente y acceso permitido con rol valido.
 - Documentar decisiones, riesgos, convencion local y limites del paso.
+- Reducir riesgo de archivos invalidos, content-types inseguros y descargas documentales sin headers conservadores.
+- Reducir exposicion del borde HTTP con rate limiting minimo, headers de seguridad, CORS controlado y fail-fast de configuracion JWT insegura.
+- Reducir riesgo de credenciales debiles y abuso basico de login con password policy, lockout por usuario y eventos auditables de autenticacion.
+- Permitir cambio seguro de password propio sin depender de `ADMIN`, manteniendo invalidacion inmediata del token anterior.
+- Blindar con pruebas de regresion la superficie ya protegida de autenticacion/autorizacion y documentar explicitamente el inventario de acceso esperado.
+- Agregar guardrails automaticos para reducir deriva futura entre endpoints reales, metadata de autorizacion y el inventario documental.
+- Agregar una proteccion minima de origen para mutaciones web sin migrar a cookies ni introducir antiforgery MVC complejo.
+- Exponer una superficie minima ADMIN-only de observabilidad y operacion de seguridad reutilizando `AuditEvent`, lockout y gestion de usuarios.
 
 ## Entregables esperados de esta fase
+- Endpoint `GET /api/documents`
+- Endpoint `GET /api/documents/{documentId}`
+- Endpoint `GET /api/documents/{documentId}/download`
+- Endpoint `POST /api/documents/{documentId}/archive`
+- Endpoint `POST /api/documents/{documentId}/restore`
+- Endpoint `PATCH /api/documents/{documentId}/metadata`
+- Endpoint `PATCH /api/documents/{documentId}/retention-override`
+- Endpoint `DELETE /api/documents/{documentId}/retention-override`
+- Endpoint `POST /api/documents/{documentId}/hold`
+- Endpoint `DELETE /api/documents/{documentId}/hold`
+- Endpoint `GET /api/documents/review-queue`
+- Endpoint `PATCH /api/documents/{documentId}/retention-review`
+- Endpoint `GET /api/documents/rules`
+- Endpoint `GET /api/documents/requirements/by-entity`
+- Endpoint `GET /api/documents/completeness/by-entity`
+- Endpoint `GET /api/documents/pending`
+- Endpoint `GET /api/documents/work-queue`
+- Endpoint `GET /api/documents/summary`
+- Endpoint `POST /api/markets/tenants/{tenantId}/cedula`
+- Contratos de catalogo documental transversal
+- Filtros documentales basicos y filtro de estado `ACTIVE`/`ARCHIVED`
+- Filtro documental por `documentClassCode`
+- Filtros documentales por `retentionPolicyCode` y `retentionStatusCode`
+- Estado documental persistido en `StoredDocument`
+- Clasificacion documental persistida en `StoredDocument`
+- Retencion documental minima persistida como `RetentionPolicyCode` y `RetentionUntilUtc`
+- Override administrativo minimo de retencion persistido como `RetentionOverridePolicyCode`, `RetentionOverrideUntilUtc` y `RetentionOverrideReason`
+- Hold administrativo minimo persistido como `IsAdministrativeHold`, `HoldReason`, `HoldPlacedUtc`, `HoldReleasedUtc` y `HoldPlacedBy`
+- Retencion baseline vs effective visible en catalogo y detalle
+- Estado de retencion calculado en API como `ACTIVE_RETENTION`, `REVIEW_DUE` o `EXPIRED_RETENTION`
+- Metadata de revision de retencion persistida como `RetentionReviewStatusCode`, `LastRetentionReviewUtc`, `NextRetentionReviewUtc` y `RetentionReviewNotes`
+- Estados de revision `REVIEW_PENDING`, `REVIEW_COMPLETED` y `REVIEW_DEFERRED`
+- Convencion minima de clases documentales
+- Convencion minima de politicas documentales de retencion
+- Backfill minimo de clasificacion para documentos existentes
+- Backfill minimo de retencion para documentos existentes
+- Edicion administrativa minima de metadata documental
+- Regla de documento principal por area/entidad
+- Auditoria `DOCUMENT_METADATA_UPDATED` y `DOCUMENT_PRIMARY_CHANGED`
+- Auditoria `DOCUMENT_RETENTION_REVIEWED` y `DOCUMENT_RETENTION_REVIEW_DEFERRED`
+- Auditoria `DOCUMENT_RETENTION_OVERRIDE_SET` y `DOCUMENT_RETENTION_OVERRIDE_CLEARED`
+- Auditoria `DOCUMENT_HOLD_SET` y `DOCUMENT_HOLD_CLEARED`
+- Auditoria `DOCUMENT_ARCHIVED` y `DOCUMENT_RESTORED`
+- Reglas minimas de completitud documental para locatarios y aplicaciones con evidencia
+- Registry canónico de reglas documentales con `ruleCode`, clases requeridas y cardinalidad minima
+- Requisitos documentales por entidad con conteo actual y remediacion minima
+- Remediacion documental contextual para `MarketTenant`, `DonationApplication` y `FederationDonationApplication`
+- Trazabilidad minima de reemplazo documental en `StoredDocument`
+- Cola transversal de pendientes documentales calculada
+- Bandeja documental unificada calculada
+- Resumen ejecutivo documental calculado
+- Autorizacion por permisos de lectura de modulo
+- Archivado/restauracion restringidos a `ADMIN`
+- Vista Angular `/documents`
+- Vista Angular `/documents/review`
+- Vista Angular `/documents/work-queue`
+- Seccion de resumen ejecutivo en `/documents`
+- Servicio frontend `DocumentCatalogService`
+- Pruebas backend de catalogo, detalle, descarga e integridad
+- Pruebas backend de archivado, restauracion, filtros de estado, descarga de archivados y denegacion a no administradores
+- Pruebas backend de filtro por clase, default `OTHER` y upload nuevo clasificado
+- Pruebas backend de edicion de metadata, regla de principal y `403` para no administradores
+- Pruebas backend de filtros de retencion y descarga de documentos con retencion expirada
+- Pruebas backend de set/clear de override de retencion, `403` a no administradores e impacto en review/work queue/summary
+- Pruebas backend de set/clear de hold administrativo, `403` a no administradores, descarga permitida, bloqueo de revision directa, exclusion de review/work queue de retencion, summary y auditoria
+- Pruebas backend de bandeja de revision, marcado revisado, diferimiento, descarga sin alteracion y denegacion a no administradores
+- Pruebas backend de completitud por entidad, pendientes documentales y cobertura de entidades clave
+- Pruebas backend de requisitos documentales por entidad
+- Pruebas backend de bandeja documental unificada con completitud, integridad y retencion
+- Pruebas backend de resumen documental con KPIs, desglose por modulo y filtrado de modulos no permitidos/no mapeados
+- Guardrail actualizado para la nueva superficie documental
+- Nota de implementacion del Track 3 bajo `docs/05-post-mvp`
 - `ApplicationUser` con `RoleCode` y migracion `Track2SecurityRoleAuthorization`
 - Roles base `ADMIN`, `OPERATOR`, `READONLY`
 - JWT con claim de rol y `/api/auth/session` con rol visible
-- Politicas backend `read`, `write` y `admin`
-- Proteccion minima de endpoints por rol
+- JWT y `/api/auth/session` con permisos derivados por rol
+- Politicas backend por modulo/superficie funcional
+- Proteccion minima de endpoints por permiso de modulo
 - Endpoints `ADMIN` para listar, consultar, crear, cambiar rol, activar/desactivar y resetear password de usuarios
 - Invalidacion de tokens por `SecurityStamp` en cambios sensibles de usuario
+- Rechazo `401` de tokens viejos tras desactivacion, cambio de rol o reset administrativo de password
 - Bootstrap local opcional de usuarios `operator` y `readonly`, ya no obligatorio para validar roles gestionados
 - Frontend con rol en sesion, guard admin minimo, pantalla de usuarios y acciones visibles restringidas
+- Frontend con permisos en sesion, guard por permiso y helpers por modulo/superficie
+- Frontend con limpieza local de sesion ante `401` de requests protegidos
+- Uploads documentales con politica minima comun para Mercados, Donatarias y Federacion
+- Descargas documentales con autorizacion por modulo, verificacion de integridad y headers seguros
+- Rate limiting minimo para login y administracion de usuarios
+- Headers de seguridad HTTP y cache conservadora en API
+- Validacion fail-fast para JWT/CORS fuera de `Development`
+- Politica minima de password para bootstrap local, alta admin y reset administrativo
+- Lockout temporal por usuario ante intentos fallidos consecutivos
+- Eventos auditables de autenticacion en `AuditEvent`
+- Vista admin con estado basico de lockout y accion acotada para limpiar lockout
+- Endpoint autenticado `/api/auth/change-password`
+- Vista frontend minima `/account/password`
+- Invalidacion del token actual despues del cambio self-service de password
+- Proyecto de pruebas `FMCPA.Api.AuthorizationRegressionTests`
+- Inventario explicito `security-authorization-surface-inventory.md`
+- Manifiesto operativo `security-authorization-surface-guardrails.json`
+- Pruebas de compliance de superficie protegida contra endpoints reales
+- Middleware `UseWebOriginProtection` para metodos inseguros `/api`
+- Header frontend centralizado `X-FMCPA-Client: FMCPA-Web`
+- Pruebas de origen web permitido, header ausente y origen invalido
+- Endpoints ADMIN-only `/api/admin/security/*`
+- Vista Angular `/admin/security`
+- Reutilizacion de unlock existente desde la vista de seguridad
 - `smoke.sh` actualizado con validacion opcional de `READONLY`
 - Nota de implementacion del track bajo `docs/05-post-mvp`
 
 ## Criterios de salida de la fase
 - Backend compila.
 - Frontend compila.
+- Existe consulta transversal documental util.
+- Se puede archivar y restaurar logicamente un documento.
+- El catalogo filtra correctamente documentos `ACTIVE` y `ARCHIVED`.
+- Los documentos tienen clasificacion minima util y el catalogo filtra por `documentClassCode`.
+- Los uploads nuevos asignan clase coherente segun area/content-type.
+- Los documentos previos tienen default/backfill compatible.
+- `ADMIN` puede editar metadata documental minima.
+- `OPERATOR` y `READONLY` reciben `403` al editar metadata documental.
+- La regla de documento principal desmarca otros principales activos del mismo conjunto.
+- Los documentos tienen politica minima de retencion y fecha objetivo derivadas por clase documental.
+- El catalogo filtra por `retentionPolicyCode` y `retentionStatusCode`.
+- `EXPIRED_RETENTION` no borra, no mueve y no bloquea descargas autorizadas; solo indica revision operativa.
+- Existe una bandeja de revision para documentos `REVIEW_DUE` o `EXPIRED_RETENTION`.
+- `ADMIN` puede marcar revision completada y diferir revision con nota breve.
+- `OPERATOR` y `READONLY` reciben `403` al consultar u operar la bandeja de revision.
+- La revision de retencion no cambia clase documental, ciclo de vida, politica base, storage ni descarga autorizada.
+- `ADMIN` puede activar y limpiar hold administrativo minimo con motivo breve.
+- `OPERATOR` y `READONLY` reciben `403` al intentar activar o limpiar hold administrativo.
+- Un documento con hold administrativo activo sigue visible y descargable con permisos actuales, pero no aparece como accionable en review queue ni en items de retencion de work queue.
+- Summary documental refleja holds administrativos activos y mantiene coherencia con la exclusion de senales accionables de retencion.
+- Cada documento expone `documentOperationalStatusCode` y `documentOperationalSeverityCode` derivados.
+- La precedencia de estado operativo queda documentada y validada por prueba de regresion.
+- Catalogo, detalle, summary y work queue reflejan el estado operativo sin reemplazar metadata base.
+- El listado no expone documentos de modulos sin permiso/mapeo de lectura aprobado.
+- El detalle documental no expone rutas fisicas internas.
+- La descarga transversal valida permiso de lectura de modulo e integridad antes de servir.
+- Los documentos archivados siguen la politica documentada: descargables con permiso de lectura de modulo.
+- `OPERATOR` y `READONLY` reciben `403` al intentar archivar o restaurar.
+- ADMIN puede ver la superficie completa dentro de los modulos documentales actuales.
+- La UI `/documents` permite listar, filtrar por estado/clase/retencion, seleccionar detalle, descargar, ver documento principal, editar metadata como `ADMIN` y mostrar acciones ADMIN de ciclo de vida.
+- La UI `/documents/review` permite a `ADMIN` revisar cola de retencion, marcar revisado y diferir revision.
+- El catalogo documental muestra contexto origen mediante `OriginContext`: modulo, entidad, identificador, nombre/resumen y `routeHint` cuando existe una ruta razonable.
+- Existe `GET /api/documents/by-entity` para consultar documentos relacionados por `moduleCode`, `entityType` y `entityId`.
+- La resolucion contextual queda acotada a `MarketTenant`, `DonationApplication` y `FederationDonationApplication`; otros tipos usan fallback generico sin joins transversales complejos.
+- Mercados, Donatarias y Federacion muestran una seccion minima de documentos relacionados desde sus pantallas de negocio.
+- Existe `GET /api/documents/completeness/by-entity` para evaluar si una entidad clave cumple su documentacion minima.
+- Existe `GET /api/documents/pending` para listar entidades incompletas, filtradas por permisos de lectura de modulo.
+- Existe `GET /api/documents/rules` para consultar en solo lectura las reglas activas visibles por permisos de modulo.
+- Existe `GET /api/documents/requirements/by-entity` para consultar el requisito aplicable directamente desde el contexto de una entidad.
+- Las respuestas de completitud y pendientes exponen el contexto de regla incumplida sin abrir edicion dinamica.
+- La UI `/documents` muestra pendientes documentales y los paneles relacionados de Mercados, Donatarias y Federacion muestran requisito, estado, conteo actual/minimo y remediacion minima.
+- Reemplazar una cédula de `MarketTenant` deja un documento anterior `ARCHIVED`/superseded y un documento nuevo `ACTIVE` enlazados entre si.
+- El catalogo y detalle muestran `isSuperseded`, `supersededByDocumentId`, `replacedDocumentId` y `replacementGroupKey`.
+- No se abre borrado fisico, borrado automatico, legal hold complejo, versionado, retencion avanzada, backup real, storage externo, OCR ni clasificacion automatica.
 - Existe login funcional con rol visible.
+- Existe login funcional con permisos visibles en sesion.
 - Un usuario autenticado ya no implica acceso total automatico.
 - `ADMIN` puede operar y acceder a endpoints administrativos actuales.
 - `ADMIN` puede listar y administrar usuarios internos.
 - Un rol restringido recibe `403` en operaciones no permitidas.
+- Un rol restringido recibe `403` cuando falta el permiso de modulo/superficie.
+- Un token emitido antes de desactivacion, cambio de rol o reset administrativo de password recibe `401`.
 - El frontend refleja minimamente las restricciones por rol.
-- No existe todavia RBAC fino por modulo o accion ni self-service completo.
+- Upload vacio, extension invalida, content-type invalido y tamano excedido reciben `400` con errores claros.
+- Descargas documentales autorizadas responden `200` con `nosniff`, `no-store` y `Content-Disposition` de attachment.
+- Login normal responde `200` y el exceso de intentos de login responde `429` con `Retry-After`.
+- Respuestas relevantes incluyen headers de seguridad y `/api` no queda cacheable.
+- Fuera de `Development`, JWT/CORS inseguros fallan de forma explicita al arranque.
+- Passwords invalidos se rechazan en bootstrap local, alta admin y reset administrativo con mensajes claros.
+- Multiples intentos fallidos disparan lockout temporal por usuario y el login durante lockout responde `423`.
+- Login exitoso, reset administrativo o desbloqueo admin limpian el contador de intentos fallidos.
+- Los eventos relevantes de autenticacion quedan en bitacora `SECURITY`.
+- Un usuario autenticado puede cambiar su propio password con password actual valido.
+- Password actual incorrecto y nueva password invalida fallan con mensajes claros.
+- El token usado para cambiar password deja de funcionar despues del cambio exitoso.
+- El frontend limpia sesion local y redirige a login despues del cambio exitoso.
+- La suite de regresion de autorizacion detecta acceso anonimo, permitido y denegado en superficies clave.
+- Existe inventario explicito de superficie protegida y endpoints publicos permitidos.
+- La suite falla si aparece un endpoint publico no permitido, un endpoint `/api` sin entrada de manifiesto o un endpoint protegido con policy distinta a la esperada.
+- Las mutaciones browser sensibles sin header web esperado reciben `400` y con origen no permitido reciben `403`.
+- `ADMIN` puede consultar resumen/eventos/usuarios bloqueados de seguridad y limpiar lockout desde la vista.
+- `OPERATOR` y `READONLY` reciben `403` en la superficie `/api/admin/security`.
+- No existe todavia RBAC fino por endpoint/accion individual, permisos manuales por usuario ni self-service completo.
+- No existe todavia antivirus, DLP, storage externo ni politica documental completa.
+- No existe todavia WAF, CAPTCHA, IdP externo ni antifraude avanzado.
 - La documentacion de etapa, riesgos, decisiones y runbook local queda actualizada.
 
 ## Siguiente decision esperada
-- Revisar y aceptar o rechazar la extension de `Track 2` con gestion minima de usuarios internos administrada por `ADMIN`.
-- Definir si el siguiente paso profundiza permisos finos por modulo/accion o si se estabiliza primero esta capa base de seguridad y administracion interna.
+- Revisar y aceptar o rechazar la apertura de `Track 3` con catalogo documental transversal minimo.
+- Revisar y aceptar o rechazar el ciclo de vida documental minimo `ACTIVE`/`ARCHIVED`.
+- Revisar y aceptar o rechazar la clasificacion documental minima transversal.
+- Revisar y aceptar o rechazar la edicion administrativa minima de metadata documental.
+- Revisar y aceptar o rechazar la retencion documental minima como metadata operativa.
+- Revisar y aceptar o rechazar la navegacion contextual minima entre documentos y entidades origen.
+- Revisar y aceptar o rechazar las reglas minimas de completitud documental.
+- Revisar y aceptar o rechazar la centralizacion canónica de reglas documentales minimas.
+- Revisar y aceptar o rechazar la visualizacion de requisitos documentales en contexto de entidad.
+- Revisar y aceptar o rechazar la trazabilidad minima de reemplazo documental.
+- Revisar y aceptar o rechazar el hold administrativo minimo documental.
+- Definir si el siguiente paso de Track 3 profundiza politica documental, respaldo/retencion, regularizacion documental o si se estabiliza primero esta capa de consulta.
 
 ## Referencias
 - [Security Track](../05-post-mvp/security-track.md)
 - [Security Track Auth Foundation Implementation Note](../05-post-mvp/security-track-auth-foundation-implementation-note.md)
 - [Security Track Role Authorization Implementation Note](../05-post-mvp/security-track-role-authorization-implementation-note.md)
 - [Security Track User Management Implementation Note](../05-post-mvp/security-track-user-management-implementation-note.md)
+- [Security Track Session Invalidation Implementation Note](../05-post-mvp/security-track-session-invalidation-implementation-note.md)
+- [Security Track Module Authorization Implementation Note](../05-post-mvp/security-track-module-authorization-implementation-note.md)
+- [Security Track Document Upload Hardening Implementation Note](../05-post-mvp/security-track-document-upload-hardening-implementation-note.md)
+- [Security Track HTTP Boundary Hardening Implementation Note](../05-post-mvp/security-track-http-boundary-hardening-implementation-note.md)
+- [Security Track Credential Hardening And Auth Audit Implementation Note](../05-post-mvp/security-track-credential-hardening-and-auth-audit-implementation-note.md)
+- [Security Track Self-Service Password Change Implementation Note](../05-post-mvp/security-track-self-service-password-change-implementation-note.md)
+- [Security Track Authorization Regression Coverage Implementation Note](../05-post-mvp/security-track-authorization-regression-coverage-implementation-note.md)
+- [Security Track Authorization Surface Guardrails Implementation Note](../05-post-mvp/security-track-authorization-surface-guardrails-implementation-note.md)
+- [Security Track Web Origin Protection Implementation Note](../05-post-mvp/security-track-web-origin-protection-implementation-note.md)
+- [Security Track Admin Security Observability Implementation Note](../05-post-mvp/security-track-admin-security-observability-implementation-note.md)
+- [Security Authorization Surface Inventory](../05-post-mvp/security-authorization-surface-inventory.md)
+- [Document Management Track](../05-post-mvp/document-management-track.md)
+- [Document Management Track Transversal Catalog Implementation Note](../05-post-mvp/document-management-track-transversal-catalog-implementation-note.md)
+- [Document Management Track Document Lifecycle Implementation Note](../05-post-mvp/document-management-track-document-lifecycle-implementation-note.md)
+- [Document Management Track Document Classification Implementation Note](../05-post-mvp/document-management-track-document-classification-implementation-note.md)
+- [Document Management Track Document Metadata Editing Implementation Note](../05-post-mvp/document-management-track-document-metadata-editing-implementation-note.md)
+- [Document Management Track Retention Baseline Implementation Note](../05-post-mvp/document-management-track-retention-baseline-implementation-note.md)
+- [Document Management Track Retention Review Queue Implementation Note](../05-post-mvp/document-management-track-retention-review-queue-implementation-note.md)
+- [Document Management Track Document Context Navigation Implementation Note](../05-post-mvp/document-management-track-document-context-navigation-implementation-note.md)
+- [Document Management Track Document Replacement Traceability Implementation Note](../05-post-mvp/document-management-track-document-replacement-traceability-implementation-note.md)
+- [Document Management Track Document Hold Implementation Note](../05-post-mvp/document-management-track-document-hold-implementation-note.md)
+- [Document Management Track Document Operational Status Implementation Note](../05-post-mvp/document-management-track-document-operational-status-implementation-note.md)
 - [MVP Local Runbook](../03-release/mvp-local-runbook.md)
 - [Backlog](./backlog.md)
 - [Historial de aceptacion](./acceptance-history.md)

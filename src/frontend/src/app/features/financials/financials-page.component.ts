@@ -839,8 +839,8 @@ export class FinancialsPageComponent {
   private readonly financialsService = inject(FinancialsService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
-  protected readonly canWrite = this.authService.canWrite;
-  protected readonly canAdminister = this.authService.canAdminister;
+  protected readonly canWrite = this.authService.canWriteFinancials;
+  protected readonly canAdminister = this.authService.canAdministerFormalClose;
   protected readonly recipientCategories = [
     { value: 'COMPANY', label: 'Empresa' },
     { value: 'THIRD_PARTY', label: 'Intermediario / tercero' },

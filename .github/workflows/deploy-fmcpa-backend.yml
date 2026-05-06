@@ -1,0 +1,144 @@
+name: Deploy FMCPA Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/backend/**'
+      - '.github/workflows/deploy-fmcpa-backend.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: fmcpa-backend-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-backend:
+    name: Build test and deploy backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore src/backend/FMCPA.Backend.sln
+
+      - name: Build
+        run: dotnet build src/backend/FMCPA.Backend.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test src/backend/FMCPA.Backend.sln -c Release --no-build --logger "console;verbosity=minimal"
+
+      - name: Publish backend
+        run: |
+          set -euo pipefail
+
+          RELEASE_NAME="backend-${GITHUB_SHA::7}-$(date -u +%Y%m%d%H%M%S)"
+          echo "RELEASE_NAME=$RELEASE_NAME" >> "$GITHUB_ENV"
+
+          mkdir -p "artifact/$RELEASE_NAME"
+
+          dotnet publish src/backend/src/FMCPA.Api/FMCPA.Api.csproj \
+            -c Release \
+            -o "artifact/$RELEASE_NAME"
+
+          rm -f "artifact/$RELEASE_NAME/appsettings.json"
+          rm -f "artifact/$RELEASE_NAME/appsettings.Development.json"
+
+          cat > "artifact/$RELEASE_NAME/appsettings.Production.json" <<'JSON'
+          {
+            "Logging": {
+              "LogLevel": {
+                "Default": "Information",
+                "Microsoft.AspNetCore": "Warning"
+              }
+            },
+            "AllowedHosts": "fmcpa.com.mx;www.fmcpa.com.mx"
+          }
+          JSON
+
+          test -f "artifact/$RELEASE_NAME/FMCPA.Api.dll"
+          test -f "artifact/$RELEASE_NAME/appsettings.Production.json"
+
+          tar -czf "${RELEASE_NAME}.tar.gz" -C artifact "$RELEASE_NAME"
+          sha256sum "${RELEASE_NAME}.tar.gz" > "${RELEASE_NAME}.tar.gz.sha256"
+
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "${{ secrets.FMCPA_VPS_SSH_KEY }}" > ~/.ssh/fmcpa_deploy
+          chmod 600 ~/.ssh/fmcpa_deploy
+
+          ssh-keyscan -p "${{ secrets.FMCPA_VPS_PORT }}" "${{ secrets.FMCPA_VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload backend package
+        run: |
+          set -euo pipefail
+
+          scp -i ~/.ssh/fmcpa_deploy \
+            -P "${{ secrets.FMCPA_VPS_PORT }}" \
+            -o IdentitiesOnly=yes \
+            "${RELEASE_NAME}.tar.gz" "${RELEASE_NAME}.tar.gz.sha256" \
+            "${{ secrets.FMCPA_VPS_USER }}@${{ secrets.FMCPA_VPS_HOST }}:/tmp/"
+
+      - name: Activate backend release
+        run: |
+          set -euo pipefail
+
+          ssh -i ~/.ssh/fmcpa_deploy \
+            -p "${{ secrets.FMCPA_VPS_PORT }}" \
+            -o IdentitiesOnly=yes \
+            "${{ secrets.FMCPA_VPS_USER }}@${{ secrets.FMCPA_VPS_HOST }}" \
+            "bash -s -- \"$RELEASE_NAME\"" <<'REMOTE'
+          set -euo pipefail
+
+          RELEASE_NAME="$1"
+          BASE_DIR="/var/www/fmcpa/backend"
+          RELEASES_DIR="$BASE_DIR/releases"
+          RELEASE_DIR="$RELEASES_DIR/$RELEASE_NAME"
+          CURRENT_LINK="$BASE_DIR/current"
+          ARCHIVE="/tmp/${RELEASE_NAME}.tar.gz"
+          SHA_FILE="/tmp/${RELEASE_NAME}.tar.gz.sha256"
+
+          cd /tmp
+          HASH="$(awk '{print $1}' "$SHA_FILE")"
+          printf "%s  %s\n" "$HASH" "$(basename "$ARCHIVE")" > "$SHA_FILE"
+          sha256sum -c "$SHA_FILE"
+
+          if [ -e "$RELEASE_DIR" ]; then
+            echo "ERROR: release already exists: $RELEASE_DIR"
+            exit 1
+          fi
+
+          mkdir -p "$RELEASES_DIR"
+          tar -xzf "$ARCHIVE" -C "$RELEASES_DIR"
+
+          test -f "$RELEASE_DIR/FMCPA.Api.dll"
+          test -f "$RELEASE_DIR/appsettings.Production.json"
+
+          ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+
+          sudo -n /usr/bin/systemctl restart fmcpa.service
+          sleep 5
+
+          sudo -n /usr/bin/systemctl is-active fmcpa.service
+          curl -fsS http://127.0.0.1:5011/health >/dev/null
+          curl -fsS https://fmcpa.com.mx/health >/dev/null
+
+          rm -f "$ARCHIVE" "$SHA_FILE"
+
+          echo "Backend deployed: $RELEASE_DIR"
+          REMOTE
+        env:
+          RELEASE_NAME: ${{ env.RELEASE_NAME }}

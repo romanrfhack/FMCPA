@@ -367,7 +367,7 @@ export class ContactsPageComponent {
   private readonly authService = inject(AuthService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
-  protected readonly canWrite = this.authService.canWrite;
+  protected readonly canWrite = this.authService.canWriteContacts;
   protected readonly contactTypes = signal<ContactType[]>([]);
   protected readonly contacts = signal<Contact[]>([]);
   protected readonly isLoading = signal(true);

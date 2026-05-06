@@ -13,11 +13,11 @@ public static class ContactsEndpoints
     {
         var readGroup = app.MapGroup("/api")
             .WithTags("Contacts")
-            .RequireReadAccess();
+            .RequireContactsReadAccess();
 
         var writeGroup = app.MapGroup("/api")
             .WithTags("Contacts")
-            .RequireWriteAccess();
+            .RequireContactsWriteAccess();
 
         readGroup.MapGet(
             "/contact-types",

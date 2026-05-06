@@ -24,6 +24,7 @@ public static class AuthBootstrapper
 
         var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
         var passwordHashingService = scope.ServiceProvider.GetRequiredService<PasswordHashingService>();
+        var passwordPolicyService = scope.ServiceProvider.GetRequiredService<PasswordPolicyService>();
 
         foreach (var userDefinition in options.Users)
         {
@@ -41,6 +42,18 @@ public static class AuthBootstrapper
                         userDefinition.UserName,
                         userDefinition.RoleCode);
                 }
+
+                continue;
+            }
+
+            var passwordPolicyErrors = passwordPolicyService.Validate(userDefinition.Password, "Password");
+            if (passwordPolicyErrors.Count > 0)
+            {
+                app.Logger.LogWarning(
+                    "Local bootstrap user '{UserName}' ({RoleCode}) was not provisioned because its configured password does not satisfy the local password policy: {Errors}",
+                    userDefinition.UserName,
+                    userDefinition.RoleCode,
+                    string.Join(" ", passwordPolicyErrors));
 
                 continue;
             }

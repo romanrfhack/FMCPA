@@ -1,0 +1,391 @@
+{
+  "version": 1,
+  "publicEndpoints": [
+    {
+      "method": "GET",
+      "routePattern": "/",
+      "reason": "Metadatos no sensibles del servicio."
+    },
+    {
+      "method": "*",
+      "routePattern": "/health",
+      "reason": "Health check minimo para diagnostico local y operativo; ASP.NET lo expone sin metadata de metodo en el host de pruebas."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/openapi/{documentName}.json",
+      "reason": "Documento OpenAPI publico solo cuando el host corre en Development."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/auth/login",
+      "reason": "Entrada publica de autenticacion protegida por rate limit."
+    }
+  ],
+  "protectedEndpointRules": [
+    {
+      "method": "GET",
+      "routePattern": "/api/auth/session",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Sesion actual requiere usuario autenticado y token vivo."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/auth/change-password",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Cambio self-service requiere usuario autenticado y token vivo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/dashboard/*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Dashboard.Read"],
+      "reason": "Lectura de dashboard."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/commissions/*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.History.Read"],
+      "reason": "Lectura consolidada de comisiones historicas."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/bitacora",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.History.Read"],
+      "reason": "Lectura de bitacora operativa."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/history/*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.History.Read"],
+      "reason": "Lectura de historico."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/integrity",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.History.Read"],
+      "reason": "Lectura de integridad documental."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Catalogo documental transversal autenticado con filtrado por permisos de lectura de modulo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/summary",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Resumen documental ejecutivo autenticado con agregados filtrados por permisos de lectura de modulo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/by-entity",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Consulta documental por entidad autenticada con validacion de permiso efectivo por modulo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/timeline/by-entity",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Linea de tiempo documental por entidad autenticada con validacion de permiso efectivo por modulo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/rules",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Consulta de reglas documentales minimas activa autenticada con filtrado por permisos de lectura de modulo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/requirements/by-entity",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Consulta de requisitos documentales por entidad autenticada con validacion de permiso efectivo por modulo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/completeness/by-entity",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Evaluacion de completitud documental por entidad autenticada con validacion de permiso efectivo por modulo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/pending",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Listado transversal de pendientes documentales autenticado con filtrado por permisos de lectura de modulo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/work-queue",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Bandeja documental unificada autenticada con filtrado por permisos de lectura de modulo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/review-queue",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Bandeja operativa de revision de retencion documental restringida a ADMIN."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/{documentId:guid}",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Detalle documental transversal autenticado con validacion de permiso efectivo por modulo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/{documentId:guid}/download",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Descarga documental unificada autenticada con validacion de permiso efectivo por modulo."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/{documentId:guid}/timeline",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Linea de tiempo documental por documento autenticada con validacion de permiso efectivo por modulo."
+    },
+    {
+      "method": "PATCH",
+      "routePattern": "/api/documents/{documentId:guid}/metadata",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Edicion minima de metadata documental restringida a ADMIN."
+    },
+    {
+      "method": "PATCH",
+      "routePattern": "/api/documents/{documentId:guid}/retention-review",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Operacion minima de revision de retencion documental restringida a ADMIN."
+    },
+    {
+      "method": "PATCH",
+      "routePattern": "/api/documents/{documentId:guid}/retention-override",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Override administrativo minimo de retencion documental restringido a ADMIN."
+    },
+    {
+      "method": "DELETE",
+      "routePattern": "/api/documents/{documentId:guid}/retention-override",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Limpieza de override administrativo de retencion documental restringida a ADMIN."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/documents/{documentId:guid}/hold",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Activacion de hold administrativo documental restringida a ADMIN."
+    },
+    {
+      "method": "DELETE",
+      "routePattern": "/api/documents/{documentId:guid}/hold",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Limpieza de hold administrativo documental restringida a ADMIN."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/documents/{documentId:guid}/archive",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Archivado logico documental restringido a ADMIN."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/documents/{documentId:guid}/restore",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Restauracion logica documental restringida a ADMIN."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/history/normalize-legacy-closures",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.FormalClose.Admin"],
+      "reason": "Normalizacion retrospectiva local restringida a ADMIN."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/contact-types",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Contacts.Read"],
+      "reason": "Lectura de tipos de contacto."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/contacts",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Contacts.Read"],
+      "reason": "Lectura de contactos."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/contacts",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Contacts.Write"],
+      "reason": "Alta de contactos."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/commission-types",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Catalogs.Read"],
+      "reason": "Lectura de catalogos compartidos."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/commission-types",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Catalogs.Admin"],
+      "reason": "Administracion de catalogos compartidos."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/evidence-types",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Catalogs.Read"],
+      "reason": "Lectura de catalogos compartidos."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/evidence-types",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Catalogs.Admin"],
+      "reason": "Administracion de catalogos compartidos."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/module-statuses",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Catalogs.Read"],
+      "reason": "Lectura de catalogos compartidos."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/module-statuses",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Catalogs.Admin"],
+      "reason": "Administracion de catalogos compartidos."
+    },
+    {
+      "method": "*",
+      "routePattern": "/api/admin/users*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Administracion interna de usuarios."
+    },
+    {
+      "method": "*",
+      "routePattern": "/api/admin/security*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Observabilidad operativa de seguridad para ADMIN."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/markets/*/close",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Markets.FormalClose"],
+      "reason": "Cierre formal de Mercados."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/markets*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Markets.Read"],
+      "reason": "Lectura de Mercados y documentos asociados."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/markets*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Markets.Write"],
+      "reason": "Escritura funcional de Mercados."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/donations/*/close",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Donations.FormalClose"],
+      "reason": "Cierre formal de Donatarias."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/donations*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Donations.Read"],
+      "reason": "Lectura de Donatarias y documentos asociados."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/donations*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Donations.Write"],
+      "reason": "Escritura funcional de Donatarias."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/financials/*/close",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Financials.FormalClose"],
+      "reason": "Cierre formal de Financieras."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/financials*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Financials.Read"],
+      "reason": "Lectura de Financieras."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/financials*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Financials.Write"],
+      "reason": "Escritura funcional de Financieras."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/federation/*/close",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Federation.FormalClose"],
+      "reason": "Cierre formal de Federacion."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/federation*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Federation.Read"],
+      "reason": "Lectura de Federacion y documentos asociados."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/federation*",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Federation.Write"],
+      "reason": "Escritura funcional de Federacion."
+    }
+  ]
+}

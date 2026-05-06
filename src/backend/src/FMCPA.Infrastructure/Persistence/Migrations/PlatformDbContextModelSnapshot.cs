@@ -102,6 +102,21 @@ namespace FMCPA.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ArchiveReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("ArchivedUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("BusinessPurpose")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ClassificationNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -115,6 +130,13 @@ namespace FMCPA.Infrastructure.Persistence.Migrations
                         .HasMaxLength(96)
                         .HasColumnType("nvarchar(96)");
 
+                    b.Property<string>("DocumentClassCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasDefaultValue("OTHER");
+
                     b.Property<Guid>("EntityId")
                         .HasColumnType("uniqueidentifier");
 
@@ -123,18 +145,88 @@ namespace FMCPA.Infrastructure.Persistence.Migrations
                         .HasMaxLength(96)
                         .HasColumnType("nvarchar(96)");
 
+                    b.Property<string>("HoldPlacedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTimeOffset?>("HoldPlacedUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("HoldReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("HoldReleasedUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsAdministrativeHold")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("IsLegacyBackfill")
                         .HasColumnType("bit");
+
+                    b.Property<bool>("IsPrimaryDocument")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTimeOffset?>("LastRetentionReviewUtc")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("ModuleCode")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<DateTimeOffset?>("NextRetentionReviewUtc")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("OriginalFileName")
                         .IsRequired()
                         .HasMaxLength(260)
                         .HasColumnType("nvarchar(260)");
+
+                    b.Property<Guid?>("ReplacedDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReplacementGroupKey")
+                        .IsRequired()
+                        .HasMaxLength(220)
+                        .HasColumnType("nvarchar(220)");
+
+                    b.Property<string>("RetentionOverridePolicyCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("RetentionOverrideReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("RetentionOverrideUntilUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RetentionPolicyCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasDefaultValue("GENERIC_REVIEW");
+
+                    b.Property<string>("RetentionReviewNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RetentionReviewStatusCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasDefaultValue("REVIEW_PENDING");
+
+                    b.Property<DateTimeOffset>("RetentionUntilUtc")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Sha256Hex")
                         .HasMaxLength(128)
@@ -143,19 +235,46 @@ namespace FMCPA.Infrastructure.Persistence.Migrations
                     b.Property<long>("SizeBytes")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasDefaultValue("ACTIVE");
+
                     b.Property<string>("StoredRelativePath")
                         .IsRequired()
                         .HasMaxLength(520)
                         .HasColumnType("nvarchar(520)");
 
+                    b.Property<Guid?>("SupersededByDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedUtc");
 
-                    b.HasIndex("DocumentAreaCode", "EntityType", "EntityId")
-                        .IsUnique();
+                    b.HasIndex("ReplacedDocumentId");
+
+                    b.HasIndex("ReplacementGroupKey");
+
+                    b.HasIndex("SupersededByDocumentId");
+
+                    b.HasIndex("DocumentClassCode", "CreatedUtc");
+
+                    b.HasIndex("RetentionOverridePolicyCode", "RetentionOverrideUntilUtc");
+
+                    b.HasIndex("RetentionPolicyCode", "RetentionUntilUtc");
+
+                    b.HasIndex("RetentionReviewStatusCode", "NextRetentionReviewUtc");
+
+                    b.HasIndex("StatusCode", "CreatedUtc");
+
+                    b.HasIndex("IsAdministrativeHold", "RetentionReviewStatusCode", "NextRetentionReviewUtc");
 
                     b.HasIndex("ModuleCode", "EntityType", "EntityId");
+
+                    b.HasIndex("DocumentAreaCode", "EntityType", "EntityId", "StatusCode");
 
                     b.ToTable("StoredDocuments", (string)null);
                 });
@@ -972,6 +1091,9 @@ namespace FMCPA.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("AccessFailedCount")
+                        .HasColumnType("int");
+
                     b.Property<DateTimeOffset>("CreatedUtc")
                         .HasColumnType("datetimeoffset");
 
@@ -984,6 +1106,9 @@ namespace FMCPA.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit");
 
                     b.Property<DateTimeOffset?>("LastLoginUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("LockoutEndUtc")
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("NormalizedUserName")

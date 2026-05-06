@@ -19,11 +19,12 @@ import { AuthService } from '../../core/services/auth.service';
 import { MarketsService } from '../../core/services/markets.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
+import { RelatedDocumentsPanelComponent } from '../documents/related-documents-panel.component';
 
 @Component({
   selector: 'app-markets-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, ReactiveFormsModule],
+  imports: [DatePipe, ReactiveFormsModule, RelatedDocumentsPanelComponent],
   template: `
     <section class="page-shell">
       <article class="hero-card">
@@ -404,6 +405,17 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                             <span>{{ tenant.notes }}</span>
                           }
                         </div>
+
+                        <app-related-documents-panel
+                          moduleCode="MARKETS"
+                          entityType="MARKET_TENANT"
+                          [entityId]="tenant.id"
+                          [canRemediate]="canWrite()"
+                          title="Documentos del locatario"
+                          subtitle="Cédulas y metadata transversal asociadas al locatario."
+                          emptyMessage="No hay documentos transversales asociados a este locatario."
+                          (remediated)="reloadPage()">
+                        </app-related-documents-panel>
                       </article>
                     }
                   </div>
@@ -869,8 +881,8 @@ export class MarketsPageComponent {
   private readonly marketsService = inject(MarketsService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
-  protected readonly canWrite = this.authService.canWrite;
-  protected readonly canAdminister = this.authService.canAdminister;
+  protected readonly canWrite = this.authService.canWriteMarkets;
+  protected readonly canAdminister = this.authService.canAdministerFormalClose;
   protected readonly contacts = signal<Contact[]>([]);
   protected readonly marketStatuses = signal<ModuleStatusCatalogEntry[]>([]);
   protected readonly issueStatuses = signal<ModuleStatusCatalogEntry[]>([]);

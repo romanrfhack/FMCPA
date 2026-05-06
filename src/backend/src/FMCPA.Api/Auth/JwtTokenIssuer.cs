@@ -24,20 +24,25 @@ public sealed class JwtTokenIssuer
     {
         var issuedAtUtc = DateTimeOffset.UtcNow;
         var expiresAtUtc = issuedAtUtc.Add(_settings.TokenLifetime);
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(JwtRegisteredClaimNames.UniqueName, user.UserName),
+            new(JwtRegisteredClaimNames.Name, user.DisplayName),
+            new(ClaimTypes.Role, user.RoleCode),
+            new("fmcpa_security_stamp", user.SecurityStamp),
+            new("fmcpa_expires_at", expiresAtUtc.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N"))
+        };
+
+        claims.AddRange(
+            PlatformPermissionCodes.ForRole(user.RoleCode)
+                .Select(permissionCode => new Claim(PlatformPermissionCodes.ClaimType, permissionCode)));
 
         var token = new JwtSecurityToken(
             issuer: _settings.Issuer,
             audience: _settings.Audience,
-            claims:
-            [
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName),
-                new Claim(JwtRegisteredClaimNames.Name, user.DisplayName),
-                new Claim(ClaimTypes.Role, user.RoleCode),
-                new Claim("fmcpa_security_stamp", user.SecurityStamp),
-                new Claim("fmcpa_expires_at", expiresAtUtc.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N"))
-            ],
+            claims: claims,
             notBefore: issuedAtUtc.UtcDateTime,
             expires: expiresAtUtc.UtcDateTime,
             signingCredentials: _signingCredentials);

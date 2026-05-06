@@ -27,8 +27,8 @@ public sealed class LocalDocumentBinaryStore : IDocumentBinaryStore
         Stream content,
         CancellationToken cancellationToken)
     {
-        var sanitizedOriginalFileName = Path.GetFileName(originalFileName);
-        var extension = Path.GetExtension(sanitizedOriginalFileName);
+        var sanitizedOriginalFileName = SanitizeOriginalFileName(originalFileName);
+        var extension = Path.GetExtension(sanitizedOriginalFileName).ToLowerInvariant();
         var normalizedDirectoryKey = NormalizeDirectoryKey(directoryKey);
         var storedFileName = $"{Guid.NewGuid():N}{extension}";
         var relativePath = Path.Combine(normalizedDirectoryKey, storedFileName).Replace('\\', '/');
@@ -107,7 +107,7 @@ public sealed class LocalDocumentBinaryStore : IDocumentBinaryStore
         return Task.FromResult<DocumentBinaryDownload?>(
             new DocumentBinaryDownload(
                 stream,
-                Path.GetFileName(originalFileName),
+                SanitizeOriginalFileName(originalFileName),
                 string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim()));
     }
 
@@ -223,6 +223,49 @@ public sealed class LocalDocumentBinaryStore : IDocumentBinaryStore
             .Trim('/');
 
         return string.IsNullOrWhiteSpace(sanitized) ? Guid.NewGuid().ToString("N") : sanitized;
+    }
+
+    private static string SanitizeOriginalFileName(string? originalFileName)
+    {
+        var fileName = Path.GetFileName(originalFileName ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            fileName = "documento";
+        }
+
+        var invalidCharacters = Path.GetInvalidFileNameChars();
+        var sanitizedCharacters = fileName
+            .Select(character => IsUnsafeFileNameCharacter(character, invalidCharacters) ? '_' : character)
+            .ToArray();
+
+        var sanitized = new string(sanitizedCharacters).Trim(' ', '.');
+        if (string.IsNullOrWhiteSpace(sanitized))
+        {
+            sanitized = "documento";
+        }
+
+        var extension = Path.GetExtension(sanitized).ToLowerInvariant();
+        var nameWithoutExtension = Path.GetFileNameWithoutExtension(sanitized).Trim();
+        if (string.IsNullOrWhiteSpace(nameWithoutExtension))
+        {
+            nameWithoutExtension = "documento";
+        }
+
+        if (nameWithoutExtension.Length > 100)
+        {
+            nameWithoutExtension = nameWithoutExtension[..100].Trim();
+        }
+
+        return string.IsNullOrWhiteSpace(extension)
+            ? nameWithoutExtension
+            : $"{nameWithoutExtension}{extension}";
+    }
+
+    private static bool IsUnsafeFileNameCharacter(char character, char[] invalidCharacters)
+    {
+        return char.IsControl(character)
+               || character is '"' or '\'' or '`' or ';' or ':' or '<' or '>' or '|' or '/' or '\\'
+               || invalidCharacters.Contains(character);
     }
 
     private static string? NormalizeRelativePath(string? value)

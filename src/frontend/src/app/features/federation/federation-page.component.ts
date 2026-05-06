@@ -24,11 +24,12 @@ import { AuthService } from '../../core/services/auth.service';
 import { FederationService } from '../../core/services/federation.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
+import { RelatedDocumentsPanelComponent } from '../documents/related-documents-panel.component';
 
 @Component({
   selector: 'app-federation-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, ReactiveFormsModule],
+  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RelatedDocumentsPanelComponent],
   template: `
     <section class="page-shell">
       <article class="hero-card">
@@ -956,6 +957,18 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                         }
                       </div>
                     }
+
+                    <app-related-documents-panel
+                      moduleCode="FEDERATION"
+                      entityType="FEDERATION_DONATION_APPLICATION"
+                      [entityId]="selectedApplicationDetail.id"
+                      [canRemediate]="canWrite()"
+                      [remediationEvidenceTypes]="evidenceTypes()"
+                      title="Documentos de la aplicacion"
+                      subtitle="Evidencias federales vistas desde el catalogo documental transversal."
+                      emptyMessage="No hay documentos transversales asociados a esta aplicacion."
+                      (remediated)="reloadPage()">
+                    </app-related-documents-panel>
                   } @else {
                     <p class="empty-state">Selecciona una aplicacion para consultar sus evidencias.</p>
                   }
@@ -1272,8 +1285,8 @@ export class FederationPageComponent {
   private readonly federationService = inject(FederationService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
-  protected readonly canWrite = this.authService.canWrite;
-  protected readonly canAdminister = this.authService.canAdminister;
+  protected readonly canWrite = this.authService.canWriteFederation;
+  protected readonly canAdminister = this.authService.canAdministerFormalClose;
   protected readonly actionTypes = [
     { value: 'AGREEMENT', label: 'Convenio' },
     { value: 'MEETING', label: 'Reunion' },

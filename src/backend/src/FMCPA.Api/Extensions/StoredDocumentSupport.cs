@@ -18,8 +18,14 @@ internal static class StoredDocumentSupport
         long sizeBytes,
         DateTimeOffset createdUtc,
         string? sha256Hex,
-        bool isLegacyBackfill = false)
+        bool isLegacyBackfill = false,
+        string? documentClassCode = null,
+        string? businessPurpose = null,
+        bool? isPrimaryDocument = null,
+        string? classificationNotes = null)
     {
+        var classification = ResolveDefaultClassification(documentAreaCode, contentType);
+
         return new StoredDocument(
             moduleCode,
             documentAreaCode,
@@ -31,7 +37,11 @@ internal static class StoredDocumentSupport
             sizeBytes,
             createdUtc,
             sha256Hex,
-            isLegacyBackfill);
+            isLegacyBackfill,
+            documentClassCode ?? classification.DocumentClassCode,
+            businessPurpose ?? classification.BusinessPurpose,
+            isPrimaryDocument ?? classification.IsPrimaryDocument,
+            classificationNotes);
     }
 
     public static async Task<StoredDocument?> FindStoredDocumentAsync(
@@ -46,10 +56,64 @@ internal static class StoredDocumentSupport
 
         return await dbContext.StoredDocuments
             .AsNoTracking()
-            .SingleOrDefaultAsync(
-                item => item.DocumentAreaCode == normalizedAreaCode
-                        && item.EntityType == normalizedEntityType
-                        && item.EntityId == entityId,
-                cancellationToken);
+            .Where(item => item.DocumentAreaCode == normalizedAreaCode
+                           && item.EntityType == normalizedEntityType
+                           && item.EntityId == entityId)
+            .OrderBy(item => item.StatusCode == StoredDocument.ActiveStatusCode ? 0 : 1)
+            .ThenBy(item => item.SupersededByDocumentId == null ? 0 : 1)
+            .ThenByDescending(item => item.CreatedUtc)
+            .FirstOrDefaultAsync(cancellationToken);
     }
+
+    private static StoredDocumentClassification ResolveDefaultClassification(
+        string documentAreaCode,
+        string? contentType)
+    {
+        var normalizedAreaCode = documentAreaCode.Trim().ToUpperInvariant();
+        return normalizedAreaCode switch
+        {
+            DocumentAreaCodes.MarketsTenantCertificates => new(
+                DocumentClassCodes.Certificate,
+                "Acreditar la cedula digitalizada del locatario.",
+                IsPrimaryDocument: true),
+            DocumentAreaCodes.DonationsApplicationEvidences => new(
+                ResolveEvidenceClassCode(contentType),
+                "Soportar la aplicacion documental de una donacion.",
+                IsPrimaryDocument: false),
+            DocumentAreaCodes.FederationApplicationEvidences => new(
+                ResolveEvidenceClassCode(contentType),
+                "Soportar la aplicacion documental de Federacion.",
+                IsPrimaryDocument: false),
+            _ => new(
+                DocumentClassCodes.Other,
+                BusinessPurpose: null,
+                IsPrimaryDocument: false)
+        };
+    }
+
+    private static string ResolveEvidenceClassCode(string? contentType)
+    {
+        var normalizedContentType = NormalizeContentType(contentType);
+        return string.Equals(normalizedContentType, "image/jpeg", StringComparison.Ordinal)
+               || string.Equals(normalizedContentType, "image/png", StringComparison.Ordinal)
+            ? DocumentClassCodes.PhotoEvidence
+            : DocumentClassCodes.SupportingDocument;
+    }
+
+    private static string NormalizeContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            return string.Empty;
+        }
+
+        var normalized = contentType.Trim();
+        var separatorIndex = normalized.IndexOf(';', StringComparison.Ordinal);
+        return (separatorIndex >= 0 ? normalized[..separatorIndex] : normalized).Trim().ToLowerInvariant();
+    }
+
+    private sealed record StoredDocumentClassification(
+        string DocumentClassCode,
+        string? BusinessPurpose,
+        bool IsPrimaryDocument);
 }

@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateChildFn, CanActivateFn, Router } from '@angular/router';
 
+import { ApplicationPermissionCode } from '../models/auth.models';
 import { AuthService } from '../services/auth.service';
 
 function redirectToLogin(targetUrl: string) {
@@ -42,4 +43,31 @@ export const adminOnlyGuard: CanActivateFn = (_, state) => {
   return authService.canAdminister()
     ? true
     : router.createUrlTree(['/dashboard']);
+};
+
+export const permissionGuard: CanActivateFn = (route, state) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+  const requiredPermission = route.data?.['requiredPermission'] as ApplicationPermissionCode | undefined;
+  const requiredAnyPermissions = route.data?.['requiredAnyPermissions'] as ApplicationPermissionCode[] | undefined;
+
+  if (!authService.isAuthenticated()) {
+    return redirectToLogin(state.url);
+  }
+
+  if (!requiredPermission || authService.hasPermission(requiredPermission)) {
+    if (!requiredAnyPermissions?.length) {
+      return true;
+    }
+
+    if (requiredAnyPermissions.some((permissionCode) => authService.hasPermission(permissionCode))) {
+      return true;
+    }
+  }
+
+  if (!requiredPermission && requiredAnyPermissions?.some((permissionCode) => authService.hasPermission(permissionCode))) {
+    return true;
+  }
+
+  return router.createUrlTree(['/dashboard']);
 };

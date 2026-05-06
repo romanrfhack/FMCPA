@@ -40,4 +40,8 @@ export class UserManagementService {
   resetUserPassword(userId: string, request: ResetApplicationUserPasswordRequest) {
     return this.httpClient.post<ApplicationUserAdmin>(`${this.apiBaseUrl}/${userId}/reset-password`, request);
   }
+
+  unlockUser(userId: string) {
+    return this.httpClient.post<ApplicationUserAdmin>(`${this.apiBaseUrl}/${userId}/unlock`, {});
+  }
 }

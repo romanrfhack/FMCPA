@@ -5,8 +5,11 @@ import { tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import {
+  ApplicationPermissionCode,
   ApplicationRoleCode,
   AuthSession,
+  ChangePasswordRequest,
+  ChangePasswordResponse,
   CurrentSessionResponse,
   LoginRequest,
   LoginResponse
@@ -24,15 +27,43 @@ export class AuthService {
   readonly currentSession = this.sessionState.asReadonly();
   readonly currentUser = computed(() => this.sessionState()?.user ?? null);
   readonly currentRole = computed<ApplicationRoleCode | null>(() => this.sessionState()?.user.roleCode ?? null);
+  readonly currentPermissions = computed<ApplicationPermissionCode[]>(() => this.sessionState()?.user.permissions ?? []);
   readonly isAuthenticated = computed(() => {
     const session = this.sessionState();
     return session !== null && !this.isExpired(session.expiresAtUtc);
   });
-  readonly canWrite = computed(() => {
-    const roleCode = this.currentRole();
-    return roleCode === 'ADMIN' || roleCode === 'OPERATOR';
-  });
-  readonly canAdminister = computed(() => this.currentRole() === 'ADMIN');
+  readonly canReadDashboard = computed(() => this.hasPermission('DASHBOARD_READ'));
+  readonly canReadHistory = computed(() => this.hasPermission('HISTORY_READ'));
+  readonly canReadContacts = computed(() => this.hasPermission('CONTACTS_READ'));
+  readonly canWriteContacts = computed(() => this.hasPermission('CONTACTS_WRITE'));
+  readonly canReadMarkets = computed(() => this.hasPermission('MARKETS_READ'));
+  readonly canWriteMarkets = computed(() => this.hasPermission('MARKETS_WRITE'));
+  readonly canReadDonations = computed(() => this.hasPermission('DONATIONS_READ'));
+  readonly canWriteDonations = computed(() => this.hasPermission('DONATIONS_WRITE'));
+  readonly canReadFinancials = computed(() => this.hasPermission('FINANCIALS_READ'));
+  readonly canWriteFinancials = computed(() => this.hasPermission('FINANCIALS_WRITE'));
+  readonly canReadFederation = computed(() => this.hasPermission('FEDERATION_READ'));
+  readonly canWriteFederation = computed(() => this.hasPermission('FEDERATION_WRITE'));
+  readonly canReadCatalogs = computed(() => this.hasPermission('CATALOGS_READ'));
+  readonly canAdministerCatalogs = computed(() => this.hasPermission('CATALOGS_ADMIN'));
+  readonly canAdministerUsers = computed(() => this.hasPermission('USERS_ADMIN'));
+  readonly canAdministerFormalClose = computed(() => this.hasPermission('FORMAL_CLOSE_ADMIN'));
+  readonly canWrite = computed(() =>
+    this.hasAnyPermission([
+      'CONTACTS_WRITE',
+      'MARKETS_WRITE',
+      'DONATIONS_WRITE',
+      'FINANCIALS_WRITE',
+      'FEDERATION_WRITE'
+    ]));
+  readonly canReadDocuments = computed(() =>
+    this.hasAnyPermission([
+      'MARKETS_READ',
+      'DONATIONS_READ',
+      'FEDERATION_READ'
+    ]));
+  readonly canAdminister = computed(() =>
+    this.hasAnyPermission(['CATALOGS_ADMIN', 'USERS_ADMIN', 'FORMAL_CLOSE_ADMIN']));
 
   login(request: LoginRequest) {
     return this.httpClient
@@ -40,8 +71,18 @@ export class AuthService {
       .pipe(tap((response) => this.setSession(response)));
   }
 
+  changePassword(request: ChangePasswordRequest) {
+    return this.httpClient.post<ChangePasswordResponse>(
+      `${environment.apiBaseUrl}/api/auth/change-password`,
+      request);
+  }
+
   getAccessToken(): string | null {
     return this.getValidSession()?.accessToken ?? null;
+  }
+
+  hasPermission(permissionCode: ApplicationPermissionCode): boolean {
+    return this.currentPermissions().includes(permissionCode);
   }
 
   logout(): void {
@@ -116,7 +157,11 @@ export class AuthService {
 
     try {
       const parsedSession = JSON.parse(storedSession) as AuthSession;
-      if (!parsedSession.accessToken || !parsedSession.expiresAtUtc || !parsedSession.user?.id || !parsedSession.user?.roleCode) {
+      if (!parsedSession.accessToken
+        || !parsedSession.expiresAtUtc
+        || !parsedSession.user?.id
+        || !parsedSession.user?.roleCode
+        || !Array.isArray(parsedSession.user.permissions)) {
         globalThis.sessionStorage?.removeItem(this.storageKey);
         return null;
       }
@@ -136,5 +181,9 @@ export class AuthService {
   private isExpired(expiresAtUtc: string): boolean {
     const expirationTimestamp = Date.parse(expiresAtUtc);
     return Number.isNaN(expirationTimestamp) || expirationTimestamp <= Date.now() + 30_000;
+  }
+
+  private hasAnyPermission(permissionCodes: ApplicationPermissionCode[]): boolean {
+    return permissionCodes.some((permissionCode) => this.hasPermission(permissionCode));
   }
 }

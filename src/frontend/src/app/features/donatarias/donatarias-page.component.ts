@@ -17,11 +17,12 @@ import { AuthService } from '../../core/services/auth.service';
 import { DonationsService } from '../../core/services/donations.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
+import { RelatedDocumentsPanelComponent } from '../documents/related-documents-panel.component';
 
 @Component({
   selector: 'app-donatarias-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, ReactiveFormsModule],
+  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RelatedDocumentsPanelComponent],
   template: `
     <section class="page-shell">
       <article class="hero-card">
@@ -495,6 +496,18 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                       }
                     </div>
                   }
+
+                  <app-related-documents-panel
+                    moduleCode="DONATARIAS"
+                    entityType="DONATION_APPLICATION"
+                    [entityId]="selectedApplicationDetail.id"
+                    [canRemediate]="canWrite()"
+                    [remediationEvidenceTypes]="evidenceTypes()"
+                    title="Documentos de la aplicación"
+                    subtitle="Evidencias vistas desde el catálogo documental transversal."
+                    emptyMessage="No hay documentos transversales asociados a esta aplicación."
+                    (remediated)="reloadPage()">
+                  </app-related-documents-panel>
                 } @else {
                   <p class="empty-state">Selecciona una aplicación para consultar sus evidencias.</p>
                 }
@@ -806,8 +819,8 @@ export class DonatariasPageComponent {
   private readonly donationsService = inject(DonationsService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
-  protected readonly canWrite = this.authService.canWrite;
-  protected readonly canAdminister = this.authService.canAdminister;
+  protected readonly canWrite = this.authService.canWriteDonations;
+  protected readonly canAdminister = this.authService.canAdministerFormalClose;
   protected readonly isBootstrapping = signal(true);
   protected readonly pageError = signal<string | null>(null);
 

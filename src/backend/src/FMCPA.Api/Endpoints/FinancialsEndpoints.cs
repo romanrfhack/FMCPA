@@ -38,15 +38,15 @@ public static class FinancialsEndpoints
     {
         var readGroup = app.MapGroup("/api/financials")
             .WithTags("Financials")
-            .RequireReadAccess();
+            .RequireFinancialsReadAccess();
 
         var writeGroup = app.MapGroup("/api/financials")
             .WithTags("Financials")
-            .RequireWriteAccess();
+            .RequireFinancialsWriteAccess();
 
         var adminGroup = app.MapGroup("/api/financials")
             .WithTags("Financials")
-            .RequireAdminAccess();
+            .RequireFinancialsFormalCloseAccess();
 
         readGroup.MapGet(
             "/alerts/permits",

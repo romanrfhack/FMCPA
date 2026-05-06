@@ -12,11 +12,11 @@ public static class SharedCatalogEndpoints
     {
         var readGroup = app.MapGroup("/api")
             .WithTags("Shared Catalogs")
-            .RequireReadAccess();
+            .RequireCatalogsReadAccess();
 
         var adminGroup = app.MapGroup("/api")
             .WithTags("Shared Catalogs")
-            .RequireAdminAccess();
+            .RequireCatalogsAdminAccess();
 
         readGroup.MapGet(
             "/commission-types",

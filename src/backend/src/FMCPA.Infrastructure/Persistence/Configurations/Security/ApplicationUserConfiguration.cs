@@ -42,6 +42,12 @@ public sealed class ApplicationUserConfiguration : IEntityTypeConfiguration<Appl
         builder.Property(item => item.CreatedUtc)
             .IsRequired();
 
+        builder.Property(item => item.AccessFailedCount)
+            .IsRequired();
+
+        builder.Property(item => item.LockoutEndUtc)
+            .HasColumnType("datetimeoffset");
+
         builder.HasIndex(item => item.NormalizedUserName)
             .IsUnique();
     }

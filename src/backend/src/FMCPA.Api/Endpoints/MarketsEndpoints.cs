@@ -3,6 +3,7 @@ using FMCPA.Api.Auth;
 using FMCPA.Api.Contracts.Closeout;
 using FMCPA.Api.Contracts.Markets;
 using FMCPA.Api.Extensions;
+using FMCPA.Domain.Entities.Documents;
 using FMCPA.Domain.Entities.Markets;
 using FMCPA.Domain.Entities.Shared;
 using FMCPA.Application.Abstractions.Storage;
@@ -21,6 +22,7 @@ public static class MarketsEndpoints
     private const string MarketEntityType = "MARKET";
     private const string MarketTenantEntityType = "MARKET_TENANT";
     private const string MarketIssueEntityType = "MARKET_ISSUE";
+    private const string StoredDocumentEntityType = "STORED_DOCUMENT";
     private const string MarketTenantCertificateAreaCode = DocumentAreaCodes.MarketsTenantCertificates;
     private const string ClosedStatusCode = "CLOSED";
     private const string DueSoonAlertState = "DUE_SOON";
@@ -32,15 +34,15 @@ public static class MarketsEndpoints
     {
         var readGroup = app.MapGroup("/api/markets")
             .WithTags("Markets")
-            .RequireReadAccess();
+            .RequireMarketsReadAccess();
 
         var writeGroup = app.MapGroup("/api/markets")
             .WithTags("Markets")
-            .RequireWriteAccess();
+            .RequireMarketsWriteAccess();
 
         var adminGroup = app.MapGroup("/api/markets")
             .WithTags("Markets")
-            .RequireAdminAccess();
+            .RequireMarketsFormalCloseAccess();
 
         readGroup.MapGet(
             "/alerts/tenants",
@@ -52,7 +54,7 @@ public static class MarketsEndpoints
 
         readGroup.MapGet(
             "/tenants/{tenantId:guid}/cedula",
-            async (Guid tenantId, PlatformDbContext dbContext, IMarketTenantCertificateStorage certificateStorage, IDocumentBinaryStore documentBinaryStore, CancellationToken cancellationToken) =>
+            async (Guid tenantId, PlatformDbContext dbContext, IMarketTenantCertificateStorage certificateStorage, IDocumentBinaryStore documentBinaryStore, HttpContext httpContext, CancellationToken cancellationToken) =>
             {
                 var tenant = await dbContext.MarketTenants
                     .AsNoTracking()
@@ -102,7 +104,7 @@ public static class MarketsEndpoints
                         detail: "La cédula digitalizada no se encuentra disponible en el storage local.");
                 }
 
-                return Results.File(download.Content, download.ContentType, download.OriginalFileName);
+                return DocumentDownloadResponseSupport.File(httpContext, download.Content, download.ContentType, download.OriginalFileName);
             });
 
         readGroup.MapGet(
@@ -428,6 +430,11 @@ public static class MarketsEndpoints
                 }
 
                 var errors = ValidateCreateMarketTenantRequest(request);
+                var validatedCertificate = await DocumentUploadSecurity.ValidateAsync(
+                    request.CertificateFile,
+                    "certificateFile",
+                    errors,
+                    cancellationToken);
 
                 if (request.ContactId is Guid contactId)
                 {
@@ -449,8 +456,8 @@ public static class MarketsEndpoints
                 await using var certificateContent = request.CertificateFile!.OpenReadStream();
                 var storedCertificate = await certificateStorage.SaveAsync(
                     tenantId,
-                    request.CertificateFile.FileName,
-                    request.CertificateFile.ContentType,
+                    validatedCertificate!.OriginalFileName,
+                    validatedCertificate.ContentType,
                     certificateContent,
                     cancellationToken);
 
@@ -522,6 +529,179 @@ public static class MarketsEndpoints
 
                     var response = MapMarketTenantResponse(tenant, market);
                     return Results.Created($"/api/markets/{marketId}/tenants/{tenant.Id}", response);
+                }
+                catch
+                {
+                    try
+                    {
+                        await certificateStorage.DeleteIfExistsAsync(storedCertificate.RelativePath, cancellationToken);
+                    }
+                    catch
+                    {
+                    }
+
+                    throw;
+                }
+            })
+            .DisableAntiforgery();
+
+        writeGroup.MapPost(
+            "/tenants/{tenantId:guid}/cedula",
+            async ([FromRoute] Guid tenantId, [FromForm] UploadMarketTenantCertificateRequest request, PlatformDbContext dbContext, IMarketTenantCertificateStorage certificateStorage, CancellationToken cancellationToken) =>
+            {
+                var tenant = await dbContext.MarketTenants
+                    .SingleOrDefaultAsync(item => item.Id == tenantId, cancellationToken);
+
+                if (tenant is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var market = await dbContext.Markets
+                    .Include(item => item.StatusCatalogEntry)
+                    .SingleOrDefaultAsync(item => item.Id == tenant.MarketId, cancellationToken);
+
+                if (market is null)
+                {
+                    return Results.NotFound();
+                }
+
+                if (StateTransitionSupport.IsTerminal(market.StatusCatalogEntry))
+                {
+                    return Results.Conflict(
+                        new
+                        {
+                            message = StateTransitionSupport.BuildTerminalMutationMessage(
+                                $"el mercado {market.Name}",
+                                "cargar la cédula del locatario",
+                                market.StatusCatalogEntry!)
+                        });
+                }
+
+                var errors = new Dictionary<string, string[]>();
+                var validatedCertificate = await DocumentUploadSecurity.ValidateAsync(
+                    request.CertificateFile,
+                    "certificateFile",
+                    errors,
+                    cancellationToken);
+
+                if (errors.Count > 0)
+                {
+                    return Results.ValidationProblem(errors);
+                }
+
+                await using var certificateContent = request.CertificateFile!.OpenReadStream();
+                var storedCertificate = await certificateStorage.SaveAsync(
+                    tenant.Id,
+                    validatedCertificate!.OriginalFileName,
+                    validatedCertificate.ContentType,
+                    certificateContent,
+                    cancellationToken);
+
+                try
+                {
+                    tenant.UpdateCertificate(
+                        storedCertificate.OriginalFileName,
+                        storedCertificate.RelativePath,
+                        storedCertificate.ContentType,
+                        storedCertificate.SizeBytes,
+                        storedCertificate.UploadedUtc);
+
+                    var storedDocument = await dbContext.StoredDocuments
+                        .Where(item => item.DocumentAreaCode == MarketTenantCertificateAreaCode
+                                       && item.EntityType == MarketTenantEntityType
+                                       && item.EntityId == tenant.Id)
+                        .OrderBy(item => item.StatusCode == StoredDocument.ActiveStatusCode ? 0 : 1)
+                        .ThenByDescending(item => item.CreatedUtc)
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    Guid? replacedDocumentId = null;
+                    if (storedDocument is null)
+                    {
+                        storedDocument = StoredDocumentSupport.CreateStoredDocument(
+                            MarketsModuleCode,
+                            MarketTenantCertificateAreaCode,
+                            MarketTenantEntityType,
+                            tenant.Id,
+                            storedCertificate.OriginalFileName,
+                            storedCertificate.RelativePath,
+                            storedCertificate.ContentType,
+                            storedCertificate.SizeBytes,
+                            storedCertificate.UploadedUtc,
+                            storedCertificate.Sha256Hex);
+                        dbContext.StoredDocuments.Add(storedDocument);
+                    }
+                    else
+                    {
+                        var replacementDocument = StoredDocumentSupport.CreateStoredDocument(
+                            MarketsModuleCode,
+                            MarketTenantCertificateAreaCode,
+                            MarketTenantEntityType,
+                            tenant.Id,
+                            storedCertificate.OriginalFileName,
+                            storedCertificate.RelativePath,
+                            storedCertificate.ContentType ?? "application/octet-stream",
+                            storedCertificate.SizeBytes,
+                            storedCertificate.UploadedUtc,
+                            storedCertificate.Sha256Hex,
+                            documentClassCode: DocumentClassCodes.Certificate,
+                            businessPurpose: "Acreditar la cedula digitalizada del locatario.",
+                            isPrimaryDocument: true);
+
+                        replacementDocument.MarkReplaces(storedDocument.Id);
+                        storedDocument.MarkSupersededBy(
+                            replacementDocument.Id,
+                            storedCertificate.UploadedUtc,
+                            "Reemplazado por nueva cédula cargada desde remediación contextual.");
+
+                        replacedDocumentId = storedDocument.Id;
+                        dbContext.StoredDocuments.Add(replacementDocument);
+                        storedDocument = replacementDocument;
+
+                        dbContext.AuditEvents.Add(
+                            AuditEventSupport.CreateAuditEvent(
+                                MarketsModuleCode,
+                                MarketsModuleName,
+                                StoredDocumentEntityType,
+                                replacementDocument.Id,
+                                "DOCUMENT_REPLACED",
+                                "Documento reemplazado",
+                                $"La cédula '{replacementDocument.OriginalFileName}' reemplazó un documento previo del locatario {tenant.TenantName}.",
+                                null,
+                                tenant.CertificateNumber,
+                                "/documents",
+                                metadata: new
+                                {
+                                    tenant.MarketId,
+                                    tenantId = tenant.Id,
+                                    replacedDocumentId,
+                                    supersedingDocumentId = replacementDocument.Id,
+                                    replacementDocument.ReplacementGroupKey
+                                }));
+                    }
+
+                    dbContext.AuditEvents.Add(
+                        AuditEventSupport.CreateAuditEvent(
+                            MarketsModuleCode,
+                            MarketsModuleName,
+                            MarketTenantEntityType,
+                            tenant.Id,
+                            "TENANT_CERTIFICATE_REMEDIATED",
+                            tenant.TenantName,
+                            $"Cédula digitalizada cargada desde remediación contextual para el locatario {tenant.TenantName}.",
+                            null,
+                            tenant.CertificateNumber,
+                            "/markets",
+                            metadata: new
+                            {
+                                tenant.MarketId,
+                                storedDocument.Id,
+                                replacedDocumentId
+                            }));
+
+                    await dbContext.SaveChangesAsync(cancellationToken);
+
+                    return Results.Ok(MapMarketTenantResponse(tenant, market));
                 }
                 catch
                 {
@@ -909,11 +1089,6 @@ public static class MarketsEndpoints
         if (string.IsNullOrWhiteSpace(request.BusinessLine))
         {
             errors["businessLine"] = ["BusinessLine is required."];
-        }
-
-        if (request.CertificateFile is null || request.CertificateFile.Length <= 0)
-        {
-            errors["certificateFile"] = ["A digital certificate file is required."];
         }
 
         if (!string.IsNullOrWhiteSpace(request.Email) && !IsValidEmail(request.Email))

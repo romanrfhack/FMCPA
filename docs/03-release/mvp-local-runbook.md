@@ -38,6 +38,12 @@
   - `FMCPA_AUTH_READONLY_USER_NAME` y `FMCPA_AUTH_READONLY_DISPLAY_NAME` controlan el usuario local `READONLY`
   - `FMCPA_AUTH_READONLY_PASSWORD` aprovisiona opcionalmente el usuario local `READONLY`
   - `FMCPA_AUTH_JWT_SIGNING_KEY` es opcional en `Development`; si se omite, el backend usa una llave efimera por arranque
+- Para CORS local directo contra la API, `Cors:AllowedOrigins` acepta por defecto `http://localhost:4200` y `http://127.0.0.1:4200` en `Development`.
+- El flujo local recomendado con `run-frontend.sh` usa proxy Angular para `/api` y `/health`; si se usa ese proxy, el navegador llama al mismo origin del frontend y CORS no requiere cambios por puerto override.
+- `run-backend.sh` exporta `Cors__AllowedOrigins__0/1` con el `FMCPA_WEB_PORT` efectivo si esos valores no fueron definidos manualmente, para mantener compatible el proxy local y la proteccion de origen web.
+- Fuera de `Development`, se deben configurar origins reales mediante `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins__1`, etc.; wildcard y localhost se rechazan.
+- Fuera de `Development`, `Auth__Jwt__SigningKey` debe existir y tener al menos 32 bytes, y `Auth__Jwt__Issuer` / `Auth__Jwt__Audience` deben ser especificos del entorno.
+- Las mutaciones `/api` desde browser usan una proteccion minima de origen: Angular envia `X-FMCPA-Client: FMCPA-Web` y cualquier `Origin`/`Referer` presente debe coincidir con `Cors:AllowedOrigins`.
 
 ## Autenticacion y roles locales minimos
 - La app exige autenticacion para `/api` salvo `/api/auth/login`, `health` y la raiz del servicio.
@@ -47,11 +53,26 @@
   - `operator` como `OPERATOR`
   - `readonly` como `READONLY`
 - No se versionan contrasenas reales en el repo; las passwords locales deben definirse en variables de entorno o `.env.local`.
-- Politicas actuales:
-  - lectura: `READONLY`, `OPERATOR`, `ADMIN`
-  - escritura funcional: `OPERATOR`, `ADMIN`
-  - administracion/cierre formal: `ADMIN`
+- Las passwords locales de bootstrap, alta admin y reset admin deben cumplir la politica minima: `12` caracteres, mayuscula, minuscula y numero; no se aceptan espacios al inicio/fin ni passwords obvios.
+- Permisos actuales derivados por rol:
+  - `READONLY`: `DASHBOARD_READ`, `HISTORY_READ`, `CONTACTS_READ`, `MARKETS_READ`, `DONATIONS_READ`, `FINANCIALS_READ`, `FEDERATION_READ`, `CATALOGS_READ`
+  - `OPERATOR`: permisos de `READONLY` mas `CONTACTS_WRITE`, `MARKETS_WRITE`, `DONATIONS_WRITE`, `FINANCIALS_WRITE`, `FEDERATION_WRITE`
+  - `ADMIN`: permisos de `OPERATOR` mas `CATALOGS_ADMIN`, `USERS_ADMIN`, `FORMAL_CLOSE_ADMIN`
+- Los cierres formales requieren `FORMAL_CLOSE_ADMIN` junto con el permiso `*_WRITE` del modulo.
 - Cambios de rol, activacion/desactivacion y reset administrativo de password invalidan tokens previos del usuario afectado; ese usuario debe iniciar sesion de nuevo.
+- El usuario autenticado puede cambiar su propia password en `/account/password` o `POST /api/auth/change-password`; el cambio exitoso invalida el token actual y exige iniciar sesion de nuevo.
+- Cambios de matriz de permisos tambien pueden exigir relogin, porque backend valida que los claims `fmcpa_permission` coincidan con el rol vigente.
+- La verificacion manual mas corta es reutilizar un token previo contra `GET /api/auth/session` despues del cambio sensible y confirmar `401 Unauthorized`.
+- `POST /api/auth/login` tiene rate limit minimo de `10` solicitudes por minuto por cliente; al excederlo responde `429 Too Many Requests` con `Retry-After`.
+- `/api/admin/users` tiene rate limit minimo de `60` solicitudes por minuto por cliente/usuario autenticado.
+- Cinco fallos consecutivos de login para un usuario bloquean temporalmente la cuenta durante `15` minutos; durante lockout el login responde `423 Locked` con `Retry-After`.
+- `ADMIN` puede ver `AccessFailedCount` y `LockoutEndUtc` en `/admin/users` y limpiar el lockout con `POST /api/admin/users/{id}/unlock`.
+- `ADMIN` puede consultar operacion minima de seguridad en `/admin/security` o `/api/admin/security/*`: resumen, eventos SECURITY y usuarios con lockout activo.
+- La consulta documental transversal esta disponible en `/documents` o `/api/documents` para usuarios autenticados con permisos de lectura de Mercados, Donatarias o Federacion.
+- El catalogo documental muestra contexto origen de Mercados, Donatarias y Federacion; las pantallas de negocio incluyen una seccion minima de documentos relacionados.
+- El catalogo documental expone completitud minima y pendientes documentales para locatarios y aplicaciones con evidencia, sin interpretar eso como cumplimiento legal avanzado.
+- Las respuestas `/api` agregan `Cache-Control: no-store`, `Pragma: no-cache`, `Expires: 0` y headers de seguridad basicos.
+- Si se prueban mutaciones con `curl` agregando un header browser como `Origin`, se debe agregar tambien `X-FMCPA-Client: FMCPA-Web`; los scripts no-browser sin `Origin`, `Referer` ni `Sec-Fetch-*` siguen funcionando sin ese header.
 
 Ejemplo de `.env.local` minimo para auth y roles:
 ```bash
@@ -189,6 +210,58 @@ curl -s http://127.0.0.1:4201/health
 curl -s http://127.0.0.1:4201/api/dashboard/summary
 ```
 
+## Hardening HTTP local
+- Validar login normal:
+```bash
+curl -i http://127.0.0.1:5080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"userName":"admin","password":"<password-local>"}'
+```
+- Validar headers de sesion:
+```bash
+curl -i http://127.0.0.1:5080/api/auth/session \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+- Validar CORS local directo:
+```bash
+curl -i -X OPTIONS http://127.0.0.1:5080/api/auth/login \
+  -H 'Origin: http://localhost:4200' \
+  -H 'Access-Control-Request-Method: POST' \
+  -H 'Access-Control-Request-Headers: content-type'
+```
+- Validar rate limit de login: repetir mas de `10` `POST /api/auth/login` en menos de un minuto desde el mismo cliente y confirmar `429` con `Retry-After`.
+- Validar lockout de cuenta: repetir `5` logins fallidos para un usuario existente y confirmar `423 Locked`; luego limpiar con `/api/admin/users/{id}/unlock` o esperar el cooldown.
+- Validar observabilidad ADMIN:
+```bash
+curl -s http://127.0.0.1:5080/api/admin/security/summary \
+  -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/admin/security/events?eventType=AUTH_LOGIN_FAILED&take=20" \
+  -H "Authorization: Bearer ${TOKEN}"
+curl -s http://127.0.0.1:5080/api/admin/security/locked-users \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+- Validar proteccion de origen web:
+```bash
+curl -i http://127.0.0.1:5080/api/auth/login \
+  -H 'Origin: http://127.0.0.1:4200' \
+  -H 'X-FMCPA-Client: FMCPA-Web' \
+  -H 'Content-Type: application/json' \
+  -d '{"userName":"admin","password":"<password-local>"}'
+
+curl -i http://127.0.0.1:5080/api/auth/login \
+  -H 'Origin: http://127.0.0.1:4200' \
+  -H 'Content-Type: application/json' \
+  -d '{"userName":"admin","password":"<password-local>"}'
+# Debe responder 400 por faltar la senal del cliente web.
+
+curl -i http://127.0.0.1:5080/api/auth/login \
+  -H 'Origin: https://unexpected.example.test' \
+  -H 'X-FMCPA-Client: FMCPA-Web' \
+  -H 'Content-Type: application/json' \
+  -d '{"userName":"admin","password":"<password-local>"}'
+# Debe responder 403 por origen no permitido.
+```
+
 ## Tooling .NET local
 - Las migraciones locales ya no dependen de un `dotnet-ef` global arbitrario.
 - El repositorio versiona `.config/dotnet-tools.json` con `dotnet-ef` `10.0.6`.
@@ -233,6 +306,121 @@ dotnet tool run dotnet-ef -- --version
 - El script deja salida `OK` o `FAIL` por chequeo y devuelve codigo de salida util.
 - El script no requiere frontend levantado para ejecutarse.
 
+## Validacion documental manual
+- Los uploads documentales actuales aceptan solo PDF/JPEG/PNG hasta `10 MB`.
+- Se rechazan archivos vacios, extensiones no permitidas, content-types no permitidos y contenido cuya firma basica no coincide con la extension.
+- Las descargas documentales pasan por permisos de lectura de modulo:
+  - cédula de locatario: `MARKETS_READ`
+  - evidencia de Donatarias: `DONATIONS_READ`
+  - evidencia de Federacion: `FEDERATION_READ`
+- La respuesta de descarga debe incluir `X-Content-Type-Options: nosniff`, `Cache-Control: no-store` y `Content-Disposition: attachment`.
+- La superficie transversal permite consultar:
+  - `GET /api/documents?moduleCode=MARKETS&take=20`
+  - `GET /api/documents?documentAreaCode=DONATIONS_APPLICATION_EVIDENCES&integrityState=VALID`
+  - `GET /api/documents?documentClassCode=CERTIFICATE&take=20`
+  - `GET /api/documents?documentClassCode=SUPPORTING_DOCUMENT&take=20`
+  - `GET /api/documents?retentionPolicyCode=EVIDENCE_MEDIUM_TERM&take=20`
+  - `GET /api/documents?retentionStatusCode=REVIEW_DUE&take=20`
+  - `GET /api/documents?retentionStatusCode=EXPIRED_RETENTION&take=20`
+  - `GET /api/documents?documentOperationalStatusCode=ON_HOLD&includeArchived=true&take=20`
+  - `GET /api/documents?documentOperationalStatusCode=INTEGRITY_ISSUE&includeArchived=true&take=20`
+  - `GET /api/documents?statusCode=ACTIVE&take=20`
+  - `GET /api/documents?statusCode=ARCHIVED&take=20`
+  - `GET /api/documents?includeArchived=true&take=20`
+  - `GET /api/documents/{documentId}`
+  - `GET /api/documents/{documentId}/download`
+- El catalogo transversal incluye `originContext` con modulo, entidad origen, nombre/resumen y `routeHint` cuando puede resolverse de forma acotada.
+- La consulta por entidad permite validar documentos relacionados:
+  - `GET /api/documents/by-entity?moduleCode=MARKETS&entityType=MARKET_TENANT&entityId={tenantId}`
+  - `GET /api/documents/by-entity?moduleCode=DONATARIAS&entityType=DONATION_APPLICATION&entityId={applicationId}`
+  - `GET /api/documents/by-entity?moduleCode=FEDERATION&entityType=FEDERATION_DONATION_APPLICATION&entityId={applicationId}`
+- La completitud documental minima se valida con:
+  - `GET /api/documents/rules`
+  - `GET /api/documents/requirements/by-entity?moduleCode=MARKETS&entityType=MARKET_TENANT&entityId={tenantId}`
+  - `GET /api/documents/requirements/by-entity?moduleCode=DONATARIAS&entityType=DONATION_APPLICATION&entityId={applicationId}`
+  - `GET /api/documents/requirements/by-entity?moduleCode=FEDERATION&entityType=FEDERATION_DONATION_APPLICATION&entityId={applicationId}`
+  - `GET /api/documents/completeness/by-entity?moduleCode=MARKETS&entityType=MARKET_TENANT&entityId={tenantId}`
+  - `GET /api/documents/completeness/by-entity?moduleCode=DONATARIAS&entityType=DONATION_APPLICATION&entityId={applicationId}`
+  - `GET /api/documents/completeness/by-entity?moduleCode=FEDERATION&entityType=FEDERATION_DONATION_APPLICATION&entityId={applicationId}`
+  - `GET /api/documents/pending?take=20`
+- Las respuestas de requisitos, completitud y pendientes incluyen `ruleCode`, `requiredDocumentClassCodes`, `minimumRequiredCount`; requisitos agrega tambien `currentDocumentCount` y `remediationHint`.
+- La bandeja documental unificada se valida con:
+  - `GET /api/documents/work-queue?take=20`
+  - `GET /api/documents/work-queue?moduleCode=MARKETS&take=20`
+  - `GET /api/documents/work-queue?workItemType=DOCUMENT_INTEGRITY_ISSUE&take=20`
+  - `GET /api/documents/work-queue?severityCode=HIGH&take=20`
+- La bandeja consolida pendientes de completitud, issues de integridad y revision de retencion; no crea tareas persistidas, asignaciones ni acciones masivas.
+- El resumen ejecutivo documental se valida con:
+  - `GET /api/documents/summary`
+- El resumen devuelve KPIs principales, desglose por modulo, desglose por clase documental y categorias de work queue.
+- El resumen respeta permisos de lectura por modulo y excluye documentos de `ModuleCode` no mapeados en la autorizacion documental transversal.
+- La remediacion contextual directa se valida desde los paneles de entidad y reutiliza uploads endurecidos:
+  - `MarketTenant`: `POST /api/markets/tenants/{tenantId}/cedula` con multipart `certificateFile`.
+  - `DonationApplication`: `POST /api/donations/applications/{applicationId}/evidences` con `evidenceTypeId`, `description` opcional y `file`.
+  - `FederationDonationApplication`: `POST /api/federation/applications/{applicationId}/evidences` con `evidenceTypeId`, `description` opcional y `file`.
+- Solo usuarios con permisos de escritura del modulo pueden remediar; `READONLY` debe recibir `403` al intentar uploads.
+- Despues del upload contextual, `GET /api/documents/requirements/by-entity` y `GET /api/documents/completeness/by-entity` deben pasar a `COMPLETE` cuando el faltante era el unico requisito pendiente.
+- Si se carga una nueva cédula para el mismo `MarketTenant`, la cédula anterior queda `ARCHIVED` y superseded; el nuevo documento queda `ACTIVE` y ambos se enlazan por `replacedDocumentId`/`supersededByDocumentId`.
+- Para validar reemplazo: subir una cédula inicial, volver a llamar `POST /api/markets/tenants/{tenantId}/cedula`, consultar `GET /api/documents/by-entity?...&includeArchived=true` y confirmar un documento `ACTIVE` vigente y uno `ARCHIVED` reemplazado.
+- Los documentos reemplazados siguen descargables con permiso de lectura e integridad `VALID`; no cuentan para completitud documental minima.
+- La historia documental minima se valida con:
+  - `GET /api/documents/{documentId}/timeline`
+  - `GET /api/documents/timeline/by-entity?moduleCode=MARKETS&entityType=MARKET_TENANT&entityId={tenantId}`
+  - `GET /api/documents/timeline/by-entity?moduleCode=DONATARIAS&entityType=DONATION_APPLICATION&entityId={applicationId}`
+  - `GET /api/documents/timeline/by-entity?moduleCode=FEDERATION&entityType=FEDERATION_DONATION_APPLICATION&entityId={applicationId}`
+- En un reemplazo de cédula, el timeline del documento vigente debe mostrar `DOCUMENT_REPLACED` relacionado al documento previo, y el timeline del documento archivado debe mostrar `DOCUMENT_SUPERSEDED` relacionado al documento vigente.
+- Por defecto `GET /api/documents` devuelve solo documentos `ACTIVE`.
+- `ADMIN` puede archivar/restaurar logicamente documentos desde la API transversal:
+  - `POST /api/documents/{documentId}/archive` con body `{"reason":"Motivo breve"}`
+  - `POST /api/documents/{documentId}/restore`
+- `OPERATOR` y `READONLY` deben recibir `403` en archivado/restauracion.
+- `ADMIN` puede editar metadata minima desde la API transversal:
+  - `PATCH /api/documents/{documentId}/metadata`
+  - body permitido: `documentClassCode`, `businessPurpose`, `isPrimaryDocument`, `classificationNotes`
+- La edicion de metadata no cambia rutas fisicas, tamano, hash, content-type, integridad, modulo, entidad ni estado.
+- Solo puede existir un documento `ACTIVE` principal por `documentAreaCode + entityType + entityId`; al marcar uno nuevo, la API desmarca otros principales activos del mismo conjunto.
+- `OPERATOR` y `READONLY` deben recibir `403` en edicion de metadata.
+- La retencion documental minima se consulta como metadata operativa:
+  - politicas: `CERTIFICATE_REVIEW`, `SIGNED_LONG_TERM`, `EVIDENCE_MEDIUM_TERM`, `GENERIC_REVIEW`
+  - estados calculados: `ACTIVE_RETENTION`, `REVIEW_DUE`, `EXPIRED_RETENTION`
+  - `RetentionUntilUtc` se calcula desde `CreatedUtc` segun la politica derivada por clase documental.
+- La retencion baseline queda en `retentionBaselinePolicyCode` / `retentionBaselineUntilUtc`; la retencion efectiva queda en `retentionEffectivePolicyCode` / `retentionEffectiveUntilUtc`.
+- `ADMIN` puede operar override minimo de retencion:
+  - `PATCH /api/documents/{documentId}/retention-override`
+  - `DELETE /api/documents/{documentId}/retention-override`
+- El override exige motivo breve y puede ajustar politica, fecha objetivo o ambas. Review queue, work queue y summary usan la retencion efectiva.
+- `EXPIRED_RETENTION` no borra, no mueve ni bloquea descargas; solo indica que el documento debe revisarse operativamente.
+- La bandeja de revision de retencion es ADMIN-only:
+  - `GET /api/documents/review-queue?take=20`
+  - `GET /api/documents/review-queue?moduleCode=DONATIONS&retentionReviewStatusCode=REVIEW_DEFERRED&take=20`
+  - `PATCH /api/documents/{documentId}/retention-review`
+- Estados de revision: `REVIEW_PENDING`, `REVIEW_COMPLETED`, `REVIEW_DEFERRED`.
+- Marcar revisado o diferir revision no borra, no mueve, no archiva, no cambia la politica base y no bloquea descargas autorizadas.
+- `OPERATOR` y `READONLY` deben recibir `403` al consultar u operar la bandeja de revision.
+- Los documentos `ARCHIVED` siguen siendo descargables para usuarios con permiso de lectura del modulo mientras la integridad sea `VALID`.
+- La clasificacion documental minima disponible es:
+  - cédulas de Mercados: `CERTIFICATE`, `isPrimaryDocument=true`
+  - evidencias PDF de Donatarias/Federacion: `SUPPORTING_DOCUMENT`
+  - evidencias JPEG/PNG de Donatarias/Federacion: `PHOTO_EVIDENCE`
+  - documentos no mapeados: `OTHER`
+- El catalogo transversal no expone `StoredRelativePath` ni rutas fisicas internas; la descarga se resuelve por `documentId`.
+- Con la matriz vigente, `READONLY`, `OPERATOR` y `ADMIN` tienen permisos de lectura de estos documentos; para comprobar denegacion por permisos con roles oficiales se debe usar una escritura documental con `READONLY`, que debe responder `403`.
+
+Archivos temporales utiles para validar:
+```bash
+mkdir -p /tmp/fmcpa-doc-upload-validation
+printf '%b' '%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n' > /tmp/fmcpa-doc-upload-validation/valid.pdf
+: > /tmp/fmcpa-doc-upload-validation/empty.pdf
+printf '%s' 'not an allowed executable' > /tmp/fmcpa-doc-upload-validation/invalid.exe
+dd if=/dev/zero of=/tmp/fmcpa-doc-upload-validation/oversized.pdf bs=1M count=11
+```
+
+Ejemplo de descarga con headers:
+```bash
+curl -i http://127.0.0.1:5080/api/markets/tenants/<tenant-id>/cedula \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
 ## Endpoints utiles para verificacion manual
 ```bash
 curl -s http://127.0.0.1:5080/health
@@ -245,18 +433,103 @@ curl -s http://127.0.0.1:5080/api/dashboard/alerts -H "Authorization: Bearer ${T
 curl -s http://127.0.0.1:5080/api/commissions/consolidated -H "Authorization: Bearer ${TOKEN}"
 curl -s http://127.0.0.1:5080/api/bitacora -H "Authorization: Bearer ${TOKEN}"
 curl -s http://127.0.0.1:5080/api/history/closed-items -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents?take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents?moduleCode=MARKETS&integrityState=VALID&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents?documentClassCode=CERTIFICATE&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents?retentionPolicyCode=EVIDENCE_MEDIUM_TERM&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents?retentionStatusCode=EXPIRED_RETENTION&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents?documentOperationalStatusCode=ON_HOLD&includeArchived=true&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents?documentOperationalStatusCode=INTEGRITY_ISSUE&includeArchived=true&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/by-entity?moduleCode=MARKETS&entityType=MARKET_TENANT&entityId=${TENANT_ID}&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/by-entity?moduleCode=DONATARIAS&entityType=DONATION_APPLICATION&entityId=${DONATION_APPLICATION_ID}&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/by-entity?moduleCode=FEDERATION&entityType=FEDERATION_DONATION_APPLICATION&entityId=${FEDERATION_APPLICATION_ID}&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/rules" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/requirements/by-entity?moduleCode=MARKETS&entityType=MARKET_TENANT&entityId=${TENANT_ID}" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/completeness/by-entity?moduleCode=MARKETS&entityType=MARKET_TENANT&entityId=${TENANT_ID}" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/pending?take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/work-queue?take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/work-queue?workItemType=DOCUMENT_INTEGRITY_ISSUE&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/work-queue?severityCode=HIGH&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/summary" -H "Authorization: Bearer ${TOKEN}"
+
+# El summary incluye operationalStatuses y la work queue incluye estado operativo cuando el item apunta a un documento.
+curl -i -X POST "http://127.0.0.1:5080/api/markets/tenants/${TENANT_ID}/cedula" -H "Authorization: Bearer ${TOKEN}" -F "certificateFile=@/tmp/fmcpa-doc-upload-validation/valid.pdf;type=application/pdf"
+curl -i -X POST "http://127.0.0.1:5080/api/markets/tenants/${TENANT_ID}/cedula" -H "Authorization: Bearer ${TOKEN}" -F "certificateFile=@/tmp/fmcpa-doc-upload-validation/replacement.pdf;type=application/pdf"
+curl -s "http://127.0.0.1:5080/api/documents/by-entity?moduleCode=MARKETS&entityType=MARKET_TENANT&entityId=${TENANT_ID}&includeArchived=true&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/timeline" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/timeline/by-entity?moduleCode=MARKETS&entityType=MARKET_TENANT&entityId=${TENANT_ID}&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/review-queue?take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/review-queue?retentionReviewStatusCode=REVIEW_DEFERRED&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents?statusCode=ARCHIVED&take=20" -H "Authorization: Bearer ${TOKEN}"
 curl -s http://127.0.0.1:5080/api/documents/integrity?take=5 -H "Authorization: Bearer ${TOKEN}"
 curl -s http://127.0.0.1:5080/api/admin/users -H "Authorization: Bearer ${TOKEN}"
+curl -s http://127.0.0.1:5080/api/admin/security/summary -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/admin/security/events?take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s http://127.0.0.1:5080/api/admin/security/locked-users -H "Authorization: Bearer ${TOKEN}"
 
 # Crear usuario interno desde ADMIN
 curl -s http://127.0.0.1:5080/api/admin/users -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"userName":"operator2","displayName":"Operador interno","roleCode":"OPERATOR","password":"TempPassword123!"}'
 
-# Cambiar rol, activar/desactivar y resetear password
+# La misma mutacion simulando browser debe incluir origen permitido y header de cliente web
+curl -i http://127.0.0.1:5080/api/admin/users -H "Authorization: Bearer ${TOKEN}" -H 'Origin: http://127.0.0.1:4200' -H 'X-FMCPA-Client: FMCPA-Web' -H 'Content-Type: application/json' -d '{"userName":"browserprobe","displayName":"Browser Probe","roleCode":"READONLY","password":"BrowserProbe123"}'
+
+# Archivar/restaurar un documento desde ADMIN
+DOCUMENT_ID="<document-id-devuelto-por-api-documents>"
+curl -i -X PATCH "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/metadata" -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"documentClassCode":"CERTIFICATE","businessPurpose":"Validacion local de metadata","isPrimaryDocument":true,"classificationNotes":"Ajuste local"}'
+curl -i -X POST "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/archive" -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"reason":"Validacion local"}'
+curl -s "http://127.0.0.1:5080/api/documents?statusCode=ARCHIVED&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -i "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/download" -H "Authorization: Bearer ${TOKEN}"
+curl -i -X POST "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/restore" -H "Authorization: Bearer ${TOKEN}"
+
+# Revisar o diferir retencion desde ADMIN
+curl -i -X PATCH "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/retention-review" -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"retentionReviewStatusCode":"REVIEW_COMPLETED","nextRetentionReviewUtc":null,"retentionReviewNotes":"Revision local completada"}'
+curl -i -X PATCH "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/retention-review" -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"retentionReviewStatusCode":"REVIEW_DEFERRED","nextRetentionReviewUtc":"2030-05-05T00:00:00+00:00","retentionReviewNotes":"Revision diferida localmente"}'
+
+# Establecer o limpiar override administrativo de retencion desde ADMIN
+curl -i -X PATCH "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/retention-override" -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"retentionOverridePolicyCode":"GENERIC_REVIEW","retentionOverrideUntilUtc":"2026-05-01T00:00:00+00:00","retentionOverrideReason":"Validacion local de override"}'
+curl -s "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/review-queue?take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/work-queue?workItemType=RETENTION_REVIEW&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/summary" -H "Authorization: Bearer ${TOKEN}"
+curl -i -X DELETE "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/retention-override" -H "Authorization: Bearer ${TOKEN}"
+
+# Establecer o limpiar hold administrativo minimo desde ADMIN
+curl -i -X POST "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/hold" -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"reason":"Validacion local de hold administrativo"}'
+curl -s "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/review-queue?take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/work-queue?workItemType=RETENTION_REVIEW&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -s "http://127.0.0.1:5080/api/documents/summary" -H "Authorization: Bearer ${TOKEN}"
+HOLD_OPERATOR_TOKEN="<token-operator>"
+HOLD_READONLY_TOKEN="<token-readonly>"
+curl -i -X POST "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/hold" -H "Authorization: Bearer ${HOLD_OPERATOR_TOKEN}" -H 'Content-Type: application/json' -d '{"reason":"Intento operator"}'
+curl -i -X DELETE "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/hold" -H "Authorization: Bearer ${HOLD_READONLY_TOKEN}"
+curl -i -X DELETE "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/hold" -H "Authorization: Bearer ${TOKEN}"
+
+# Verificar invalidacion real de un token viejo por cambio de rol
 USER_ID="<id-devuelto-por-la-alta>"
+curl -s http://127.0.0.1:5080/api/auth/login -H 'Content-Type: application/json' -d '{"userName":"operator2","password":"TempPassword123!"}'
+OLD_USER_TOKEN="<token-del-usuario-antes-del-cambio>"
+curl -i http://127.0.0.1:5080/api/auth/session -H "Authorization: Bearer ${OLD_USER_TOKEN}"
 curl -s http://127.0.0.1:5080/api/admin/users/${USER_ID}/role -X PATCH -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"roleCode":"READONLY"}'
+curl -i http://127.0.0.1:5080/api/auth/session -H "Authorization: Bearer ${OLD_USER_TOKEN}"
+# El ultimo comando debe devolver 401; repetir el mismo patron con desactivacion o reset de password emitiendo un token nuevo antes de cada cambio sensible.
+
+# Activar/desactivar y resetear password
 curl -s http://127.0.0.1:5080/api/admin/users/${USER_ID}/activation -X PATCH -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"isActive":false}'
 curl -s http://127.0.0.1:5080/api/admin/users/${USER_ID}/activation -X PATCH -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"isActive":true}'
 curl -s http://127.0.0.1:5080/api/admin/users/${USER_ID}/reset-password -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"newPassword":"TempPassword456!"}'
+
+# Validar password policy y lockout minimo
+curl -i http://127.0.0.1:5080/api/admin/users -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"userName":"weakpass","displayName":"Weak Pass","roleCode":"READONLY","password":"password"}'
+curl -i http://127.0.0.1:5080/api/auth/login -H 'Content-Type: application/json' -d '{"userName":"operator2","password":"WrongPassword123!"}'
+# Repetir el fallo hasta recibir 423 Locked.
+curl -s http://127.0.0.1:5080/api/admin/users/${USER_ID}/unlock -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{}'
+
+# Cambio self-service de password del usuario autenticado
+SELF_TOKEN="<token-del-usuario-actual>"
+curl -i http://127.0.0.1:5080/api/auth/change-password -H "Authorization: Bearer ${SELF_TOKEN}" -H 'Content-Type: application/json' -d '{"currentPassword":"<password-actual>","newPassword":"NuevaClave123","confirmNewPassword":"NuevaClave123"}'
+curl -i http://127.0.0.1:5080/api/auth/session -H "Authorization: Bearer ${SELF_TOKEN}"
+# El segundo comando debe devolver 401; despues iniciar sesion con la nueva password.
 
 # OPERATOR puede escribir operaciones funcionales normales
 curl -s http://127.0.0.1:5080/api/auth/login -H 'Content-Type: application/json' -d '{"userName":"operator","password":"<password-operator-local>"}'
@@ -264,14 +537,18 @@ OPERATOR_TOKEN="<token-operator>"
 curl -i http://127.0.0.1:5080/api/contacts -H "Authorization: Bearer ${OPERATOR_TOKEN}" -H 'Content-Type: application/json' -d '{"name":"Probe","contactTypeId":1}'
 curl -i http://127.0.0.1:5080/api/commission-types -H "Authorization: Bearer ${OPERATOR_TOKEN}" -H 'Content-Type: application/json' -d '{"code":"PROBE","name":"Probe","sortOrder":900}'
 curl -i http://127.0.0.1:5080/api/admin/users -H "Authorization: Bearer ${OPERATOR_TOKEN}"
+curl -i http://127.0.0.1:5080/api/admin/security/summary -H "Authorization: Bearer ${OPERATOR_TOKEN}"
 
 # READONLY solo consulta
 curl -s http://127.0.0.1:5080/api/auth/login -H 'Content-Type: application/json' -d '{"userName":"readonly","password":"<password-readonly-local>"}'
 READONLY_TOKEN="<token-readonly>"
 curl -i http://127.0.0.1:5080/api/contacts -H "Authorization: Bearer ${READONLY_TOKEN}" -H 'Content-Type: application/json' -d '{"name":"Probe","contactTypeId":1}'
 curl -i http://127.0.0.1:5080/api/admin/users -H "Authorization: Bearer ${READONLY_TOKEN}"
+curl -i http://127.0.0.1:5080/api/admin/security/summary -H "Authorization: Bearer ${READONLY_TOKEN}"
 
 curl -s http://127.0.0.1:4200/
+curl -s http://127.0.0.1:4200/documents
+curl -s http://127.0.0.1:4200/documents/review
 curl -s http://127.0.0.1:4200/admin/users
 ./scripts/local/smoke-mvp.sh
 ```
@@ -279,11 +556,19 @@ curl -s http://127.0.0.1:4200/admin/users
 ## Troubleshooting minimo
 - Si `doctor.sh` marca `WARNING` por puertos ocupados, revisar si ya existe una instancia previa del proyecto o usar overrides en `.env.local`.
 - Si `docker compose` no puede levantar `fmcpa-sql`, revisar Docker y liberar el puerto `14333`.
+- Si `docker` no existe en la distro WSL, habilitar la integracion de Docker Desktop para esa distro o usar una instancia SQL Server local externa y aplicar migraciones con `dotnet ef database update`.
 - Si `run-backend.sh` falla por conexion, volver a correr `up-sqlserver.sh` y `apply-migrations.sh`.
+- Si `dotnet ef database update` falla con SQL Server no accesible en `localhost,1433`, confirmar puerto/cadena local antes de validar flujos documentales por HTTP real.
 - Si `run-frontend.sh` levanta pero no conecta, verificar que backend y frontend compartan el mismo `FMCPA_API_PORT`; el proxy se genera con ese valor.
 - Si `run-backend.sh` levanta pero el login falla con `401`, verificar que `FMCPA_AUTH_BOOTSTRAP_PASSWORD` exista en el entorno local y que el usuario bootstrap se haya aprovisionado en `Development`.
 - Si el login de `operator` o `readonly` falla con `401`, verificar que `FMCPA_AUTH_OPERATOR_PASSWORD` o `FMCPA_AUTH_READONLY_PASSWORD` existan en el entorno local y repetir `dev-up.sh` para que el backend sincronice esos usuarios.
+- Si un usuario recibe `423 Locked`, esperar el cooldown configurado o entrar como `ADMIN` y usar `/admin/users` para limpiar el lockout.
+- Si `/admin/security` no muestra eventos esperados, generar primero actividad de auth, por ejemplo un login fallido, lockout o reset administrativo.
+- Si el bootstrap local no crea o sincroniza un usuario, revisar que la password configurada cumpla la politica minima; el backend registra un warning y omite ese usuario si la password es debil.
+- Si un usuario cambia su propia password, la sesion local se limpia y el token anterior queda invalido por `SecurityStamp`; debe iniciar sesion con la nueva password.
 - Si un usuario gestionado cambia de rol, se desactiva o se le resetea el password, cualquier token previo deja de servir; volver a iniciar sesion con el rol/password vigentes.
+- Si una mutacion probada con `curl` devuelve `400 Solicitud web no permitida`, revisar si se envio `Origin`, `Referer` o `Sec-Fetch-*` sin `X-FMCPA-Client: FMCPA-Web`.
+- Si una mutacion probada desde browser devuelve `403 Origen web no permitido`, revisar `Cors:AllowedOrigins` y el origin real del frontend/proxy local.
 - Si se necesita limpiar solo la base local del proyecto, usar `reset-db.sh` en vez de tocar contenedores o volumenes manualmente.
 - Si ya existe un `App_Data/` previo, los scripts reutilizan esa ruta y crean subcarpetas faltantes sin limpiar contenido existente.
 - Si `smoke-mvp.sh` falla creando registros tecnicos, revisar que las migraciones y seeds esten aplicadas; la forma mas rapida de volver a una base limpia es `./scripts/local/reset-db.sh --force`.
@@ -307,3 +592,9 @@ curl -s http://127.0.0.1:4200/admin/users
 - [Security Track Auth Foundation Implementation Note](../05-post-mvp/security-track-auth-foundation-implementation-note.md)
 - [Security Track Role Authorization Implementation Note](../05-post-mvp/security-track-role-authorization-implementation-note.md)
 - [Security Track User Management Implementation Note](../05-post-mvp/security-track-user-management-implementation-note.md)
+- [Security Track Session Invalidation Implementation Note](../05-post-mvp/security-track-session-invalidation-implementation-note.md)
+- [Security Track Module Authorization Implementation Note](../05-post-mvp/security-track-module-authorization-implementation-note.md)
+- [Security Track Credential Hardening And Auth Audit Implementation Note](../05-post-mvp/security-track-credential-hardening-and-auth-audit-implementation-note.md)
+- [Security Track Self-Service Password Change Implementation Note](../05-post-mvp/security-track-self-service-password-change-implementation-note.md)
+- [Security Track Web Origin Protection Implementation Note](../05-post-mvp/security-track-web-origin-protection-implementation-note.md)
+- [Security Track Admin Security Observability Implementation Note](../05-post-mvp/security-track-admin-security-observability-implementation-note.md)

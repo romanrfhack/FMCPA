@@ -46,14 +46,15 @@ public static class CloseoutEndpoints
 
     public static IEndpointRouteBuilder MapCloseoutEndpoints(this IEndpointRouteBuilder app)
     {
-        var readApiGroup = app.MapGroup("/api")
-            .RequireReadAccess();
+        var dashboardGroup = app.MapGroup("/api/dashboard")
+            .WithTags("Dashboard")
+            .RequireDashboardReadAccess();
 
-        var adminApiGroup = app.MapGroup("/api")
-            .RequireAdminAccess();
+        var historyGroup = app.MapGroup("/api")
+            .RequireHistoryReadAccess();
 
-        var dashboardGroup = readApiGroup.MapGroup("/dashboard")
-            .WithTags("Dashboard");
+        var closeoutAdminGroup = app.MapGroup("/api")
+            .RequireFormalCloseAdminAccess();
 
         dashboardGroup.MapGet(
             "/summary",
@@ -71,7 +72,7 @@ public static class CloseoutEndpoints
                 return Results.Ok(alerts);
             });
 
-        readApiGroup.MapGet(
+        historyGroup.MapGet(
                 "/commissions/consolidated",
                 async (string? sourceModuleCode, int? commissionTypeId, string? recipientCategory, DateOnly? fromDate, DateOnly? toDate, string? q, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
                 {
@@ -89,7 +90,7 @@ public static class CloseoutEndpoints
                 })
             .WithTags("Commissions");
 
-        readApiGroup.MapGet(
+        historyGroup.MapGet(
                 "/bitacora",
                 async (string? moduleCode, string? entityType, string? entityId, DateOnly? fromDate, DateOnly? toDate, string? q, int? take, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
                 {
@@ -107,7 +108,7 @@ public static class CloseoutEndpoints
                 })
             .WithTags("Bitacora");
 
-        readApiGroup.MapGet(
+        historyGroup.MapGet(
                 "/history/closed-items",
                 async (string? moduleCode, string? q, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
                 {
@@ -116,7 +117,7 @@ public static class CloseoutEndpoints
                 })
             .WithTags("History");
 
-        adminApiGroup.MapPost(
+        closeoutAdminGroup.MapPost(
                 "/history/normalize-legacy-closures",
                 async (bool? dryRun, IHostEnvironment environment, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
                 {
@@ -133,7 +134,7 @@ public static class CloseoutEndpoints
                 })
             .WithTags("History");
 
-        readApiGroup.MapGet(
+        historyGroup.MapGet(
                 "/documents/integrity",
                 async (string? moduleCode, string? entityType, string? entityId, int? take, PlatformDbContext dbContext, IDocumentBinaryStore documentBinaryStore, CancellationToken cancellationToken) =>
                 {

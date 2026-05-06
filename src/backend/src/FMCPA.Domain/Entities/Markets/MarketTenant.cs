@@ -93,6 +93,25 @@ public sealed class MarketTenant
 
     public Contact? Contact { get; private set; }
 
+    public void UpdateCertificate(
+        string originalFileName,
+        string storedRelativePath,
+        string? contentType,
+        long sizeBytes,
+        DateTimeOffset uploadedUtc)
+    {
+        if (sizeBytes <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sizeBytes), "The certificate file size is required.");
+        }
+
+        CertificateOriginalFileName = NormalizeRequired(originalFileName, nameof(originalFileName));
+        CertificateStoredRelativePath = NormalizeRequired(storedRelativePath, nameof(storedRelativePath));
+        CertificateContentType = NormalizeOptional(contentType);
+        CertificateFileSizeBytes = sizeBytes;
+        CertificateUploadedUtc = uploadedUtc;
+    }
+
     private static string NormalizeRequired(string value, string paramName)
     {
         if (string.IsNullOrWhiteSpace(value))

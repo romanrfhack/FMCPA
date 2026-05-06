@@ -1,0 +1,140 @@
+name: Deploy FMCPA Frontend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/frontend/**'
+      - '.github/workflows/deploy-fmcpa-frontend.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: fmcpa-frontend-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-frontend:
+    name: Build and deploy frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: src/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: src/frontend
+        run: npm run build
+
+      - name: Validate frontend artifact
+        run: |
+          set -euo pipefail
+
+          test -f src/frontend/dist/frontend/browser/index.html
+
+          if grep -RInE \
+            --include='*.html' \
+            --include='*.js' \
+            --include='*.css' \
+            --include='*.json' \
+            'localhost:5080|http://localhost|127\.0\.0\.1:4200|localhost:4200' \
+            src/frontend/dist/frontend/browser
+          then
+            echo "ERROR: frontend artifact contains local URLs"
+            exit 1
+          fi
+
+      - name: Package frontend
+        run: |
+          set -euo pipefail
+
+          RELEASE_NAME="frontend-${GITHUB_SHA::7}-$(date -u +%Y%m%d%H%M%S)"
+          echo "RELEASE_NAME=$RELEASE_NAME" >> "$GITHUB_ENV"
+
+          mkdir -p "artifact/$RELEASE_NAME"
+          cp -a src/frontend/dist/frontend/browser/. "artifact/$RELEASE_NAME/"
+
+          tar -czf "${RELEASE_NAME}.tar.gz" -C artifact "$RELEASE_NAME"
+          sha256sum "${RELEASE_NAME}.tar.gz" > "${RELEASE_NAME}.tar.gz.sha256"
+
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "${{ secrets.FMCPA_VPS_SSH_KEY }}" > ~/.ssh/fmcpa_deploy
+          chmod 600 ~/.ssh/fmcpa_deploy
+
+          ssh-keyscan -p "${{ secrets.FMCPA_VPS_PORT }}" "${{ secrets.FMCPA_VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload frontend package
+        run: |
+          set -euo pipefail
+
+          scp -i ~/.ssh/fmcpa_deploy \
+            -P "${{ secrets.FMCPA_VPS_PORT }}" \
+            -o IdentitiesOnly=yes \
+            "${RELEASE_NAME}.tar.gz" "${RELEASE_NAME}.tar.gz.sha256" \
+            "${{ secrets.FMCPA_VPS_USER }}@${{ secrets.FMCPA_VPS_HOST }}:/tmp/"
+
+      - name: Activate frontend release
+        run: |
+          set -euo pipefail
+
+          ssh -i ~/.ssh/fmcpa_deploy \
+            -p "${{ secrets.FMCPA_VPS_PORT }}" \
+            -o IdentitiesOnly=yes \
+            "${{ secrets.FMCPA_VPS_USER }}@${{ secrets.FMCPA_VPS_HOST }}" \
+            "bash -s -- \"$RELEASE_NAME\"" <<'REMOTE'
+          set -euo pipefail
+
+          RELEASE_NAME="$1"
+          BASE_DIR="/var/www/fmcpa/frontend"
+          RELEASES_DIR="$BASE_DIR/releases"
+          RELEASE_DIR="$RELEASES_DIR/$RELEASE_NAME"
+          CURRENT_LINK="$BASE_DIR/current"
+          ARCHIVE="/tmp/${RELEASE_NAME}.tar.gz"
+          SHA_FILE="/tmp/${RELEASE_NAME}.tar.gz.sha256"
+
+          cd /tmp
+          HASH="$(awk '{print $1}' "$SHA_FILE")"
+          printf "%s  %s\n" "$HASH" "$(basename "$ARCHIVE")" > "$SHA_FILE"
+          sha256sum -c "$SHA_FILE"
+
+          if [ -e "$RELEASE_DIR" ]; then
+            echo "ERROR: release already exists: $RELEASE_DIR"
+            exit 1
+          fi
+
+          mkdir -p "$RELEASES_DIR"
+          tar -xzf "$ARCHIVE" -C "$RELEASES_DIR"
+
+          test -f "$RELEASE_DIR/index.html"
+
+          ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+
+          sudo -n /usr/sbin/nginx -t
+          sudo -n /usr/bin/systemctl reload nginx
+
+          curl -fsS https://fmcpa.com.mx/ >/dev/null
+          curl -fsS https://fmcpa.com.mx/health >/dev/null
+
+          rm -f "$ARCHIVE" "$SHA_FILE"
+
+          echo "Frontend deployed: $RELEASE_DIR"
+          REMOTE
+        env:
+          RELEASE_NAME: ${{ env.RELEASE_NAME }}

@@ -10,6 +10,14 @@ wait_for_sqlserver
 ensure_storage_directories
 ensure_local_state_dir
 
+if [[ -z "${Cors__AllowedOrigins__0:-}" ]]; then
+  export Cors__AllowedOrigins__0="http://localhost:${FMCPA_WEB_PORT}"
+fi
+
+if [[ -z "${Cors__AllowedOrigins__1:-}" ]]; then
+  export Cors__AllowedOrigins__1="http://127.0.0.1:${FMCPA_WEB_PORT}"
+fi
+
 cd "${ROOT_DIR}"
 
 print_local_convention

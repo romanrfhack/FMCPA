@@ -68,6 +68,11 @@ public sealed class CreateMarketTenantRequest
     public IFormFile? CertificateFile { get; init; }
 }
 
+public sealed class UploadMarketTenantCertificateRequest
+{
+    public IFormFile? CertificateFile { get; init; }
+}
+
 public sealed record MarketTenantResponse(
     Guid Id,
     Guid MarketId,
