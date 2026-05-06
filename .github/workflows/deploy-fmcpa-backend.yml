@@ -30,6 +30,42 @@ jobs:
       - name: Restore
         run: dotnet restore src/backend/FMCPA.Backend.sln
 
+      - name: Diagnose resx issue
+        run: |
+          set -euo pipefail
+
+          echo "### Commit"
+          git rev-parse HEAD
+
+          echo
+          echo "### dotnet info"
+          dotnet --info
+
+          echo
+          echo "### Infrastructure csproj"
+          sed -n '1,240p' src/backend/src/FMCPA.Infrastructure/FMCPA.Infrastructure.csproj
+
+          echo
+          echo "### Directory.Build files"
+          find . -maxdepth 4 \( -name 'Directory.Build.props' -o -name 'Directory.Build.targets' \) -print -exec sed -n '1,240p' {} \;
+
+          echo
+          echo "### Search resx references"
+          grep -RInE 'resx|EmbeddedResource|GenerateResource' \
+            src/backend \
+            Directory.Build.* \
+            2>/dev/null || true
+
+          echo
+          echo "### Find resx files"
+          find . -type f -name '*.resx' -print
+
+          echo
+          echo "### Find generated project asset files mentioning resx"
+          find src/backend -path '*/obj/*' -type f \
+            \( -name '*.props' -o -name '*.targets' -o -name '*.nuget.g.*' -o -name '*.FileListAbsolute.txt' \) \
+            -print0 | xargs -0 grep -nE 'resx|EmbeddedResource|GenerateResource' 2>/dev/null || true
+
       - name: Build
         run: dotnet build src/backend/FMCPA.Backend.sln -c Release --no-restore
 
