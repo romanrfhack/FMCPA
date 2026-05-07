@@ -30,52 +30,57 @@ jobs:
       - name: Restore
         run: dotnet restore src/backend/FMCPA.Backend.sln
 
-      - name: Generate CI compile items for Infrastructure
+      - name: Generate CI compile items for backend projects
         run: |
           set -euo pipefail
 
-          PROJECT_DIR="src/backend/src/FMCPA.Infrastructure"
-          PROPS_FILE="$PROJECT_DIR/Directory.Build.props"
+          generate_props() {
+            local PROJECT_DIR="$1"
+            local PROPS_FILE="$PROJECT_DIR/Directory.Build.props"
 
-          test -d "$PROJECT_DIR"
+            test -d "$PROJECT_DIR"
 
-          mapfile -t CS_FILES < <(
-            find "$PROJECT_DIR" \
-              -type f \
-              -name '*.cs' \
-              ! -path '*/bin/*' \
-              ! -path '*/obj/*' \
-              -printf '%P\n' \
-              | sort
-          )
+            mapfile -t CS_FILES < <(
+              find "$PROJECT_DIR" \
+                -type f \
+                -name '*.cs' \
+                ! -path '*/bin/*' \
+                ! -path '*/obj/*' \
+                -printf '%P\n' \
+                | sort
+            )
 
-          if [ "${#CS_FILES[@]}" -eq 0 ]; then
-            echo "ERROR: no .cs files found in $PROJECT_DIR"
-            exit 1
-          fi
+            if [ "${#CS_FILES[@]}" -eq 0 ]; then
+              echo "ERROR: no .cs files found in $PROJECT_DIR"
+              exit 1
+            fi
 
-          {
-            echo '<Project>'
-            echo '  <PropertyGroup>'
-            echo '    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>'
-            echo '    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>'
-            echo '  </PropertyGroup>'
-            echo '  <ItemGroup>'
+            {
+              echo '<Project>'
+              echo '  <PropertyGroup>'
+              echo '    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>'
+              echo '    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>'
+              echo '  </PropertyGroup>'
+              echo '  <ItemGroup>'
 
-            for item in "${CS_FILES[@]}"; do
-              escaped="${item//&/&amp;}"
-              escaped="${escaped//\"/&quot;}"
-              escaped="${escaped//</&lt;}"
-              escaped="${escaped//>/&gt;}"
-              echo "    <Compile Include=\"$escaped\" />"
-            done
+              for item in "${CS_FILES[@]}"; do
+                escaped="${item//&/&amp;}"
+                escaped="${escaped//\"/&quot;}"
+                escaped="${escaped//</&lt;}"
+                escaped="${escaped//>/&gt;}"
+                echo "    <Compile Include=\"$escaped\" />"
+              done
 
-            echo '  </ItemGroup>'
-            echo '</Project>'
-          } > "$PROPS_FILE"
+              echo '  </ItemGroup>'
+              echo '</Project>'
+            } > "$PROPS_FILE"
 
-          echo "Generated $PROPS_FILE with ${#CS_FILES[@]} Compile items"
-          sed -n '1,260p' "$PROPS_FILE"
+            echo "Generated $PROPS_FILE with ${#CS_FILES[@]} Compile items"
+            sed -n '1,260p' "$PROPS_FILE"
+          }
+
+          generate_props "src/backend/src/FMCPA.Infrastructure"
+          generate_props "src/backend/src/FMCPA.Api"
 
       - name: Build
         run: dotnet build src/backend/FMCPA.Backend.sln -c Release --no-restore
