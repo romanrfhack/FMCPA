@@ -94,6 +94,53 @@ jobs:
           grep -nE '\*\*/\*\.cs|Compile Include|EnableDefaultCompileItems|DefaultItemExcludes|DefaultLanguageSourceExtension' \
             /tmp/fmcpa.infrastructure.pp.xml | sed -n '1,260p' || true
 
+      - name: Generate CI compile items for Infrastructure
+        run: |
+          set -euo pipefail
+
+          PROJECT_DIR="src/backend/src/FMCPA.Infrastructure"
+          TARGETS_FILE="$PROJECT_DIR/Directory.Build.targets"
+
+          python3 <<'PYGEN'
+from pathlib import Path
+import xml.sax.saxutils as sx
+
+project_dir = Path("src/backend/src/FMCPA.Infrastructure")
+targets = project_dir / "Directory.Build.targets"
+
+files = []
+for p in sorted(project_dir.rglob("*.cs")):
+    if "bin" in p.parts or "obj" in p.parts:
+        continue
+    files.append(p.relative_to(project_dir).as_posix())
+
+if not files:
+    raise SystemExit("No .cs files found for FMCPA.Infrastructure")
+
+lines = [
+    '<Project>',
+    '  <PropertyGroup>',
+    '    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>',
+    '  </PropertyGroup>',
+    '  <ItemGroup>',
+]
+
+for item in files:
+    lines.append(f'    <Compile Include="{sx.escape(item)}" />')
+
+lines += [
+    '  </ItemGroup>',
+    '</Project>',
+    '',
+]
+
+targets.write_text("\n".join(lines), encoding="utf-8")
+
+print(f"Generated {targets} with {len(files)} Compile items")
+PYGEN
+
+          sed -n '1,240p' "$TARGETS_FILE"
+
       - name: Build
         run: dotnet build src/backend/FMCPA.Backend.sln -c Release --no-restore
 
