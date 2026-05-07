@@ -30,116 +30,52 @@ jobs:
       - name: Restore
         run: dotnet restore src/backend/FMCPA.Backend.sln
 
-      - name: Diagnose resx issue
-        run: |
-          set -euo pipefail
-
-          echo "### Commit"
-          git rev-parse HEAD
-
-          echo
-          echo "### dotnet info"
-          dotnet --info
-
-          echo
-          echo "### Infrastructure csproj"
-          sed -n '1,240p' src/backend/src/FMCPA.Infrastructure/FMCPA.Infrastructure.csproj
-
-          echo
-          echo "### Directory.Build files"
-          find . -maxdepth 4 \( -name 'Directory.Build.props' -o -name 'Directory.Build.targets' \) -print -exec sed -n '1,240p' {} \;
-
-          echo
-          echo "### Search resx references"
-          grep -RInE 'resx|EmbeddedResource|GenerateResource' \
-            src/backend \
-            Directory.Build.* \
-            2>/dev/null || true
-
-          echo
-          echo "### Find resx files"
-          find . -type f -name '*.resx' -print
-
-          echo
-          echo "### Find generated project asset files mentioning resx"
-          find src/backend -path '*/obj/*' -type f \
-            \( -name '*.props' -o -name '*.targets' -o -name '*.nuget.g.*' -o -name '*.FileListAbsolute.txt' \) \
-            -print0 | xargs -0 grep -nE 'resx|EmbeddedResource|GenerateResource' 2>/dev/null || true
-
-          echo
-          echo "### Infrastructure cs files in runner"
-          find src/backend/src/FMCPA.Infrastructure -type f -name '*.cs' | sort | sed -n '1,240p'
-          echo "TOTAL:"
-          find src/backend/src/FMCPA.Infrastructure -type f -name '*.cs' | wc -l
-
-          echo
-          echo "### Git tracked infrastructure cs files in runner"
-          git ls-files 'src/backend/src/FMCPA.Infrastructure/**/*.cs' | sort | sed -n '1,240p'
-          echo "TOTAL TRACKED:"
-          git ls-files 'src/backend/src/FMCPA.Infrastructure/**/*.cs' | wc -l
-
-          echo
-          echo "### Search cs wildcard references"
-          grep -RInE '\*\*/\*\.cs|Compile Include|Compile Update|EnableDefaultCompileItems|EnableDefaultItems|DefaultItemExcludes' \
-            src/backend \
-            Directory.Build.* \
-            2>/dev/null || true
-
-          echo
-          echo "### MSBuild preprocessed infrastructure project snippets"
-          dotnet msbuild src/backend/src/FMCPA.Infrastructure/FMCPA.Infrastructure.csproj \
-            -pp:/tmp/fmcpa.infrastructure.pp.xml \
-            -p:Configuration=Release
-
-          grep -nE '\*\*/\*\.cs|Compile Include|EnableDefaultCompileItems|DefaultItemExcludes|DefaultLanguageSourceExtension' \
-            /tmp/fmcpa.infrastructure.pp.xml | sed -n '1,260p' || true
-
       - name: Generate CI compile items for Infrastructure
         run: |
           set -euo pipefail
 
           PROJECT_DIR="src/backend/src/FMCPA.Infrastructure"
-          TARGETS_FILE="$PROJECT_DIR/Directory.Build.targets"
+          PROPS_FILE="$PROJECT_DIR/Directory.Build.props"
 
-          python3 <<'PYGEN'
-from pathlib import Path
-import xml.sax.saxutils as sx
+          test -d "$PROJECT_DIR"
 
-project_dir = Path("src/backend/src/FMCPA.Infrastructure")
-targets = project_dir / "Directory.Build.targets"
+          mapfile -t CS_FILES < <(
+            find "$PROJECT_DIR" \
+              -type f \
+              -name '*.cs' \
+              ! -path '*/bin/*' \
+              ! -path '*/obj/*' \
+              -printf '%P\n' \
+              | sort
+          )
 
-files = []
-for p in sorted(project_dir.rglob("*.cs")):
-    if "bin" in p.parts or "obj" in p.parts:
-        continue
-    files.append(p.relative_to(project_dir).as_posix())
+          if [ "${#CS_FILES[@]}" -eq 0 ]; then
+            echo "ERROR: no .cs files found in $PROJECT_DIR"
+            exit 1
+          fi
 
-if not files:
-    raise SystemExit("No .cs files found for FMCPA.Infrastructure")
+          {
+            echo '<Project>'
+            echo '  <PropertyGroup>'
+            echo '    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>'
+            echo '    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>'
+            echo '  </PropertyGroup>'
+            echo '  <ItemGroup>'
 
-lines = [
-    '<Project>',
-    '  <PropertyGroup>',
-    '    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>',
-    '  </PropertyGroup>',
-    '  <ItemGroup>',
-]
+            for item in "${CS_FILES[@]}"; do
+              escaped="${item//&/&amp;}"
+              escaped="${escaped//\"/&quot;}"
+              escaped="${escaped//</&lt;}"
+              escaped="${escaped//>/&gt;}"
+              echo "    <Compile Include=\"$escaped\" />"
+            done
 
-for item in files:
-    lines.append(f'    <Compile Include="{sx.escape(item)}" />')
+            echo '  </ItemGroup>'
+            echo '</Project>'
+          } > "$PROPS_FILE"
 
-lines += [
-    '  </ItemGroup>',
-    '</Project>',
-    '',
-]
-
-targets.write_text("\n".join(lines), encoding="utf-8")
-
-print(f"Generated {targets} with {len(files)} Compile items")
-PYGEN
-
-          sed -n '1,240p' "$TARGETS_FILE"
+          echo "Generated $PROPS_FILE with ${#CS_FILES[@]} Compile items"
+          sed -n '1,260p' "$PROPS_FILE"
 
       - name: Build
         run: dotnet build src/backend/FMCPA.Backend.sln -c Release --no-restore
