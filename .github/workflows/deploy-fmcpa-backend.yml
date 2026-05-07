@@ -60,6 +60,13 @@ jobs:
               echo '  <PropertyGroup>'
               echo '    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>'
               echo '    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>'
+
+              if [ "$PROJECT_DIR" = "src/backend/src/FMCPA.Api" ]; then
+                echo '    <EnableDefaultRazorGenerateItems>false</EnableDefaultRazorGenerateItems>'
+                echo '    <EnableDefaultRazorComponentItems>false</EnableDefaultRazorComponentItems>'
+                echo '    <RazorCompileOnBuild>false</RazorCompileOnBuild>'
+                echo '    <RazorCompileOnPublish>false</RazorCompileOnPublish>'
+              fi
               echo '  </PropertyGroup>'
               echo '  <ItemGroup>'
 
