@@ -64,6 +64,8 @@ jobs:
               if [ "$PROJECT_DIR" = "src/backend/src/FMCPA.Api" ]; then
                 echo '    <EnableDefaultRazorGenerateItems>false</EnableDefaultRazorGenerateItems>'
                 echo '    <EnableDefaultRazorComponentItems>false</EnableDefaultRazorComponentItems>'
+                echo '    <EnableDefaultContentItems>false</EnableDefaultContentItems>'
+                echo '    <EnableDefaultNoneItems>false</EnableDefaultNoneItems>'
                 echo '    <RazorCompileOnBuild>false</RazorCompileOnBuild>'
                 echo '    <RazorCompileOnPublish>false</RazorCompileOnPublish>'
               fi
