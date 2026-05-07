@@ -66,6 +66,34 @@ jobs:
             \( -name '*.props' -o -name '*.targets' -o -name '*.nuget.g.*' -o -name '*.FileListAbsolute.txt' \) \
             -print0 | xargs -0 grep -nE 'resx|EmbeddedResource|GenerateResource' 2>/dev/null || true
 
+          echo
+          echo "### Infrastructure cs files in runner"
+          find src/backend/src/FMCPA.Infrastructure -type f -name '*.cs' | sort | sed -n '1,240p'
+          echo "TOTAL:"
+          find src/backend/src/FMCPA.Infrastructure -type f -name '*.cs' | wc -l
+
+          echo
+          echo "### Git tracked infrastructure cs files in runner"
+          git ls-files 'src/backend/src/FMCPA.Infrastructure/**/*.cs' | sort | sed -n '1,240p'
+          echo "TOTAL TRACKED:"
+          git ls-files 'src/backend/src/FMCPA.Infrastructure/**/*.cs' | wc -l
+
+          echo
+          echo "### Search cs wildcard references"
+          grep -RInE '\*\*/\*\.cs|Compile Include|Compile Update|EnableDefaultCompileItems|EnableDefaultItems|DefaultItemExcludes' \
+            src/backend \
+            Directory.Build.* \
+            2>/dev/null || true
+
+          echo
+          echo "### MSBuild preprocessed infrastructure project snippets"
+          dotnet msbuild src/backend/src/FMCPA.Infrastructure/FMCPA.Infrastructure.csproj \
+            -pp:/tmp/fmcpa.infrastructure.pp.xml \
+            -p:Configuration=Release
+
+          grep -nE '\*\*/\*\.cs|Compile Include|EnableDefaultCompileItems|DefaultItemExcludes|DefaultLanguageSourceExtension' \
+            /tmp/fmcpa.infrastructure.pp.xml | sed -n '1,260p' || true
+
       - name: Build
         run: dotnet build src/backend/FMCPA.Backend.sln -c Release --no-restore
 
