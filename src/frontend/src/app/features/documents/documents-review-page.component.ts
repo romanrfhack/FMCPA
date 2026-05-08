@@ -5,7 +5,8 @@ import { firstValueFrom } from 'rxjs';
 
 import {
   DocumentCatalogDetail,
-  DocumentCatalogItem
+  DocumentCatalogItem,
+  DocumentRetentionReviewQueueFilters
 } from '../../core/models/document-catalog.models';
 import { DocumentCatalogService } from '../../core/services/document-catalog.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
@@ -58,6 +59,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         <div class="filter-actions">
           <button type="submit" [disabled]="isLoading()">Buscar</button>
           <button type="button" class="ghost" (click)="resetFilters()">Limpiar</button>
+          <button type="button" class="ghost" [disabled]="isExporting()" (click)="exportReviewQueue()">Exportar CSV</button>
         </div>
       </form>
 
@@ -426,6 +428,7 @@ export class DocumentsReviewPageComponent {
   protected readonly pageError = signal<string | null>(null);
   protected readonly pageSuccess = signal<string | null>(null);
   protected readonly isLoading = signal(false);
+  protected readonly isExporting = signal(false);
   protected readonly isMutating = signal(false);
   protected readonly totalCount = signal<number | null>(null);
   protected readonly resultCount = signal<number | null>(null);
@@ -440,12 +443,7 @@ export class DocumentsReviewPageComponent {
     this.pageSuccess.set(null);
 
     try {
-      const filters = this.filtersForm.getRawValue();
-      const response = await firstValueFrom(this.documentCatalogService.listRetentionReviewQueue({
-        moduleCode: filters.moduleCode,
-        retentionReviewStatusCode: filters.retentionReviewStatusCode,
-        take: filters.take
-      }));
+      const response = await firstValueFrom(this.documentCatalogService.listRetentionReviewQueue(this.buildReviewQueueFilters()));
       this.documents.set(response.items);
       this.totalCount.set(response.totalCount);
       this.resultCount.set(response.returnedCount);
@@ -465,6 +463,20 @@ export class DocumentsReviewPageComponent {
       take: 50
     });
     void this.reload();
+  }
+
+  protected async exportReviewQueue(): Promise<void> {
+    this.isExporting.set(true);
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+
+    try {
+      await this.documentCatalogService.exportRetentionReviewQueue(this.buildReviewQueueFilters());
+    } catch (error) {
+      this.pageError.set(getApiErrorMessage(error, 'No se pudo exportar la bandeja de revision.'));
+    } finally {
+      this.isExporting.set(false);
+    }
   }
 
   protected async selectDocument(document: DocumentCatalogItem): Promise<void> {
@@ -574,5 +586,14 @@ export class DocumentsReviewPageComponent {
 
     const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
     return offsetDate.toISOString().slice(0, 16);
+  }
+
+  private buildReviewQueueFilters(): DocumentRetentionReviewQueueFilters {
+    const filters = this.filtersForm.getRawValue();
+    return {
+      moduleCode: filters.moduleCode,
+      retentionReviewStatusCode: filters.retentionReviewStatusCode,
+      take: filters.take
+    };
   }
 }

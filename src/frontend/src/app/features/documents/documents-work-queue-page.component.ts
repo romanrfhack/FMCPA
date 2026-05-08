@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
-import { DocumentWorkQueueItem } from '../../core/models/document-catalog.models';
+import { DocumentWorkQueueFilters, DocumentWorkQueueItem } from '../../core/models/document-catalog.models';
 import { DocumentCatalogService } from '../../core/services/document-catalog.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
@@ -60,6 +60,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         <div class="filter-actions">
           <button type="submit" [disabled]="isLoading()">Filtrar</button>
           <button type="button" class="ghost" (click)="resetFilters()">Limpiar</button>
+          <button type="button" class="ghost" [disabled]="isExporting()" (click)="exportWorkQueue()">Exportar CSV</button>
         </div>
       </form>
 
@@ -307,6 +308,7 @@ export class DocumentsWorkQueuePageComponent {
   });
   protected readonly items = signal<DocumentWorkQueueItem[]>([]);
   protected readonly isLoading = signal(false);
+  protected readonly isExporting = signal(false);
   protected readonly pageError = signal<string | null>(null);
   protected readonly totalCount = signal<number | null>(null);
   protected readonly resultCount = signal<number | null>(null);
@@ -320,13 +322,7 @@ export class DocumentsWorkQueuePageComponent {
     this.pageError.set(null);
 
     try {
-      const filters = this.filtersForm.getRawValue();
-      const response = await firstValueFrom(this.documentCatalogService.listWorkQueue({
-        moduleCode: filters.moduleCode,
-        workItemType: filters.workItemType,
-        severityCode: filters.severityCode,
-        take: filters.take
-      }));
+      const response = await firstValueFrom(this.documentCatalogService.listWorkQueue(this.buildWorkQueueFilters()));
 
       this.items.set(response.items);
       this.totalCount.set(response.totalCount);
@@ -351,6 +347,19 @@ export class DocumentsWorkQueuePageComponent {
     void this.reload();
   }
 
+  protected async exportWorkQueue(): Promise<void> {
+    this.isExporting.set(true);
+    this.pageError.set(null);
+
+    try {
+      await this.documentCatalogService.exportWorkQueue(this.buildWorkQueueFilters());
+    } catch (error) {
+      this.pageError.set(getApiErrorMessage(error, 'No se pudo exportar la bandeja documental.'));
+    } finally {
+      this.isExporting.set(false);
+    }
+  }
+
   protected labelForType(workItemType: string): string {
     switch (workItemType) {
       case 'COMPLETENESS_PENDING':
@@ -370,5 +379,15 @@ export class DocumentsWorkQueuePageComponent {
     }
 
     return item.routeHint || '/documents';
+  }
+
+  private buildWorkQueueFilters(): DocumentWorkQueueFilters {
+    const filters = this.filtersForm.getRawValue();
+    return {
+      moduleCode: filters.moduleCode,
+      workItemType: filters.workItemType,
+      severityCode: filters.severityCode,
+      take: filters.take
+    };
   }
 }

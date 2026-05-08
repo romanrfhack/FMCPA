@@ -88,6 +88,13 @@
     },
     {
       "method": "GET",
+      "routePattern": "/api/documents/export",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Exportacion ligera del catalogo documental autenticada con los mismos filtros y permisos de lectura por modulo."
+    },
+    {
+      "method": "GET",
       "routePattern": "/api/documents/summary",
       "authorization": "authenticated",
       "requiredPolicies": [],
@@ -144,10 +151,24 @@
     },
     {
       "method": "GET",
+      "routePattern": "/api/documents/work-queue/export",
+      "authorization": "authenticated",
+      "requiredPolicies": [],
+      "reason": "Exportacion ligera de la bandeja documental autenticada con filtrado por permisos de lectura de modulo."
+    },
+    {
+      "method": "GET",
       "routePattern": "/api/documents/review-queue",
       "authorization": "policy",
       "requiredPolicies": ["Platform.Users.Admin"],
       "reason": "Bandeja operativa de revision de retencion documental restringida a ADMIN."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/documents/review-queue/export",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Users.Admin"],
+      "reason": "Exportacion ligera de la bandeja de revision de retencion documental restringida a ADMIN."
     },
     {
       "method": "GET",

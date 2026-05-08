@@ -22,11 +22,16 @@ public static class FinancialsEndpoints
     private const string InProcessStatusCode = "IN_PROCESS";
     private const string RenewStatusCode = "RENEW";
     private const string ClosedStatusCode = "CLOSED";
+    private const string AdministrationCommissionTypeCode = "ADMINISTRATION";
+    private const string PromoterCommissionTypeCode = "PROMOTER";
+    private const string NotCurrentPermitOperationReasonCode = "FINANCIAL_PERMIT_NOT_CURRENT";
+    private const string TerminalPermitOperationReasonCode = "FINANCIAL_PERMIT_TERMINAL";
     private const string DueSoonAlertState = "DUE_SOON";
     private const string ExpiredAlertState = "EXPIRED";
     private const string RenewalAlertState = "RENEWAL";
     private const string ValidAlertState = "VALID";
     private const string AlertsDisabledState = "ALERTS_DISABLED";
+    private const string HistoricalAlertState = "HISTORICAL";
     private static readonly HashSet<string> AllowedRecipientCategories =
     [
         "COMPANY",
@@ -63,7 +68,8 @@ public static class FinancialsEndpoints
                 var permits = await dbContext.FinancialPermits
                     .AsNoTracking()
                     .Include(item => item.StatusCatalogEntry)
-                    .OrderBy(item => item.ValidTo)
+                    .OrderByDescending(item => item.IsCurrentVersion)
+                    .ThenBy(item => item.ValidTo)
                     .ThenBy(item => item.FinancialName)
                     .ToListAsync(cancellationToken);
 
@@ -98,7 +104,7 @@ public static class FinancialsEndpoints
                     {
                         var permitCredits = credits.Where(item => item.FinancialPermitId == permit.Id).ToList();
                         var daysUntilExpiration = GetDaysUntilExpiration(permit.ValidTo);
-                        var alertState = GetPermitAlertState(permit.StatusCatalogEntry!, daysUntilExpiration);
+                        var alertState = GetPermitAlertState(permit, daysUntilExpiration);
 
                         return new FinancialPermitSummaryResponse(
                             permit.Id,
@@ -116,6 +122,10 @@ public static class FinancialsEndpoints
                             permit.StatusCatalogEntry.AlertsEnabledByDefault,
                             daysUntilExpiration,
                             alertState,
+                            permit.RenewedFromPermitId,
+                            permit.CurrentRootPermitId,
+                            permit.IsCurrentVersion,
+                            permit.RenewalSequence,
                             permitCredits.Count,
                             permitCredits.Sum(item => commissionCounts.GetValueOrDefault(item.Id)),
                             permit.Notes,
@@ -150,6 +160,24 @@ public static class FinancialsEndpoints
 
                 var detail = await BuildPermitDetailAsync(dbContext, permit, cancellationToken);
                 return Results.Ok(detail);
+            });
+
+        readGroup.MapGet(
+            "/{permitId:guid}/renewal-chain",
+            async (Guid permitId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
+            {
+                var permit = await dbContext.FinancialPermits
+                    .AsNoTracking()
+                    .Include(item => item.StatusCatalogEntry)
+                    .SingleOrDefaultAsync(item => item.Id == permitId, cancellationToken);
+
+                if (permit is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var chain = await BuildPermitRenewalChainAsync(dbContext, permit, cancellationToken);
+                return Results.Ok(chain);
             });
 
         adminGroup.MapPost(
@@ -299,7 +327,11 @@ public static class FinancialsEndpoints
                     permitStatus.IsClosed,
                     permitStatus.AlertsEnabledByDefault,
                     daysUntilExpiration,
-                    GetPermitAlertState(permitStatus, daysUntilExpiration),
+                    GetPermitAlertState(permit, daysUntilExpiration, permitStatus),
+                    permit.RenewedFromPermitId,
+                    permit.CurrentRootPermitId,
+                    permit.IsCurrentVersion,
+                    permit.RenewalSequence,
                     0,
                     0,
                     permit.Notes,
@@ -307,6 +339,98 @@ public static class FinancialsEndpoints
                     permit.UpdatedUtc);
 
                 return Results.Created($"/api/financials/{permit.Id}", response);
+            });
+
+        writeGroup.MapPost(
+            "/{permitId:guid}/renew",
+            async (Guid permitId, RenewFinancialPermitRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
+            {
+                var previousPermit = await dbContext.FinancialPermits
+                    .Include(item => item.StatusCatalogEntry)
+                    .SingleOrDefaultAsync(item => item.Id == permitId, cancellationToken);
+
+                if (previousPermit is null)
+                {
+                    return Results.NotFound();
+                }
+
+                if (!previousPermit.IsCurrentVersion)
+                {
+                    return Results.Conflict(
+                        new
+                        {
+                            message = "No es posible renovar un oficio historico. Selecciona el oficio vigente de la cadena."
+                        });
+                }
+
+                if (StateTransitionSupport.IsTerminal(previousPermit.StatusCatalogEntry))
+                {
+                    return Results.Conflict(
+                        new
+                        {
+                            message = StateTransitionSupport.BuildTerminalMutationMessage(
+                                $"el oficio de {previousPermit.FinancialName}",
+                                "renovar el oficio",
+                                previousPermit.StatusCatalogEntry!)
+                        });
+                }
+
+                var errors = ValidateRenewFinancialPermitRequest(request);
+                if (errors.Count > 0)
+                {
+                    return Results.ValidationProblem(errors);
+                }
+
+                var placeOrStand = NormalizeOptionalText(request.PlaceOrStand) ?? previousPermit.PlaceOrStand;
+                var schedule = NormalizeOptionalText(request.Schedule) ?? previousPermit.Schedule;
+                var negotiatedTerms = NormalizeOptionalText(request.NegotiatedTerms) ?? previousPermit.NegotiatedTerms;
+                var notes = NormalizeOptionalText(request.Notes);
+
+                var renewedPermit = new FinancialPermit(
+                    previousPermit.FinancialName,
+                    previousPermit.InstitutionOrDependency,
+                    placeOrStand,
+                    request.ValidFrom,
+                    request.ValidTo,
+                    schedule,
+                    negotiatedTerms,
+                    previousPermit.StatusCatalogEntryId,
+                    notes);
+                renewedPermit.LinkAsRenewalOf(previousPermit);
+                previousPermit.MarkRenewed();
+
+                dbContext.FinancialPermits.Add(renewedPermit);
+                dbContext.AuditEvents.Add(
+                    AuditEventSupport.CreateAuditEvent(
+                        FinancialsModuleCode,
+                        FinancialsModuleName,
+                        FinancialPermitEntityType,
+                        renewedPermit.Id,
+                        "FINANCIAL_PERMIT_RENEWED",
+                        renewedPermit.FinancialName,
+                        $"Oficio renovado desde el permiso {previousPermit.Id} con nueva vigencia de {renewedPermit.ValidFrom} a {renewedPermit.ValidTo}.",
+                        previousPermit.StatusCatalogEntry!.StatusCode,
+                        renewedPermit.PlaceOrStand,
+                        "/financials",
+                        metadata: new
+                        {
+                            renewedFromPermitId = previousPermit.Id,
+                            renewedPermitId = renewedPermit.Id,
+                            renewedPermit.CurrentRootPermitId,
+                            renewedPermit.RenewalSequence,
+                            renewedPermit.ValidFrom,
+                            renewedPermit.ValidTo
+                        }));
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                var responsePermit = await dbContext.FinancialPermits
+                    .AsNoTracking()
+                    .Include(item => item.StatusCatalogEntry)
+                    .SingleAsync(item => item.Id == renewedPermit.Id, cancellationToken);
+                var response = await BuildPermitDetailAsync(dbContext, responsePermit, cancellationToken);
+
+                return Results.Created($"/api/financials/{renewedPermit.Id}", response);
             });
 
         readGroup.MapGet(
@@ -350,16 +474,22 @@ public static class FinancialsEndpoints
                     return Results.NotFound();
                 }
 
+                if (!permit.IsCurrentVersion)
+                {
+                    return Results.Conflict(
+                        await BuildNotCurrentPermitOperationBlockedResponseAsync(
+                            dbContext,
+                            permit,
+                            "registrar un crédito",
+                            cancellationToken));
+                }
+
                 if (StateTransitionSupport.IsTerminal(permit.StatusCatalogEntry))
                 {
                     return Results.Conflict(
-                        new
-                        {
-                            message = StateTransitionSupport.BuildTerminalMutationMessage(
-                                $"el oficio de {permit.FinancialName}",
-                                "registrar un crédito",
-                                permit.StatusCatalogEntry!)
-                        });
+                        BuildTerminalPermitOperationBlockedResponse(
+                            permit,
+                            "registrar un crédito"));
                 }
 
                 var errors = ValidateCreateFinancialCreditRequest(request);
@@ -507,16 +637,33 @@ public static class FinancialsEndpoints
                     return Results.NotFound();
                 }
 
-                if (StateTransitionSupport.IsTerminal(credit.FinancialPermit?.StatusCatalogEntry))
+                if (credit.FinancialPermit is not { } permit)
                 {
                     return Results.Conflict(
-                        new
-                        {
-                            message = StateTransitionSupport.BuildTerminalMutationMessage(
-                                $"el oficio de {credit.FinancialPermit!.FinancialName}",
-                                "registrar una comisión",
-                                credit.FinancialPermit.StatusCatalogEntry!)
-                        });
+                        new FinancialPermitOperationBlockedResponse(
+                            "No es posible registrar una comisión porque el crédito no tiene un oficio válido asociado.",
+                            "FINANCIAL_PERMIT_CONTEXT_INVALID",
+                            Guid.Empty,
+                            Guid.Empty,
+                            null));
+                }
+
+                if (!permit.IsCurrentVersion)
+                {
+                    return Results.Conflict(
+                        await BuildNotCurrentPermitOperationBlockedResponseAsync(
+                            dbContext,
+                            permit,
+                            "registrar una comisión",
+                            cancellationToken));
+                }
+
+                if (StateTransitionSupport.IsTerminal(permit.StatusCatalogEntry))
+                {
+                    return Results.Conflict(
+                        BuildTerminalPermitOperationBlockedResponse(
+                            permit,
+                            "registrar una comisión"));
                 }
 
                 var errors = ValidateCreateFinancialCreditCommissionRequest(request);
@@ -623,6 +770,28 @@ public static class FinancialsEndpoints
 
         var commissionLookup = await BuildCommissionLookupAsync(dbContext, credits, cancellationToken);
         var daysUntilExpiration = GetDaysUntilExpiration(permit.ValidTo);
+        var rootPermitId = permit.CurrentRootPermitId == Guid.Empty ? permit.Id : permit.CurrentRootPermitId;
+        var renewalHistory = await dbContext.FinancialPermits
+            .AsNoTracking()
+            .Include(item => item.StatusCatalogEntry)
+            .Where(item => item.CurrentRootPermitId == rootPermitId || item.Id == rootPermitId)
+            .OrderBy(item => item.RenewalSequence)
+            .ThenBy(item => item.CreatedUtc)
+            .Select(item => new FinancialPermitRenewalHistoryResponse(
+                item.Id,
+                item.RenewedFromPermitId,
+                item.CurrentRootPermitId,
+                item.IsCurrentVersion,
+                item.RenewalSequence,
+                item.ValidFrom,
+                item.ValidTo,
+                item.PlaceOrStand,
+                item.Schedule,
+                item.StatusCatalogEntry!.StatusCode,
+                item.StatusCatalogEntry.StatusName,
+                item.CreatedUtc,
+                item.UpdatedUtc))
+            .ToListAsync(cancellationToken);
 
         return new FinancialPermitDetailResponse(
             permit.Id,
@@ -639,10 +808,77 @@ public static class FinancialsEndpoints
             permit.StatusCatalogEntry.IsClosed,
             permit.StatusCatalogEntry.AlertsEnabledByDefault,
             daysUntilExpiration,
-            GetPermitAlertState(permit.StatusCatalogEntry, daysUntilExpiration),
+            GetPermitAlertState(permit, daysUntilExpiration),
+            permit.RenewedFromPermitId,
+            permit.CurrentRootPermitId,
+            permit.IsCurrentVersion,
+            permit.RenewalSequence,
             permit.Notes,
             permit.CreatedUtc,
             permit.UpdatedUtc,
+            renewalHistory,
+            credits.Select(item => MapFinancialCreditResponse(item, commissionLookup.GetValueOrDefault(item.Id) ?? [])).ToList());
+    }
+
+    private static async Task<FinancialPermitRenewalChainResponse> BuildPermitRenewalChainAsync(
+        PlatformDbContext dbContext,
+        FinancialPermit permit,
+        CancellationToken cancellationToken)
+    {
+        var rootPermitId = permit.CurrentRootPermitId == Guid.Empty ? permit.Id : permit.CurrentRootPermitId;
+        var chainPermits = await dbContext.FinancialPermits
+            .AsNoTracking()
+            .Include(item => item.StatusCatalogEntry)
+            .Where(item => item.CurrentRootPermitId == rootPermitId || item.Id == rootPermitId)
+            .OrderBy(item => item.RenewalSequence)
+            .ThenBy(item => item.CreatedUtc)
+            .ToListAsync(cancellationToken);
+
+        if (chainPermits.Count == 0)
+        {
+            chainPermits = [permit];
+        }
+
+        var currentPermit = chainPermits
+            .OrderByDescending(item => item.IsCurrentVersion)
+            .ThenByDescending(item => item.RenewalSequence)
+            .ThenByDescending(item => item.CreatedUtc)
+            .First();
+        var permitIds = chainPermits.Select(item => item.Id).ToArray();
+        var credits = await dbContext.FinancialCredits
+            .AsNoTracking()
+            .Where(item => permitIds.Contains(item.FinancialPermitId))
+            .OrderByDescending(item => item.AuthorizationDate)
+            .ThenByDescending(item => item.CreatedUtc)
+            .ToListAsync(cancellationToken);
+        var commissionLookup = await BuildCommissionLookupAsync(dbContext, credits, cancellationToken);
+        var commissions = commissionLookup.Values.SelectMany(item => item).ToList();
+        var operationFrom = credits.Count == 0 ? (DateOnly?)null : credits.Min(item => item.AuthorizationDate);
+        var operationTo = credits.Count == 0 ? (DateOnly?)null : credits.Max(item => item.AuthorizationDate);
+        var summary = new FinancialPermitRenewalChainSummaryResponse(
+            chainPermits.Count,
+            credits.Count,
+            credits.Sum(item => item.Amount),
+            commissions.Count,
+            commissions.Sum(item => item.CommissionAmount),
+            commissions
+                .Where(item => item.CommissionType?.Code == PromoterCommissionTypeCode)
+                .Sum(item => item.CommissionAmount),
+            commissions
+                .Where(item => item.CommissionType?.Code == AdministrationCommissionTypeCode)
+                .Sum(item => item.CommissionAmount),
+            commissions
+                .Where(item => item.RecipientCategory == "THIRD_PARTY")
+                .Sum(item => item.CommissionAmount),
+            operationFrom,
+            operationTo);
+
+        return new FinancialPermitRenewalChainResponse(
+            rootPermitId,
+            currentPermit.Id,
+            MapFinancialPermitRenewalChainPermitResponse(currentPermit),
+            chainPermits.Select(MapFinancialPermitRenewalChainPermitResponse).ToList(),
+            summary,
             credits.Select(item => MapFinancialCreditResponse(item, commissionLookup.GetValueOrDefault(item.Id) ?? [])).ToList());
     }
 
@@ -653,6 +889,7 @@ public static class FinancialsEndpoints
         var permits = await dbContext.FinancialPermits
             .AsNoTracking()
             .Include(item => item.StatusCatalogEntry)
+            .Where(item => item.IsCurrentVersion)
             .OrderBy(item => item.ValidTo)
             .ThenBy(item => item.FinancialName)
             .ToListAsync(cancellationToken);
@@ -682,6 +919,32 @@ public static class FinancialsEndpoints
                 item.DaysUntilExpiration,
                 item.AlertState))
             .ToList();
+    }
+
+    private static FinancialPermitRenewalChainPermitResponse MapFinancialPermitRenewalChainPermitResponse(FinancialPermit permit)
+    {
+        var daysUntilExpiration = GetDaysUntilExpiration(permit.ValidTo);
+
+        return new FinancialPermitRenewalChainPermitResponse(
+            permit.Id,
+            permit.RenewedFromPermitId,
+            permit.CurrentRootPermitId,
+            permit.IsCurrentVersion,
+            permit.RenewalSequence,
+            permit.FinancialName,
+            permit.InstitutionOrDependency,
+            permit.PlaceOrStand,
+            permit.ValidFrom,
+            permit.ValidTo,
+            permit.Schedule,
+            permit.StatusCatalogEntryId,
+            permit.StatusCatalogEntry!.StatusCode,
+            permit.StatusCatalogEntry.StatusName,
+            permit.StatusCatalogEntry.IsClosed,
+            daysUntilExpiration,
+            GetPermitAlertState(permit, daysUntilExpiration),
+            permit.CreatedUtc,
+            permit.UpdatedUtc);
     }
 
     private static FinancialCreditResponse MapFinancialCreditResponse(
@@ -745,6 +1008,52 @@ public static class FinancialsEndpoints
             .ToDictionary(grouping => grouping.Key, grouping => grouping.ToList());
     }
 
+    private static async Task<FinancialPermitOperationBlockedResponse> BuildNotCurrentPermitOperationBlockedResponseAsync(
+        PlatformDbContext dbContext,
+        FinancialPermit permit,
+        string operationLabel,
+        CancellationToken cancellationToken)
+    {
+        var currentRootPermitId = GetCurrentRootPermitId(permit);
+        var currentPermitId = await dbContext.FinancialPermits
+            .AsNoTracking()
+            .Where(item => item.CurrentRootPermitId == currentRootPermitId || item.Id == currentRootPermitId)
+            .OrderByDescending(item => item.IsCurrentVersion)
+            .ThenByDescending(item => item.RenewalSequence)
+            .ThenByDescending(item => item.CreatedUtc)
+            .Select(item => (Guid?)item.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new FinancialPermitOperationBlockedResponse(
+            $"No es posible {operationLabel} porque el oficio de {permit.FinancialName} es histórico/no vigente. Captura la operación en el permiso vigente de la cadena.",
+            NotCurrentPermitOperationReasonCode,
+            permit.Id,
+            currentRootPermitId,
+            currentPermitId);
+    }
+
+    private static FinancialPermitOperationBlockedResponse BuildTerminalPermitOperationBlockedResponse(
+        FinancialPermit permit,
+        string operationLabel)
+    {
+        var currentRootPermitId = GetCurrentRootPermitId(permit);
+
+        return new FinancialPermitOperationBlockedResponse(
+            StateTransitionSupport.BuildTerminalMutationMessage(
+                $"el oficio de {permit.FinancialName}",
+                operationLabel,
+                permit.StatusCatalogEntry!),
+            TerminalPermitOperationReasonCode,
+            permit.Id,
+            currentRootPermitId,
+            permit.IsCurrentVersion ? permit.Id : null);
+    }
+
+    private static Guid GetCurrentRootPermitId(FinancialPermit permit)
+    {
+        return permit.CurrentRootPermitId == Guid.Empty ? permit.Id : permit.CurrentRootPermitId;
+    }
+
     private static async Task<ModuleStatusCatalogEntry?> ResolveModuleStatusAsync(
         int statusCatalogEntryId,
         PlatformDbContext dbContext,
@@ -763,6 +1072,21 @@ public static class FinancialsEndpoints
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         return validTo.DayNumber - today.DayNumber;
+    }
+
+    private static string GetPermitAlertState(FinancialPermit permit, int daysUntilExpiration)
+    {
+        return GetPermitAlertState(permit, daysUntilExpiration, permit.StatusCatalogEntry!);
+    }
+
+    private static string GetPermitAlertState(FinancialPermit permit, int daysUntilExpiration, ModuleStatusCatalogEntry permitStatus)
+    {
+        if (!permit.IsCurrentVersion)
+        {
+            return HistoricalAlertState;
+        }
+
+        return GetPermitAlertState(permitStatus, daysUntilExpiration);
     }
 
     private static string GetPermitAlertState(ModuleStatusCatalogEntry permitStatus, int daysUntilExpiration)
@@ -836,6 +1160,27 @@ public static class FinancialsEndpoints
         if (request.StatusCatalogEntryId <= 0)
         {
             errors["statusCatalogEntryId"] = ["StatusCatalogEntryId is required."];
+        }
+
+        return errors;
+    }
+
+    private static Dictionary<string, string[]> ValidateRenewFinancialPermitRequest(RenewFinancialPermitRequest request)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        if (request.ValidFrom == default)
+        {
+            errors["validFrom"] = ["ValidFrom is required."];
+        }
+
+        if (request.ValidTo == default)
+        {
+            errors["validTo"] = ["ValidTo is required."];
+        }
+        else if (request.ValidFrom != default && request.ValidTo < request.ValidFrom)
+        {
+            errors["validTo"] = ["ValidTo cannot be earlier than ValidFrom."];
         }
 
         return errors;

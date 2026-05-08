@@ -66,6 +66,7 @@ export interface DocumentWorkQueueItem {
   routeHint: string;
   documentDetailUrl: string | null;
   remediationHint: string | null;
+  relevantUtc: string | null;
 }
 
 export interface DocumentSummary {

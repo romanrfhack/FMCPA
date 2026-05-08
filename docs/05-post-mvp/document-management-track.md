@@ -125,6 +125,10 @@
 - Cada documento expone un estado operativo derivado no persistido: `INTEGRITY_ISSUE`, `ON_HOLD`, `SUPERSEDED`, `ARCHIVED`, `RETENTION_EXPIRED`, `REVIEW_DUE` o `ACTIVE_OK`.
 - La precedencia documentada es integridad, hold, superseded, archivado, retencion vencida, revision proxima y activo OK.
 - `GET /api/documents` permite filtrar por `documentOperationalStatusCode`; catalogo, detalle, summary y work queue exponen tambien una severidad simple.
+- `GET /api/documents/export`, `GET /api/documents/work-queue/export` y `GET /api/documents/review-queue/export` generan CSV ligero reutilizando filtros y permisos de sus consultas base.
+- Las exportaciones responden como attachment con `Content-Type: text/csv`, `Content-Disposition` y `Cache-Control: no-store`; no incluyen `StoredRelativePath` ni rutas fisicas internas.
+- La exportacion respeta el limite paginado existente (`take`, maximo `200`) y no abre reportes masivos, XLSX complejo ni centro de BI.
+- La UI `/documents`, `/documents/work-queue` y `/documents/review` agrega un boton simple `Exportar CSV` que usa los filtros activos de cada pantalla.
 
 ## Entregables esperados
 - Catalogo documental transversal minimo
@@ -145,6 +149,7 @@
 - Bandeja documental unificada
 - Resumen ejecutivo documental
 - Estado operativo documental derivado
+- Exportacion documental ligera de catalogo, work queue y review queue
 - Criterios comunes de storage documental
 - Politica de respaldo y retencion
 - Reglas base para acceso, limpieza y recuperacion
@@ -176,6 +181,7 @@
 - Existe linea de tiempo documental minima por documento y por entidad, basada en `StoredDocument`, `AuditEvent` y relaciones de reemplazo.
 - Existe bandeja documental unificada que consolida completitud, integridad y revision de retencion sin abrir workflow ni asignaciones.
 - Existe resumen ejecutivo documental con KPIs principales, desglose por modulo y coherencia con catalogo/work queue.
+- Existe exportacion CSV ligera de catalogo documental, work queue y review queue, coherente con filtros/permisos y sin exponer rutas fisicas internas.
 - Existe listado transversal de pendientes documentales filtrado por permisos de lectura de modulo.
 - La consulta respeta permisos por modulo y no expone rutas fisicas internas.
 - Existe una estrategia documental comun documentada y aprobable.
@@ -186,7 +192,7 @@
 - Requiere coordinacion con Security Track para acceso futuro a archivos.
 
 ## Estado
-- Iniciado con catalogo documental transversal minimo, ciclo de vida logico `ACTIVE`/`ARCHIVED`, clasificacion documental minima, edicion administrativa minima de metadata, retencion documental minima como metadata operativa, overrides administrativos minimos de retencion validados runtime, hold administrativo minimo, estado operativo documental derivado, bandeja ADMIN-only de revision de retencion, navegacion contextual minima, completitud documental minima por entidad clave, registry canónico de reglas, requisitos documentales en contexto, remediacion contextual directa, trazabilidad minima de reemplazo documental, timeline documental minimo, bandeja operativa documental unificada y resumen ejecutivo documental, pendiente de aprobacion formal.
+- Iniciado con catalogo documental transversal minimo, ciclo de vida logico `ACTIVE`/`ARCHIVED`, clasificacion documental minima, edicion administrativa minima de metadata, retencion documental minima como metadata operativa, overrides administrativos minimos de retencion validados runtime, hold administrativo minimo, estado operativo documental derivado, bandeja ADMIN-only de revision de retencion, navegacion contextual minima, completitud documental minima por entidad clave, registry canónico de reglas, requisitos documentales en contexto, remediacion contextual directa, trazabilidad minima de reemplazo documental, timeline documental minimo, bandeja operativa documental unificada, resumen ejecutivo documental y exportacion documental ligera CSV, pendiente de aprobacion formal.
 
 ## Referencias
 - [Document Management Track Transversal Catalog Implementation Note](./document-management-track-transversal-catalog-implementation-note.md)
@@ -207,3 +213,4 @@
 - [Document Management Track Document Timeline Implementation Note](./document-management-track-document-timeline-implementation-note.md)
 - [Document Management Track Document Work Queue Implementation Note](./document-management-track-document-work-queue-implementation-note.md)
 - [Document Management Track Document Summary Implementation Note](./document-management-track-document-summary-implementation-note.md)
+- [Document Management Track Light Export Implementation Note](./document-management-track-light-export-implementation-note.md)

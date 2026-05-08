@@ -13,13 +13,13 @@
 | 2 | Seguridad transversal | Incorporar autenticacion, autorizacion futura y controles de acceso minimos | Conviene partir de una base ya mas consistente antes de cerrar seguridad operativa | Pendiente de aprobacion |
 | 3 | Estrategia documental transversal | Pasar del storage por modulo a una politica transversal de documentos, respaldo y retencion | Requiere primero criterios mas firmes de operacion y seguridad | Pendiente de aprobacion |
 | 4 | Analitica y reporteo | Evolucionar dashboard y consulta transversal hacia analitica y exportaciones razonables | Debe apoyarse en datos mas consistentes, historico mas claro y seguridad minima | Pendiente de aprobacion |
-| 5 | Evolucion funcional posterior | Abrir mejoras funcionales ya fuera del cierre del MVP | Debe iniciar solo despues de estabilizar la base transversal | Pendiente de definicion |
+| 5 | Evolucion funcional posterior | Abrir mejoras funcionales ya fuera del cierre del MVP | Debe apoyarse en la base transversal ya endurecida y mantenerse acotado por modulo | Iniciado con renovacion minima, continuidad operativa por cadena y captura restringida al permiso vigente de Financieras |
 
 ## Dependencias entre tracks
 - Track 2 depende de acuerdos minimos del Track 1.
 - Track 3 depende de decisiones del Track 1 y de criterios de seguridad del Track 2.
 - Track 4 depende de datos y cierres mas consistentes, y se beneficia de controles de acceso ya definidos.
-- Track 5 no debe abrirse mientras los tracks transversales sigan indefinidos.
+- Track 5 ya puede abrir subetapas funcionales acotadas cuando reutilicen los tracks transversales existentes y no introduzcan workflow complejo ni refactors de negocio.
 
 ## Criterio de avance recomendado
 - No abrir el siguiente track tecnico hasta dejar aprobado el alcance, entregables y criterio de salida del track anterior.

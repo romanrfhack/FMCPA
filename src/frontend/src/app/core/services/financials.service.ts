@@ -14,7 +14,9 @@ import {
   FinancialCreditCommission,
   FinancialPermitAlert,
   FinancialPermitDetail,
-  FinancialPermitSummary
+  FinancialPermitRenewalChain,
+  FinancialPermitSummary,
+  RenewFinancialPermitRequest
 } from '../models/financials.models';
 
 @Injectable({
@@ -42,12 +44,20 @@ export class FinancialsService {
     return this.httpClient.get<FinancialPermitDetail>(`${this.apiBaseUrl}/${permitId}`);
   }
 
+  getPermitRenewalChain(permitId: string) {
+    return this.httpClient.get<FinancialPermitRenewalChain>(`${this.apiBaseUrl}/${permitId}/renewal-chain`);
+  }
+
   createPermit(request: CreateFinancialPermitRequest) {
     return this.httpClient.post<FinancialPermitSummary>(this.apiBaseUrl, request);
   }
 
   closePermit(permitId: string, request: CloseRecordRequest) {
     return this.httpClient.post<CloseRecordResponse>(`${this.apiBaseUrl}/${permitId}/close`, request);
+  }
+
+  renewPermit(permitId: string, request: RenewFinancialPermitRequest) {
+    return this.httpClient.post<FinancialPermitDetail>(`${this.apiBaseUrl}/${permitId}/renew`, request);
   }
 
   getPermitAlerts() {

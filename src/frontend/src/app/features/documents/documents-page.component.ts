@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 
 import {
   DocumentCatalogDetail,
+  DocumentCatalogFilters,
   DocumentCatalogItem,
   DocumentCompleteness,
   DocumentSummary,
@@ -250,6 +251,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         <div class="filter-actions">
           <button type="submit" [disabled]="isLoading()">Buscar</button>
           <button type="button" class="ghost" (click)="resetFilters()">Limpiar</button>
+          <button type="button" class="ghost" [disabled]="isExporting()" (click)="exportCatalog()">Exportar CSV</button>
         </div>
       </form>
 
@@ -1119,6 +1121,7 @@ export class DocumentsPageComponent {
   protected readonly isSummaryLoading = signal(false);
   protected readonly isPendingLoading = signal(false);
   protected readonly isTimelineLoading = signal(false);
+  protected readonly isExporting = signal(false);
   protected readonly isMutating = signal(false);
   protected readonly totalCount = signal<number | null>(null);
   protected readonly resultCount = signal<number | null>(null);
@@ -1152,22 +1155,7 @@ export class DocumentsPageComponent {
     this.pageSuccess.set(null);
 
     try {
-      const filters = this.filtersForm.getRawValue();
-      const statusCode = filters.statusCode === 'ALL' ? null : filters.statusCode;
-      const response = await firstValueFrom(this.documentCatalogService.listDocuments({
-        moduleCode: filters.moduleCode,
-        documentAreaCode: filters.documentAreaCode,
-        integrityState: filters.integrityState,
-        documentOperationalStatusCode: filters.documentOperationalStatusCode,
-        documentClassCode: filters.documentClassCode,
-        retentionPolicyCode: filters.retentionPolicyCode,
-        retentionStatusCode: filters.retentionStatusCode,
-        statusCode,
-        includeArchived: filters.statusCode === 'ALL',
-        entityType: filters.entityType,
-        entityId: filters.entityId,
-        take: filters.take
-      }));
+      const response = await firstValueFrom(this.documentCatalogService.listDocuments(this.buildCatalogFilters()));
 
       this.documents.set(response.items);
       this.totalCount.set(response.totalCount);
@@ -1228,6 +1216,19 @@ export class DocumentsPageComponent {
       take: 50
     });
     void this.reload();
+  }
+
+  protected async exportCatalog(): Promise<void> {
+    this.isExporting.set(true);
+    this.pageError.set(null);
+
+    try {
+      await this.documentCatalogService.exportDocuments(this.buildCatalogFilters());
+    } catch (error) {
+      this.pageError.set(getApiErrorMessage(error, 'No se pudo exportar el catalogo documental.'));
+    } finally {
+      this.isExporting.set(false);
+    }
   }
 
   protected canRemediatePending(item: DocumentCompleteness): boolean {
@@ -1507,6 +1508,26 @@ export class DocumentsPageComponent {
     } finally {
       this.isMutating.set(false);
     }
+  }
+
+  private buildCatalogFilters(): DocumentCatalogFilters {
+    const filters = this.filtersForm.getRawValue();
+    const statusCode = filters.statusCode === 'ALL' ? null : filters.statusCode;
+
+    return {
+      moduleCode: filters.moduleCode,
+      documentAreaCode: filters.documentAreaCode,
+      integrityState: filters.integrityState,
+      documentOperationalStatusCode: filters.documentOperationalStatusCode,
+      documentClassCode: filters.documentClassCode,
+      retentionPolicyCode: filters.retentionPolicyCode,
+      retentionStatusCode: filters.retentionStatusCode,
+      statusCode,
+      includeArchived: filters.statusCode === 'ALL',
+      entityType: filters.entityType,
+      entityId: filters.entityId,
+      take: filters.take
+    };
   }
 
   private syncMetadataForm(document: DocumentCatalogItem | DocumentCatalogDetail | null): void {

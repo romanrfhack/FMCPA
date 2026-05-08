@@ -68,6 +68,10 @@
 - Cinco fallos consecutivos de login para un usuario bloquean temporalmente la cuenta durante `15` minutos; durante lockout el login responde `423 Locked` con `Retry-After`.
 - `ADMIN` puede ver `AccessFailedCount` y `LockoutEndUtc` en `/admin/users` y limpiar el lockout con `POST /api/admin/users/{id}/unlock`.
 - `ADMIN` puede consultar operacion minima de seguridad en `/admin/security` o `/api/admin/security/*`: resumen, eventos SECURITY y usuarios con lockout activo.
+- El centro operativo transversal esta disponible en `/operations` o `/api/operations/*` para usuarios con `DASHBOARD_READ`; las secciones e items se filtran por permisos efectivos de negocio, documentos y seguridad.
+- En `/operations`, cada item accionable muestra una ruta de contexto/remediacion. La quick action disponible en esta subetapa es solo desbloqueo de usuario bloqueado para `ADMIN`, reutilizando `POST /api/admin/users/{id}/unlock`.
+- `/api/operations/summary` y `/api/operations/work-queue` aceptan ventanas temporales `TODAY`, `LAST_7_DAYS`, `NEXT_30_DAYS`, `ALL` o rango explicito `fromUtc`/`toUtc`; la UI `/operations` incluye un selector simple de ventana.
+- `/api/operations/summary/export` y `/api/operations/work-queue/export` generan CSV ligero con attachment/no-store, reutilizando filtros, ventanas temporales y permisos efectivos.
 - La consulta documental transversal esta disponible en `/documents` o `/api/documents` para usuarios autenticados con permisos de lectura de Mercados, Donatarias o Federacion.
 - El catalogo documental muestra contexto origen de Mercados, Donatarias y Federacion; las pantallas de negocio incluyen una seccion minima de documentos relacionados.
 - El catalogo documental expone completitud minima y pendientes documentales para locatarios y aplicaciones con evidencia, sin interpretar eso como cumplimiento legal avanzado.
@@ -505,6 +509,12 @@ curl -i -X POST "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/hold" -H "Au
 curl -i -X DELETE "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/hold" -H "Authorization: Bearer ${HOLD_READONLY_TOKEN}"
 curl -i -X DELETE "http://127.0.0.1:5080/api/documents/${DOCUMENT_ID}/hold" -H "Authorization: Bearer ${TOKEN}"
 
+# Exportacion ligera documental CSV
+curl -i "http://127.0.0.1:5080/api/documents/export?moduleCode=MARKETS&take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -i "http://127.0.0.1:5080/api/documents/work-queue/export?take=20" -H "Authorization: Bearer ${TOKEN}"
+curl -i "http://127.0.0.1:5080/api/documents/review-queue/export?take=20" -H "Authorization: Bearer ${TOKEN}"
+# Las respuestas deben indicar text/csv, Content-Disposition attachment y Cache-Control no-store.
+
 # Verificar invalidacion real de un token viejo por cambio de rol
 USER_ID="<id-devuelto-por-la-alta>"
 curl -s http://127.0.0.1:5080/api/auth/login -H 'Content-Type: application/json' -d '{"userName":"operator2","password":"TempPassword123!"}'
@@ -552,7 +562,26 @@ curl -s http://127.0.0.1:4200/documents/review
 curl -s http://127.0.0.1:4200/operations
 curl -s http://127.0.0.1:5080/api/operations/summary -H "Authorization: Bearer ${ADMIN_TOKEN}"
 curl -s "http://127.0.0.1:5080/api/operations/work-queue?take=20" -H "Authorization: Bearer ${ADMIN_TOKEN}"
+curl -s "http://127.0.0.1:5080/api/operations/summary?timeWindowCode=TODAY" -H "Authorization: Bearer ${ADMIN_TOKEN}"
+curl -s "http://127.0.0.1:5080/api/operations/work-queue?timeWindowCode=LAST_7_DAYS&take=20" -H "Authorization: Bearer ${ADMIN_TOKEN}"
+curl -s "http://127.0.0.1:5080/api/operations/work-queue?timeWindowCode=NEXT_30_DAYS&take=20" -H "Authorization: Bearer ${ADMIN_TOKEN}"
+curl -s "http://127.0.0.1:5080/api/operations/summary?fromUtc=2026-05-01T00:00:00Z&toUtc=2026-05-07T23:59:59Z" -H "Authorization: Bearer ${ADMIN_TOKEN}"
+curl -i "http://127.0.0.1:5080/api/operations/summary/export?timeWindowCode=NEXT_30_DAYS" -H "Authorization: Bearer ${ADMIN_TOKEN}"
+curl -i "http://127.0.0.1:5080/api/operations/work-queue/export?timeWindowCode=NEXT_30_DAYS&severityCode=HIGH&take=200" -H "Authorization: Bearer ${ADMIN_TOKEN}"
 curl -s "http://127.0.0.1:5080/api/operations/work-queue?categoryCode=SECURITY&take=20" -H "Authorization: Bearer ${READONLY_TOKEN}"
+curl -s http://127.0.0.1:5080/api/financials/permits -H "Authorization: Bearer ${ADMIN_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"financialName":"Financiera Local","institutionOrDependency":"Direccion local","permitNumber":"OF-LOCAL-001","validFrom":"2026-05-01","validTo":"2026-05-31","placeOrStand":"Stand 1","schedule":"09:00-18:00","negotiatedTerms":"Terminos iniciales","statusId":'"${FINANCIAL_STATUS_ID}"'}'
+curl -s http://127.0.0.1:5080/api/financials/${PERMIT_ID}/renew -H "Authorization: Bearer ${ADMIN_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"validFrom":"2026-06-01","validTo":"2026-12-31","placeOrStand":"Stand 2","schedule":"10:00-18:00","negotiatedTerms":"Terminos renovados","notes":"Renovacion operativa local"}'
+curl -s http://127.0.0.1:5080/api/financials/${PERMIT_ID} -H "Authorization: Bearer ${ADMIN_TOKEN}"
+curl -s http://127.0.0.1:5080/api/financials/${PERMIT_ID}/renewal-chain -H "Authorization: Bearer ${ADMIN_TOKEN}"
+# La cadena debe mostrar `currentPermitId`, permisos ordenados por `renewalSequence`, creditos de toda la cadena y agregados de comisiones.
+CURRENT_PERMIT_ID="<currentPermitId-devuelto-por-renewal-chain>"
+HISTORICAL_CREDIT_ID="<credit-id-del-permiso-historico-si-existe>"
+curl -i http://127.0.0.1:5080/api/financials/${PERMIT_ID}/credits -H "Authorization: Bearer ${ADMIN_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"promoterName":"Promotor historico","beneficiaryName":"Beneficiario historico","authorizationDate":"2026-06-10","amount":1000}'
+# Debe responder 409 con `reasonCode=FINANCIAL_PERMIT_NOT_CURRENT` si `${PERMIT_ID}` ya es historico.
+curl -i http://127.0.0.1:5080/api/financials/${CURRENT_PERMIT_ID}/credits -H "Authorization: Bearer ${ADMIN_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"promoterName":"Promotor vigente","beneficiaryName":"Beneficiario vigente","authorizationDate":"2026-06-10","amount":1000}'
+curl -i http://127.0.0.1:5080/api/financials/credits/${HISTORICAL_CREDIT_ID}/commissions -H "Authorization: Bearer ${ADMIN_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"commissionTypeId":'"${COMMISSION_TYPE_ID}"',"recipientCategory":"OTHER_PARTICIPANT","recipientName":"Comision historica","baseAmount":1000,"commissionAmount":100}'
+# Debe responder 409 si el credito pertenece a un permiso historico o terminal; las comisiones nuevas se capturan solo sobre creditos del permiso vigente/no terminal.
+curl -i http://127.0.0.1:5080/api/financials/${PERMIT_ID}/renew -H "Authorization: Bearer ${READONLY_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"validFrom":"2026-06-01","validTo":"2026-12-31"}'
 curl -s http://127.0.0.1:4200/admin/users
 ./scripts/local/smoke-mvp.sh
 ```
@@ -570,6 +599,15 @@ curl -s http://127.0.0.1:4200/admin/users
 - Si `/admin/security` no muestra eventos esperados, generar primero actividad de auth, por ejemplo un login fallido, lockout o reset administrativo.
 - Si `/operations` no muestra seguridad con `OPERATOR` o `READONLY`, es el comportamiento esperado; la seccion se incluye solo con `USERS_ADMIN`.
 - Si `/api/operations/work-queue?categoryCode=SECURITY` responde sin items para un rol no admin, confirma el filtrado por permisos de superficie.
+- Si una ventana temporal de `/operations` devuelve menos items que `ALL`, es esperado: solo incluye senales con fecha operativa clara dentro del rango y excluye items sin fecha aplicable.
+- Si se envian `fromUtc` o `toUtc` a `/api/operations/*`, deben enviarse ambos; ese rango explicito tiene precedencia sobre `timeWindowCode`.
+- Si una exportacion de `/operations` devuelve pocos registros, revisar primero la ventana temporal, el filtro de severidad/categoria y el rol usado; la seguridad no se exporta para roles sin `USERS_ADMIN`.
+- Si un permiso de Financieras renovado sigue apareciendo en alertas como vencido, confirmar que `IsCurrentVersion=false` en el permiso anterior y que la consulta se esta haciendo contra una base migrada con `Track5FinancialPermitRenewal`.
+- Si `GET /api/financials/{permitId}/renewal-chain` devuelve agregados en cero, confirmar que los creditos esten registrados en permisos de la misma `CurrentRootPermitId` y que las comisiones usen `CommissionType`/`RecipientCategory` existentes.
+- Si `POST /api/financials/{permitId}/credits` o `POST /api/financials/credits/{creditId}/commissions` devuelve `409 FINANCIAL_PERMIT_NOT_CURRENT`, cambiar la captura al `currentPermitId` devuelto por `/renewal-chain`.
+- Si esas altas devuelven `409 FINANCIAL_PERMIT_TERMINAL`, el permiso asociado ya esta cerrado/terminal y queda en modo consulta; no se debe reabrir captura sin una etapa de ajuste historico aprobada.
+- Si `POST /api/financials/{permitId}/renew` devuelve `409`, revisar si el permiso ya es historico/no vigente o si esta en estado terminal/cerrado.
+- Si la renovacion por `curl` devuelve `400 Solicitud web no permitida`, incluir `X-FMCPA-Client: FMCPA-Web` cuando se simule una mutacion web protegida.
 - Si el bootstrap local no crea o sincroniza un usuario, revisar que la password configurada cumpla la politica minima; el backend registra un warning y omite ese usuario si la password es debil.
 - Si un usuario cambia su propia password, la sesion local se limpia y el token anterior queda invalido por `SecurityStamp`; debe iniciar sesion con la nueva password.
 - Si un usuario gestionado cambia de rol, se desactiva o se le resetea el password, cualquier token previo deja de servir; volver a iniciar sesion con el rol/password vigentes.
@@ -604,3 +642,6 @@ curl -s http://127.0.0.1:4200/admin/users
 - [Security Track Self-Service Password Change Implementation Note](../05-post-mvp/security-track-self-service-password-change-implementation-note.md)
 - [Security Track Web Origin Protection Implementation Note](../05-post-mvp/security-track-web-origin-protection-implementation-note.md)
 - [Security Track Admin Security Observability Implementation Note](../05-post-mvp/security-track-admin-security-observability-implementation-note.md)
+- [Functional Track Financial Permit Renewal Implementation Note](../05-post-mvp/functional-track-financial-permit-renewal-implementation-note.md)
+- [Functional Track Financial Permit Renewal Chain Implementation Note](../05-post-mvp/functional-track-financial-permit-renewal-chain-implementation-note.md)
+- [Functional Track Financial Current Permit Operation Implementation Note](../05-post-mvp/functional-track-financial-current-permit-operation-implementation-note.md)

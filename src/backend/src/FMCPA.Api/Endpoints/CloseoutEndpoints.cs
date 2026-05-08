@@ -219,6 +219,7 @@ public static class CloseoutEndpoints
         var permits = await dbContext.FinancialPermits
             .AsNoTracking()
             .Include(item => item.StatusCatalogEntry)
+            .Where(item => item.IsCurrentVersion)
             .ToListAsync(cancellationToken);
 
         var permitIds = permits.Select(item => item.Id).ToArray();
@@ -1343,6 +1344,7 @@ public static class CloseoutEndpoints
         var permits = await dbContext.FinancialPermits
             .AsNoTracking()
             .Include(item => item.StatusCatalogEntry)
+            .Where(item => item.IsCurrentVersion)
             .OrderBy(item => item.ValidTo)
             .ThenBy(item => item.FinancialName)
             .ToListAsync(cancellationToken);

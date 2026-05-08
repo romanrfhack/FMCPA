@@ -10,7 +10,9 @@ import {
   FinancialCredit,
   FinancialPermitAlert,
   FinancialPermitDetail,
-  FinancialPermitSummary
+  FinancialPermitRenewalChain,
+  FinancialPermitSummary,
+  RenewFinancialPermitRequest
 } from '../../core/models/financials.models';
 import { CatalogItem, Contact, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
 import { AuthService } from '../../core/services/auth.service';
@@ -179,6 +181,10 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     </p>
 
                     <div class="permit-stats">
+                      <span [class]="currentVersionClass(permit.isCurrentVersion)">
+                        {{ currentVersionLabel(permit.isCurrentVersion) }}
+                      </span>
+                      <span>Secuencia {{ permit.renewalSequence }}</span>
                       <span>Créditos {{ permit.creditCount }}</span>
                       <span>Comisiones {{ permit.commissionCount }}</span>
                       <span [class]="alertStateClass(permit.alertState)">{{ alertStateLabel(permit.alertState) }}</span>
@@ -239,6 +245,23 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   <span class="status-pill" [class]="alertStateClass(permitDetail.alertState)">
                     {{ alertStateLabel(permitDetail.alertState) }}
                   </span>
+                  <span class="status-pill" [class]="currentVersionClass(permitDetail.isCurrentVersion)">
+                    {{ currentVersionLabel(permitDetail.isCurrentVersion) }}
+                  </span>
+                  <button
+                    type="button"
+                    class="ghost"
+                    (click)="startRenewal(permitDetail)"
+                    [disabled]="!canWrite() || !permitDetail.isCurrentVersion || permitDetail.statusIsClosed"
+                    [attr.title]="!canWrite()
+                      ? 'Se requiere permiso de escritura de Financieras.'
+                      : !permitDetail.isCurrentVersion
+                        ? 'Solo se puede renovar el oficio vigente de la cadena.'
+                        : permitDetail.statusIsClosed
+                          ? 'El oficio ya se encuentra en estado terminal.'
+                          : 'Renovar este oficio.'">
+                    Renovar
+                  </button>
                   <button
                     type="button"
                     class="ghost"
@@ -265,6 +288,22 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 <p class="detail-notes">{{ permitDetail.notes }}</p>
               }
 
+              @if (!selectedPermitAllowsCapture()) {
+                <div class="readonly-banner">
+                  <div>
+                    <strong>{{ selectedPermitOperationModeLabel() }}</strong>
+                    <p>{{ selectedPermitReadOnlyMessage() }}</p>
+                  </div>
+                  @if (selectedPermitChain(); as permitChain) {
+                    @if (permitChain.currentPermitId !== permitDetail.id) {
+                      <button type="button" class="ghost" (click)="selectPermit(permitChain.currentPermitId)">
+                        Ir al permiso vigente
+                      </button>
+                    }
+                  }
+                </div>
+              }
+
               <div class="summary-grid">
                 <article>
                   <h4>Créditos</h4>
@@ -278,88 +317,299 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   <h4>Vigencia</h4>
                   <p>{{ permitDetail.validTo }}</p>
                 </article>
+                <article>
+                  <h4>Renovación</h4>
+                  <p>{{ permitDetail.isCurrentVersion ? 'Vigente' : 'Histórico' }} · {{ permitDetail.renewalSequence }}</p>
+                </article>
               </div>
             </article>
+
+            @if (selectedPermitChain(); as permitChain) {
+              <div class="detail-grid">
+                <article class="list-card">
+                  <div class="card-header">
+                    <div>
+                      <h3>Resumen de cadena</h3>
+                      <p>Continuidad operativa desde el permiso origen hasta el vigente.</p>
+                    </div>
+                  </div>
+
+                  <p class="meta">
+                    Raíz {{ permitChain.currentRootPermitId }}
+                    · vigente secuencia {{ permitChain.currentPermit.renewalSequence }}
+                  </p>
+
+                  <div class="summary-grid chain-summary-grid">
+                    <article>
+                      <h4>Permisos</h4>
+                      <p>{{ permitChain.summary.permitsCount }}</p>
+                    </article>
+                    <article>
+                      <h4>Créditos cadena</h4>
+                      <p>{{ permitChain.summary.totalCreditsCount }}</p>
+                    </article>
+                    <article>
+                      <h4>Monto créditos</h4>
+                      <p>{{ permitChain.summary.totalCreditsAmount | number: '1.2-2' }}</p>
+                    </article>
+                    <article>
+                      <h4>Comisiones</h4>
+                      <p>{{ permitChain.summary.totalCommissionsAmount | number: '1.2-2' }}</p>
+                    </article>
+                    <article>
+                      <h4>Promotor</h4>
+                      <p>{{ permitChain.summary.totalPromoterCommission | number: '1.2-2' }}</p>
+                    </article>
+                    <article>
+                      <h4>Administración</h4>
+                      <p>{{ permitChain.summary.totalAdminCommission | number: '1.2-2' }}</p>
+                    </article>
+                    <article>
+                      <h4>Terceros</h4>
+                      <p>{{ permitChain.summary.totalThirdPartyCommission | number: '1.2-2' }}</p>
+                    </article>
+                    <article>
+                      <h4>Operación</h4>
+                      <p>{{ operationRangeLabel(permitChain.summary.operationFrom, permitChain.summary.operationTo) }}</p>
+                    </article>
+                  </div>
+                </article>
+
+                <article class="list-card">
+                  <div class="card-header">
+                    <div>
+                      <h3>Créditos de la cadena</h3>
+                      <p>Créditos del permiso vigente y sus permisos históricos renovados.</p>
+                    </div>
+                  </div>
+
+                  @if (permitChain.credits.length === 0) {
+                    <p class="empty-state">La cadena aún no tiene créditos registrados.</p>
+                  } @else {
+                    <div class="entity-list chain-credit-list">
+                      @for (credit of permitChain.credits; track credit.id) {
+                        <article class="entity-row">
+                          <div class="row-top">
+                            <div>
+                              <h4>{{ credit.beneficiaryName }}</h4>
+                              <p class="meta">
+                                {{ credit.authorizationDate }} · {{ chainPermitLabel(credit.financialPermitId) }}
+                              </p>
+                            </div>
+                            <span class="status-pill neutral">
+                              {{ credit.amount | number: '1.2-2' }}
+                            </span>
+                          </div>
+
+                          <div class="permit-stats">
+                            <span>Promotor {{ credit.promoterName }}</span>
+                            <span>Comisiones {{ credit.commissionCount }}</span>
+                          </div>
+                        </article>
+                      }
+                    </div>
+                  }
+                </article>
+              </div>
+            }
 
             <div class="detail-grid">
               <article class="form-card">
                 <div class="card-header">
                   <div>
-                    <h3>Alta de crédito</h3>
-                    <p>Registro individual con promotor, beneficiario y monto autorizado.</p>
+                    <h3>Renovar oficio</h3>
+                    <p>Alta del nuevo periodo sin sobrescribir el oficio original.</p>
                   </div>
                 </div>
 
-                @if (creditFormError()) {
-                  <p class="alert error">{{ creditFormError() }}</p>
+                @if (renewalFormError()) {
+                  <p class="alert error">{{ renewalFormError() }}</p>
                 }
 
-                @if (creditFormSuccess()) {
-                  <p class="alert success">{{ creditFormSuccess() }}</p>
+                @if (renewalFormSuccess()) {
+                  <p class="alert success">{{ renewalFormSuccess() }}</p>
                 }
 
-                <form class="form-grid" [formGroup]="creditForm" (ngSubmit)="submitCredit()">
-                  <label>
-                    <span>Contacto promotor</span>
-                    <select formControlName="promoterContactId" (change)="syncPromoterFromContact()">
-                      <option value="">Sin vincular</option>
-                      @for (contact of contacts(); track contact.id) {
-                        <option [value]="contact.id">{{ contact.name }}</option>
-                      }
-                    </select>
-                  </label>
+                @if (renewalTargetPermitId() === permitDetail.id) {
+                  <form class="form-grid" [formGroup]="renewalForm" (ngSubmit)="submitRenewal()">
+                    <label>
+                      <span>Nuevo inicio</span>
+                      <input type="date" formControlName="validFrom" />
+                    </label>
 
-                  <label>
-                    <span>Promotor</span>
-                    <input type="text" formControlName="promoterName" placeholder="Nombre del promotor" />
-                  </label>
+                    <label>
+                      <span>Nuevo fin</span>
+                      <input type="date" formControlName="validTo" />
+                    </label>
 
-                  <label>
-                    <span>Contacto beneficiario</span>
-                    <select formControlName="beneficiaryContactId" (change)="syncBeneficiaryFromContact()">
-                      <option value="">Sin vincular</option>
-                      @for (contact of contacts(); track contact.id) {
-                        <option [value]="contact.id">{{ contact.name }}</option>
-                      }
-                    </select>
-                  </label>
+                    <label>
+                      <span>Lugar / stand</span>
+                      <input type="text" formControlName="placeOrStand" />
+                    </label>
 
-                  <label>
-                    <span>Beneficiario</span>
-                    <input type="text" formControlName="beneficiaryName" placeholder="Nombre del beneficiario" />
-                  </label>
+                    <label>
+                      <span>Horario</span>
+                      <input type="text" formControlName="schedule" />
+                    </label>
 
-                  <label>
-                    <span>Teléfono</span>
-                    <input type="text" formControlName="phoneNumber" placeholder="Teléfono" />
-                  </label>
+                    <label class="full-width">
+                      <span>Términos negociados</span>
+                      <textarea formControlName="negotiatedTerms" rows="4"></textarea>
+                    </label>
 
-                  <label>
-                    <span>WhatsApp</span>
-                    <input type="text" formControlName="whatsAppPhone" placeholder="WhatsApp" />
-                  </label>
+                    <label class="full-width">
+                      <span>Observaciones de renovación</span>
+                      <textarea formControlName="notes" rows="3"></textarea>
+                    </label>
 
-                  <label>
-                    <span>Fecha de autorización</span>
-                    <input type="date" formControlName="authorizationDate" />
-                  </label>
-
-                  <label>
-                    <span>Monto</span>
-                    <input type="number" min="0.01" step="0.01" formControlName="amount" />
-                  </label>
-
-                  <label class="full-width">
-                    <span>Observaciones</span>
-                    <textarea formControlName="notes" rows="3" placeholder="Observaciones del crédito"></textarea>
-                  </label>
-
-                  <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingCredit() || !canWrite()">Registrar crédito</button>
-                    <button type="button" class="ghost" (click)="resetCreditForm()">Limpiar</button>
-                  </div>
-                </form>
+                    <div class="form-actions full-width">
+                      <button type="submit" [disabled]="isSubmittingRenewal() || !canWrite()">Crear renovación</button>
+                      <button type="button" class="ghost" (click)="cancelRenewal()">Cancelar</button>
+                    </div>
+                  </form>
+                } @else {
+                  <p class="empty-state">Selecciona Renovar para preparar el nuevo periodo del oficio vigente.</p>
+                }
               </article>
+
+              <article class="list-card">
+                <div class="card-header">
+                  <div>
+                    <h3>Historial de renovaciones</h3>
+                    <p>Cadena simple del oficio, de origen a vigente.</p>
+                  </div>
+                </div>
+
+                @if (permitDetail.renewalHistory.length === 0) {
+                  <p class="empty-state">Sin historial disponible.</p>
+                } @else {
+                  <div class="entity-list">
+                    @for (historyItem of permitDetail.renewalHistory; track historyItem.id) {
+                      <button
+                        type="button"
+                        class="entity-button"
+                        [class.is-selected]="historyItem.id === selectedPermitId()"
+                        (click)="selectPermit(historyItem.id)">
+                        <div class="row-top">
+                          <div>
+                            <h4>Secuencia {{ historyItem.renewalSequence }}</h4>
+                            <p class="meta">{{ historyItem.validFrom }} a {{ historyItem.validTo }} · {{ historyItem.placeOrStand }}</p>
+                          </div>
+                          <span class="status-pill" [class]="currentVersionClass(historyItem.isCurrentVersion)">
+                            {{ currentVersionLabel(historyItem.isCurrentVersion) }}
+                          </span>
+                        </div>
+                        <div class="permit-stats">
+                          <span>{{ historyItem.statusName }}</span>
+                          <span>{{ historyItem.schedule }}</span>
+                        </div>
+                      </button>
+                    }
+                  </div>
+                }
+              </article>
+            </div>
+
+            <div class="detail-grid">
+              @if (selectedPermitAllowsCapture()) {
+                <article class="form-card">
+                  <div class="card-header">
+                    <div>
+                      <h3>Alta de crédito</h3>
+                      <p>Registro individual con promotor, beneficiario y monto autorizado.</p>
+                    </div>
+                  </div>
+
+                  @if (creditFormError()) {
+                    <p class="alert error">{{ creditFormError() }}</p>
+                  }
+
+                  @if (creditFormSuccess()) {
+                    <p class="alert success">{{ creditFormSuccess() }}</p>
+                  }
+
+                  <form class="form-grid" [formGroup]="creditForm" (ngSubmit)="submitCredit()">
+                    <label>
+                      <span>Contacto promotor</span>
+                      <select formControlName="promoterContactId" (change)="syncPromoterFromContact()">
+                        <option value="">Sin vincular</option>
+                        @for (contact of contacts(); track contact.id) {
+                          <option [value]="contact.id">{{ contact.name }}</option>
+                        }
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>Promotor</span>
+                      <input type="text" formControlName="promoterName" placeholder="Nombre del promotor" />
+                    </label>
+
+                    <label>
+                      <span>Contacto beneficiario</span>
+                      <select formControlName="beneficiaryContactId" (change)="syncBeneficiaryFromContact()">
+                        <option value="">Sin vincular</option>
+                        @for (contact of contacts(); track contact.id) {
+                          <option [value]="contact.id">{{ contact.name }}</option>
+                        }
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>Beneficiario</span>
+                      <input type="text" formControlName="beneficiaryName" placeholder="Nombre del beneficiario" />
+                    </label>
+
+                    <label>
+                      <span>Teléfono</span>
+                      <input type="text" formControlName="phoneNumber" placeholder="Teléfono" />
+                    </label>
+
+                    <label>
+                      <span>WhatsApp</span>
+                      <input type="text" formControlName="whatsAppPhone" placeholder="WhatsApp" />
+                    </label>
+
+                    <label>
+                      <span>Fecha de autorización</span>
+                      <input type="date" formControlName="authorizationDate" />
+                    </label>
+
+                    <label>
+                      <span>Monto</span>
+                      <input type="number" min="0.01" step="0.01" formControlName="amount" />
+                    </label>
+
+                    <label class="full-width">
+                      <span>Observaciones</span>
+                      <textarea formControlName="notes" rows="3" placeholder="Observaciones del crédito"></textarea>
+                    </label>
+
+                    <div class="form-actions full-width">
+                      <button type="submit" [disabled]="isSubmittingCredit() || !canWrite()">Registrar crédito</button>
+                      <button type="button" class="ghost" (click)="resetCreditForm()">Limpiar</button>
+                    </div>
+                  </form>
+                </article>
+              } @else {
+                <article class="form-card">
+                  <div class="card-header">
+                    <div>
+                      <h3>Alta de crédito</h3>
+                      <p>Permiso en modo consulta.</p>
+                    </div>
+                  </div>
+                  <p class="empty-state">{{ selectedPermitReadOnlyMessage() }}</p>
+                  @if (selectedPermitChain(); as permitChain) {
+                    @if (permitChain.currentPermitId !== permitDetail.id) {
+                      <div class="form-actions">
+                        <button type="button" class="ghost" (click)="selectPermit(permitChain.currentPermitId)">
+                          Ir al permiso vigente
+                        </button>
+                      </div>
+                    }
+                  }
+                </article>
+              }
 
               <article class="list-card">
                 <div class="card-header">
@@ -405,88 +655,109 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
             </div>
 
             <div class="detail-grid">
-              <article class="form-card">
-                <div class="card-header">
-                  <div>
-                    <h3>Alta de comisión por crédito</h3>
-                    <p>Registro local por crédito sin abrir aún el consolidado transversal.</p>
+              @if (selectedPermitAllowsCapture()) {
+                <article class="form-card">
+                  <div class="card-header">
+                    <div>
+                      <h3>Alta de comisión por crédito</h3>
+                      <p>Registro local por crédito sin abrir aún el consolidado transversal.</p>
+                    </div>
                   </div>
-                </div>
 
-                @if (commissionFormError()) {
-                  <p class="alert error">{{ commissionFormError() }}</p>
-                }
+                  @if (commissionFormError()) {
+                    <p class="alert error">{{ commissionFormError() }}</p>
+                  }
 
-                @if (commissionFormSuccess()) {
-                  <p class="alert success">{{ commissionFormSuccess() }}</p>
-                }
+                  @if (commissionFormSuccess()) {
+                    <p class="alert success">{{ commissionFormSuccess() }}</p>
+                  }
 
-                @if (selectedCredit(); as selectedCreditDetail) {
-                  <p class="inline-note">
-                    Crédito seleccionado: {{ selectedCreditDetail.beneficiaryName }}
-                    · {{ selectedCreditDetail.amount | number: '1.2-2' }}
-                  </p>
-                } @else {
-                  <p class="empty-state">Selecciona un crédito para registrar comisiones.</p>
-                }
+                  @if (selectedCredit(); as selectedCreditDetail) {
+                    <p class="inline-note">
+                      Crédito seleccionado: {{ selectedCreditDetail.beneficiaryName }}
+                      · {{ selectedCreditDetail.amount | number: '1.2-2' }}
+                    </p>
+                  } @else {
+                    <p class="empty-state">Selecciona un crédito para registrar comisiones.</p>
+                  }
 
-                <form class="form-grid" [formGroup]="commissionForm" (ngSubmit)="submitCommission()">
-                  <label>
-                    <span>Tipo de comisión</span>
-                    <select formControlName="commissionTypeId">
-                      <option [value]="0">Selecciona un tipo</option>
-                      @for (type of commissionTypes(); track type.id) {
-                        <option [value]="type.id">{{ type.name }}</option>
-                      }
-                    </select>
-                  </label>
+                  <form class="form-grid" [formGroup]="commissionForm" (ngSubmit)="submitCommission()">
+                    <label>
+                      <span>Tipo de comisión</span>
+                      <select formControlName="commissionTypeId">
+                        <option [value]="0">Selecciona un tipo</option>
+                        @for (type of commissionTypes(); track type.id) {
+                          <option [value]="type.id">{{ type.name }}</option>
+                        }
+                      </select>
+                    </label>
 
-                  <label>
-                    <span>Categoría destinatario</span>
-                    <select formControlName="recipientCategory">
-                      <option value="">Selecciona una categoría</option>
-                      @for (category of recipientCategories; track category.value) {
-                        <option [value]="category.value">{{ category.label }}</option>
-                      }
-                    </select>
-                  </label>
+                    <label>
+                      <span>Categoría destinatario</span>
+                      <select formControlName="recipientCategory">
+                        <option value="">Selecciona una categoría</option>
+                        @for (category of recipientCategories; track category.value) {
+                          <option [value]="category.value">{{ category.label }}</option>
+                        }
+                      </select>
+                    </label>
 
-                  <label>
-                    <span>Contacto destinatario</span>
-                    <select formControlName="recipientContactId" (change)="syncRecipientFromContact()">
-                      <option value="">Sin vincular</option>
-                      @for (contact of contacts(); track contact.id) {
-                        <option [value]="contact.id">{{ contact.name }}</option>
-                      }
-                    </select>
-                  </label>
+                    <label>
+                      <span>Contacto destinatario</span>
+                      <select formControlName="recipientContactId" (change)="syncRecipientFromContact()">
+                        <option value="">Sin vincular</option>
+                        @for (contact of contacts(); track contact.id) {
+                          <option [value]="contact.id">{{ contact.name }}</option>
+                        }
+                      </select>
+                    </label>
 
-                  <label>
-                    <span>Destinatario</span>
-                    <input type="text" formControlName="recipientName" placeholder="Nombre del destinatario" />
-                  </label>
+                    <label>
+                      <span>Destinatario</span>
+                      <input type="text" formControlName="recipientName" placeholder="Nombre del destinatario" />
+                    </label>
 
-                  <label>
-                    <span>Monto base</span>
-                    <input type="number" min="0.01" step="0.01" formControlName="baseAmount" />
-                  </label>
+                    <label>
+                      <span>Monto base</span>
+                      <input type="number" min="0.01" step="0.01" formControlName="baseAmount" />
+                    </label>
 
-                  <label>
-                    <span>Monto de comisión</span>
-                    <input type="number" min="0.01" step="0.01" formControlName="commissionAmount" />
-                  </label>
+                    <label>
+                      <span>Monto de comisión</span>
+                      <input type="number" min="0.01" step="0.01" formControlName="commissionAmount" />
+                    </label>
 
-                  <label class="full-width">
-                    <span>Observaciones</span>
-                    <textarea formControlName="notes" rows="3" placeholder="Observaciones de la comisión"></textarea>
-                  </label>
+                    <label class="full-width">
+                      <span>Observaciones</span>
+                      <textarea formControlName="notes" rows="3" placeholder="Observaciones de la comisión"></textarea>
+                    </label>
 
-                  <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingCommission() || !selectedCredit() || !canWrite()">Registrar comisión</button>
-                    <button type="button" class="ghost" (click)="resetCommissionForm()">Limpiar</button>
+                    <div class="form-actions full-width">
+                      <button type="submit" [disabled]="isSubmittingCommission() || !selectedCredit() || !canWrite()">Registrar comisión</button>
+                      <button type="button" class="ghost" (click)="resetCommissionForm()">Limpiar</button>
+                    </div>
+                  </form>
+                </article>
+              } @else {
+                <article class="form-card">
+                  <div class="card-header">
+                    <div>
+                      <h3>Alta de comisión por crédito</h3>
+                      <p>Permiso en modo consulta.</p>
+                    </div>
                   </div>
-                </form>
-              </article>
+                  <p class="empty-state">{{ selectedPermitReadOnlyMessage() }}</p>
+                  @if (selectedPermitChain(); as permitChain) {
+                    @if (permitChain.currentPermitId !== permitDetail.id) {
+                      <div class="form-actions">
+                        <button type="button" class="ghost" (click)="selectPermit(permitChain.currentPermitId)">
+                          Ir al permiso vigente
+                        </button>
+                      </div>
+                    }
+                  }
+                </article>
+              }
 
               <article class="list-card">
                 <div class="card-header">
@@ -635,6 +906,32 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         margin-top: 1rem;
       }
 
+      .chain-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .chain-credit-list {
+        max-height: 27rem;
+        overflow: auto;
+      }
+
+      .readonly-banner {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: center;
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 1rem;
+        background: rgba(70, 85, 82, 0.1);
+        color: #31413e;
+      }
+
+      .readonly-banner p {
+        margin: 0.35rem 0 0;
+        line-height: 1.5;
+      }
+
       .summary-grid article {
         padding: 0.9rem;
         border-radius: 1rem;
@@ -765,6 +1062,18 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         font-size: 0.82rem;
       }
 
+      .permit-stats span.version-current,
+      .status-pill.version-current {
+        background: rgba(15, 118, 110, 0.12);
+        color: #0f766e;
+      }
+
+      .permit-stats span.version-historical,
+      .status-pill.version-historical {
+        background: rgba(70, 85, 82, 0.14);
+        color: #41514e;
+      }
+
       .status-pill {
         display: inline-flex;
         align-items: center;
@@ -857,14 +1166,19 @@ export class FinancialsPageComponent {
   protected readonly permitAlerts = signal<FinancialPermitAlert[]>([]);
   protected readonly selectedPermitId = signal<string | null>(null);
   protected readonly selectedPermit = signal<FinancialPermitDetail | null>(null);
+  protected readonly selectedPermitChain = signal<FinancialPermitRenewalChain | null>(null);
   protected readonly selectedCreditId = signal<string | null>(null);
 
   protected readonly isSubmittingPermit = signal(false);
   protected readonly isSubmittingCredit = signal(false);
   protected readonly isSubmittingCommission = signal(false);
+  protected readonly isSubmittingRenewal = signal(false);
 
   protected readonly permitFormError = signal<string | null>(null);
   protected readonly permitFormSuccess = signal<string | null>(null);
+  protected readonly renewalFormError = signal<string | null>(null);
+  protected readonly renewalFormSuccess = signal<string | null>(null);
+  protected readonly renewalTargetPermitId = signal<string | null>(null);
   protected readonly creditFormError = signal<string | null>(null);
   protected readonly creditFormSuccess = signal<string | null>(null);
   protected readonly commissionFormError = signal<string | null>(null);
@@ -884,6 +1198,45 @@ export class FinancialsPageComponent {
   protected readonly selectedPermitCommissionCount = computed(() =>
     this.selectedPermit()?.credits.reduce((total, credit) => total + credit.commissionCount, 0) ?? 0);
 
+  protected readonly selectedPermitAllowsCapture = computed(() => {
+    const permit = this.selectedPermit();
+    return !!permit && permit.isCurrentVersion && !permit.statusIsClosed;
+  });
+
+  protected readonly selectedPermitOperationModeLabel = computed(() => {
+    const permit = this.selectedPermit();
+    if (!permit) {
+      return 'Sin oficio seleccionado';
+    }
+
+    if (!permit.isCurrentVersion) {
+      return 'Solo lectura / histórico';
+    }
+
+    if (permit.statusIsClosed) {
+      return 'Solo lectura / terminal';
+    }
+
+    return 'Captura activa';
+  });
+
+  protected readonly selectedPermitReadOnlyMessage = computed(() => {
+    const permit = this.selectedPermit();
+    if (!permit) {
+      return 'Selecciona un oficio vigente para registrar créditos y comisiones.';
+    }
+
+    if (!permit.isCurrentVersion) {
+      return 'Este oficio pertenece al histórico de una renovación. Los nuevos créditos y comisiones deben capturarse en el permiso vigente de la cadena.';
+    }
+
+    if (permit.statusIsClosed) {
+      return 'Este oficio ya está en estado terminal. Los créditos y comisiones permanecen disponibles para consulta.';
+    }
+
+    return 'Este oficio admite captura de créditos y comisiones.';
+  });
+
   protected readonly filtersForm = this.formBuilder.nonNullable.group({
     statusCode: [''],
     alertsOnly: [false]
@@ -898,6 +1251,15 @@ export class FinancialsPageComponent {
     schedule: ['', [Validators.required, Validators.maxLength(120)]],
     negotiatedTerms: ['', [Validators.required, Validators.maxLength(2000)]],
     statusCatalogEntryId: [0, [Validators.required, Validators.min(1)]],
+    notes: ['']
+  });
+
+  protected readonly renewalForm = this.formBuilder.nonNullable.group({
+    validFrom: [this.todayIso(), Validators.required],
+    validTo: [this.addDaysIso(30), Validators.required],
+    placeOrStand: ['', Validators.maxLength(200)],
+    schedule: ['', Validators.maxLength(120)],
+    negotiatedTerms: ['', Validators.maxLength(2000)],
     notes: ['']
   });
 
@@ -979,6 +1341,70 @@ export class FinancialsPageComponent {
     }
   }
 
+  protected startRenewal(permit: FinancialPermitDetail): void {
+    this.pageError.set(null);
+    this.renewalFormError.set(null);
+    this.renewalFormSuccess.set(null);
+    this.renewalTargetPermitId.set(permit.id);
+    this.renewalForm.reset({
+      validFrom: this.addDaysFromIso(permit.validTo, 1),
+      validTo: this.addDaysFromIso(permit.validTo, 31),
+      placeOrStand: permit.placeOrStand,
+      schedule: permit.schedule,
+      negotiatedTerms: permit.negotiatedTerms,
+      notes: ''
+    });
+  }
+
+  protected cancelRenewal(): void {
+    this.renewalTargetPermitId.set(null);
+    this.renewalFormError.set(null);
+    this.renewalFormSuccess.set(null);
+  }
+
+  protected async submitRenewal(): Promise<void> {
+    const renewalTargetPermitId = this.renewalTargetPermitId();
+
+    this.renewalFormError.set(null);
+    this.renewalFormSuccess.set(null);
+    this.pageError.set(null);
+
+    if (!renewalTargetPermitId) {
+      this.renewalFormError.set('Selecciona un oficio vigente para renovarlo.');
+      return;
+    }
+
+    if (this.renewalForm.invalid) {
+      this.renewalForm.markAllAsTouched();
+      this.renewalFormError.set('Completa el nuevo periodo de vigencia.');
+      return;
+    }
+
+    this.isSubmittingRenewal.set(true);
+
+    try {
+      const rawValue = this.renewalForm.getRawValue();
+      const request: RenewFinancialPermitRequest = {
+        validFrom: rawValue.validFrom,
+        validTo: rawValue.validTo,
+        placeOrStand: this.normalizeOptional(rawValue.placeOrStand),
+        schedule: this.normalizeOptional(rawValue.schedule),
+        negotiatedTerms: this.normalizeOptional(rawValue.negotiatedTerms),
+        notes: this.normalizeOptional(rawValue.notes)
+      };
+
+      const renewedPermit = await firstValueFrom(this.financialsService.renewPermit(renewalTargetPermitId, request));
+      this.renewalFormSuccess.set('Oficio renovado.');
+      this.renewalTargetPermitId.set(null);
+      await this.reloadPermits(renewedPermit.id);
+      await this.reloadAlerts();
+    } catch (error) {
+      this.renewalFormError.set(getApiErrorMessage(error, 'No fue posible renovar el oficio.'));
+    } finally {
+      this.isSubmittingRenewal.set(false);
+    }
+  }
+
   protected selectCredit(creditId: string): void {
     this.selectedCreditId.set(creditId);
     const selectedCredit = this.selectedPermit()?.credits.find((credit) => credit.id === creditId);
@@ -1040,6 +1466,11 @@ export class FinancialsPageComponent {
       return;
     }
 
+    if (!this.selectedPermitAllowsCapture()) {
+      this.creditFormError.set(this.selectedPermitReadOnlyMessage());
+      return;
+    }
+
     if (this.creditForm.invalid) {
       this.creditForm.markAllAsTouched();
       this.creditFormError.set('Completa los datos obligatorios del crédito.');
@@ -1083,6 +1514,11 @@ export class FinancialsPageComponent {
 
     if (!selectedCredit) {
       this.commissionFormError.set('Selecciona un crédito antes de registrar una comisión.');
+      return;
+    }
+
+    if (!this.selectedPermitAllowsCapture()) {
+      this.commissionFormError.set(this.selectedPermitReadOnlyMessage());
       return;
     }
 
@@ -1234,6 +1670,8 @@ export class FinancialsPageComponent {
         return 'alert-renewal';
       case 'ALERTS_DISABLED':
         return 'alert-disabled';
+      case 'HISTORICAL':
+        return 'alert-disabled';
       default:
         return 'alert-valid';
     }
@@ -1249,9 +1687,19 @@ export class FinancialsPageComponent {
         return 'Renovar';
       case 'ALERTS_DISABLED':
         return 'Sin alerta';
+      case 'HISTORICAL':
+        return 'Histórico';
       default:
         return 'Vigente';
     }
+  }
+
+  protected currentVersionClass(isCurrentVersion: boolean): string {
+    return isCurrentVersion ? 'version-current' : 'version-historical';
+  }
+
+  protected currentVersionLabel(isCurrentVersion: boolean): string {
+    return isCurrentVersion ? 'Vigente' : 'Histórico';
   }
 
   protected expirationLabel(daysUntilExpiration: number): string {
@@ -1264,6 +1712,27 @@ export class FinancialsPageComponent {
     }
 
     return `Vence en ${daysUntilExpiration} días`;
+  }
+
+  protected operationRangeLabel(operationFrom: string | null, operationTo: string | null): string {
+    if (!operationFrom || !operationTo) {
+      return 'Sin créditos';
+    }
+
+    if (operationFrom === operationTo) {
+      return operationFrom;
+    }
+
+    return `${operationFrom} a ${operationTo}`;
+  }
+
+  protected chainPermitLabel(financialPermitId: string): string {
+    const permit = this.selectedPermitChain()?.permits.find((item) => item.id === financialPermitId);
+    if (!permit) {
+      return 'Permiso de la cadena';
+    }
+
+    return `Secuencia ${permit.renewalSequence} · ${this.currentVersionLabel(permit.isCurrentVersion)}`;
   }
 
   protected recipientCategoryLabel(value: string): string {
@@ -1328,6 +1797,7 @@ export class FinancialsPageComponent {
 
     this.selectedPermitId.set(null);
     this.selectedPermit.set(null);
+    this.selectedPermitChain.set(null);
     this.selectedCreditId.set(null);
   }
 
@@ -1337,8 +1807,13 @@ export class FinancialsPageComponent {
   }
 
   private async loadPermitDetail(permitId: string, preferredCreditId?: string): Promise<void> {
-    const permitDetail = await firstValueFrom(this.financialsService.getPermit(permitId));
+    const [permitDetail, permitChain] = await Promise.all([
+      firstValueFrom(this.financialsService.getPermit(permitId)),
+      firstValueFrom(this.financialsService.getPermitRenewalChain(permitId))
+    ]);
+
     this.selectedPermit.set(permitDetail);
+    this.selectedPermitChain.set(permitChain);
 
     const nextSelectedCreditId = preferredCreditId
       ?? this.selectedCreditId()
@@ -1377,6 +1852,12 @@ export class FinancialsPageComponent {
 
   private addDaysIso(days: number): string {
     const date = new Date();
+    date.setDate(date.getDate() + days);
+    return date.toISOString().slice(0, 10);
+  }
+
+  private addDaysFromIso(isoDate: string, days: number): string {
+    const date = new Date(`${isoDate}T00:00:00`);
     date.setDate(date.getDate() + days);
     return date.toISOString().slice(0, 10);
   }

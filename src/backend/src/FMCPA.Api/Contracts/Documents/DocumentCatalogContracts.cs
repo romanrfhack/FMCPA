@@ -169,7 +169,8 @@ public sealed record DocumentWorkQueueItemResponse(
     string? DocumentOperationalSeverityCode,
     string RouteHint,
     string? DocumentDetailUrl,
-    string? RemediationHint);
+    string? RemediationHint,
+    DateTimeOffset? RelevantUtc);
 
 public sealed record DocumentSummaryResponse(
     int TotalDocuments,

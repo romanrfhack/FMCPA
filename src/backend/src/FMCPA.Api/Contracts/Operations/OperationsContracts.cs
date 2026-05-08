@@ -5,6 +5,7 @@ namespace FMCPA.Api.Contracts.Operations;
 
 public sealed record OperationsSummaryResponse(
     DateTimeOffset GeneratedAtUtc,
+    OperationsTimeWindowResponse TimeWindow,
     IReadOnlyList<OperationsSeverityConventionResponse> SeverityConvention,
     IReadOnlyList<OperationsKpiResponse> BusinessKpis,
     DocumentSummaryResponse? Documents,
@@ -27,6 +28,7 @@ public sealed record OperationsWorkQueueResponse(
     int ReturnedCount,
     int Skip,
     int Take,
+    OperationsTimeWindowResponse TimeWindow,
     IReadOnlyList<OperationsSeverityConventionResponse> SeverityConvention,
     IReadOnlyList<OperationsWorkQueueItemResponse> Items);
 
@@ -41,6 +43,11 @@ public sealed record OperationsWorkQueueItemResponse(
     string Summary,
     string ReasonCode,
     string RouteHint,
+    string ActionKind,
+    string ActionLabel,
+    string? ContextLabel,
+    string? QuickActionCode,
+    string? QuickActionLabel,
     string? SourceItemKey,
     string? EntityType,
     string? EntityId,
@@ -50,4 +57,11 @@ public sealed record OperationsWorkQueueItemResponse(
 public sealed record OperationsSeverityConventionResponse(
     string SeverityCode,
     int SortOrder,
+    string Description);
+
+public sealed record OperationsTimeWindowResponse(
+    string TimeWindowCode,
+    DateTimeOffset? FromUtc,
+    DateTimeOffset? ToUtc,
+    bool IsApplied,
     string Description);

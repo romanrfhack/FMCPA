@@ -34,71 +34,17 @@ export class DocumentCatalogService {
   private readonly apiBaseUrl = `${environment.apiBaseUrl}/api/documents`;
 
   listDocuments(filters: DocumentCatalogFilters = {}) {
-    let params = new HttpParams();
-
-    if (filters.moduleCode?.trim()) {
-      params = params.set('moduleCode', filters.moduleCode.trim());
-    }
-
-    if (filters.entityType?.trim()) {
-      params = params.set('entityType', filters.entityType.trim());
-    }
-
-    if (filters.entityId?.trim()) {
-      params = params.set('entityId', filters.entityId.trim());
-    }
-
-    if (filters.documentAreaCode?.trim()) {
-      params = params.set('documentAreaCode', filters.documentAreaCode.trim());
-    }
-
-    if (filters.integrityState?.trim()) {
-      params = params.set('integrityState', filters.integrityState.trim());
-    }
-
-    if (filters.documentOperationalStatusCode?.trim()) {
-      params = params.set('documentOperationalStatusCode', filters.documentOperationalStatusCode.trim());
-    }
-
-    if (filters.documentClassCode?.trim()) {
-      params = params.set('documentClassCode', filters.documentClassCode.trim());
-    }
-
-    if (filters.retentionPolicyCode?.trim()) {
-      params = params.set('retentionPolicyCode', filters.retentionPolicyCode.trim());
-    }
-
-    if (filters.retentionStatusCode?.trim()) {
-      params = params.set('retentionStatusCode', filters.retentionStatusCode.trim());
-    }
-
-    if (filters.statusCode?.trim()) {
-      params = params.set('statusCode', filters.statusCode.trim());
-    }
-
-    if (filters.includeArchived) {
-      params = params.set('includeArchived', 'true');
-    }
-
-    if (filters.fromUtc) {
-      params = params.set('fromUtc', filters.fromUtc);
-    }
-
-    if (filters.toUtc) {
-      params = params.set('toUtc', filters.toUtc);
-    }
-
-    if (filters.skip) {
-      params = params.set('skip', String(filters.skip));
-    }
-
-    if (filters.take) {
-      params = params.set('take', String(filters.take));
-    }
+    const params = this.buildDocumentCatalogParams(filters);
 
     return this.httpClient.get<DocumentCatalogListResponse>(
       this.apiBaseUrl,
       { params: params.keys().length > 0 ? params : undefined });
+  }
+
+  exportDocuments(filters: DocumentCatalogFilters = {}) {
+    return this.protectedDownloadService.download(
+      this.buildUrlWithParams(`${this.apiBaseUrl}/export`, this.buildDocumentCatalogParams(filters)),
+      'documents-catalog-export.csv');
   }
 
   getSummary() {
@@ -106,27 +52,17 @@ export class DocumentCatalogService {
   }
 
   listRetentionReviewQueue(filters: DocumentRetentionReviewQueueFilters = {}) {
-    let params = new HttpParams();
-
-    if (filters.moduleCode?.trim()) {
-      params = params.set('moduleCode', filters.moduleCode.trim());
-    }
-
-    if (filters.retentionReviewStatusCode?.trim()) {
-      params = params.set('retentionReviewStatusCode', filters.retentionReviewStatusCode.trim());
-    }
-
-    if (filters.skip) {
-      params = params.set('skip', String(filters.skip));
-    }
-
-    if (filters.take) {
-      params = params.set('take', String(filters.take));
-    }
+    const params = this.buildRetentionReviewQueueParams(filters);
 
     return this.httpClient.get<DocumentCatalogListResponse>(
       `${this.apiBaseUrl}/review-queue`,
       { params: params.keys().length > 0 ? params : undefined });
+  }
+
+  exportRetentionReviewQueue(filters: DocumentRetentionReviewQueueFilters = {}) {
+    return this.protectedDownloadService.download(
+      this.buildUrlWithParams(`${this.apiBaseUrl}/review-queue/export`, this.buildRetentionReviewQueueParams(filters)),
+      'documents-review-queue-export.csv');
   }
 
   listDocumentsByEntity(moduleCode: string, entityType: string, entityId: string, filters: { includeArchived?: boolean | null; take?: number | null } = {}) {
@@ -195,31 +131,17 @@ export class DocumentCatalogService {
   }
 
   listWorkQueue(filters: DocumentWorkQueueFilters = {}) {
-    let params = new HttpParams();
-
-    if (filters.moduleCode?.trim()) {
-      params = params.set('moduleCode', filters.moduleCode.trim());
-    }
-
-    if (filters.workItemType?.trim()) {
-      params = params.set('workItemType', filters.workItemType.trim());
-    }
-
-    if (filters.severityCode?.trim()) {
-      params = params.set('severityCode', filters.severityCode.trim());
-    }
-
-    if (filters.skip) {
-      params = params.set('skip', String(filters.skip));
-    }
-
-    if (filters.take) {
-      params = params.set('take', String(filters.take));
-    }
+    const params = this.buildWorkQueueParams(filters);
 
     return this.httpClient.get<DocumentWorkQueueResponse>(
       `${this.apiBaseUrl}/work-queue`,
       { params: params.keys().length > 0 ? params : undefined });
+  }
+
+  exportWorkQueue(filters: DocumentWorkQueueFilters = {}) {
+    return this.protectedDownloadService.download(
+      this.buildUrlWithParams(`${this.apiBaseUrl}/work-queue/export`, this.buildWorkQueueParams(filters)),
+      'documents-work-queue-export.csv');
   }
 
   getDocument(documentId: string) {
@@ -281,6 +203,125 @@ export class DocumentCatalogService {
     return this.protectedDownloadService.download(
       this.resolveApiUrl(document.downloadUrl),
       document.originalFileName);
+  }
+
+  private buildDocumentCatalogParams(filters: DocumentCatalogFilters): HttpParams {
+    let params = new HttpParams();
+
+    if (filters.moduleCode?.trim()) {
+      params = params.set('moduleCode', filters.moduleCode.trim());
+    }
+
+    if (filters.entityType?.trim()) {
+      params = params.set('entityType', filters.entityType.trim());
+    }
+
+    if (filters.entityId?.trim()) {
+      params = params.set('entityId', filters.entityId.trim());
+    }
+
+    if (filters.documentAreaCode?.trim()) {
+      params = params.set('documentAreaCode', filters.documentAreaCode.trim());
+    }
+
+    if (filters.integrityState?.trim()) {
+      params = params.set('integrityState', filters.integrityState.trim());
+    }
+
+    if (filters.documentOperationalStatusCode?.trim()) {
+      params = params.set('documentOperationalStatusCode', filters.documentOperationalStatusCode.trim());
+    }
+
+    if (filters.documentClassCode?.trim()) {
+      params = params.set('documentClassCode', filters.documentClassCode.trim());
+    }
+
+    if (filters.retentionPolicyCode?.trim()) {
+      params = params.set('retentionPolicyCode', filters.retentionPolicyCode.trim());
+    }
+
+    if (filters.retentionStatusCode?.trim()) {
+      params = params.set('retentionStatusCode', filters.retentionStatusCode.trim());
+    }
+
+    if (filters.statusCode?.trim()) {
+      params = params.set('statusCode', filters.statusCode.trim());
+    }
+
+    if (filters.includeArchived) {
+      params = params.set('includeArchived', 'true');
+    }
+
+    if (filters.fromUtc) {
+      params = params.set('fromUtc', filters.fromUtc);
+    }
+
+    if (filters.toUtc) {
+      params = params.set('toUtc', filters.toUtc);
+    }
+
+    if (filters.skip) {
+      params = params.set('skip', String(filters.skip));
+    }
+
+    if (filters.take) {
+      params = params.set('take', String(filters.take));
+    }
+
+    return params;
+  }
+
+  private buildWorkQueueParams(filters: DocumentWorkQueueFilters): HttpParams {
+    let params = new HttpParams();
+
+    if (filters.moduleCode?.trim()) {
+      params = params.set('moduleCode', filters.moduleCode.trim());
+    }
+
+    if (filters.workItemType?.trim()) {
+      params = params.set('workItemType', filters.workItemType.trim());
+    }
+
+    if (filters.severityCode?.trim()) {
+      params = params.set('severityCode', filters.severityCode.trim());
+    }
+
+    if (filters.skip) {
+      params = params.set('skip', String(filters.skip));
+    }
+
+    if (filters.take) {
+      params = params.set('take', String(filters.take));
+    }
+
+    return params;
+  }
+
+  private buildRetentionReviewQueueParams(filters: DocumentRetentionReviewQueueFilters): HttpParams {
+    let params = new HttpParams();
+
+    if (filters.moduleCode?.trim()) {
+      params = params.set('moduleCode', filters.moduleCode.trim());
+    }
+
+    if (filters.retentionReviewStatusCode?.trim()) {
+      params = params.set('retentionReviewStatusCode', filters.retentionReviewStatusCode.trim());
+    }
+
+    if (filters.skip) {
+      params = params.set('skip', String(filters.skip));
+    }
+
+    if (filters.take) {
+      params = params.set('take', String(filters.take));
+    }
+
+    return params;
+  }
+
+  private buildUrlWithParams(url: string, params: HttpParams): string {
+    const queryString = params.toString();
+    return queryString ? `${url}?${queryString}` : url;
   }
 
   private resolveApiUrl(url: string): string {

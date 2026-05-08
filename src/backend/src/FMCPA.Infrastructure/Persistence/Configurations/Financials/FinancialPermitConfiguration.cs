@@ -38,6 +38,15 @@ public sealed class FinancialPermitConfiguration : IEntityTypeConfiguration<Fina
         builder.Property(permit => permit.CreatedUtc)
             .IsRequired();
 
+        builder.Property(permit => permit.CurrentRootPermitId)
+            .IsRequired();
+
+        builder.Property(permit => permit.IsCurrentVersion)
+            .IsRequired();
+
+        builder.Property(permit => permit.RenewalSequence)
+            .IsRequired();
+
         builder.HasOne(permit => permit.StatusCatalogEntry)
             .WithMany()
             .HasForeignKey(permit => permit.StatusCatalogEntryId)
@@ -45,6 +54,10 @@ public sealed class FinancialPermitConfiguration : IEntityTypeConfiguration<Fina
 
         builder.HasIndex(permit => permit.ValidTo);
         builder.HasIndex(permit => permit.StatusCatalogEntryId);
+        builder.HasIndex(permit => permit.RenewedFromPermitId);
+        builder.HasIndex(permit => permit.CurrentRootPermitId);
+        builder.HasIndex(permit => permit.IsCurrentVersion);
+        builder.HasIndex(permit => new { permit.CurrentRootPermitId, permit.RenewalSequence });
         builder.HasIndex(permit => new { permit.ValidTo, permit.StatusCatalogEntryId });
     }
 }

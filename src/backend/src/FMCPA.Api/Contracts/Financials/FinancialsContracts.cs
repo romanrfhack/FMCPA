@@ -16,6 +16,10 @@ public sealed record FinancialPermitSummaryResponse(
     bool StatusAlertsEnabledByDefault,
     int DaysUntilExpiration,
     string AlertState,
+    Guid? RenewedFromPermitId,
+    Guid CurrentRootPermitId,
+    bool IsCurrentVersion,
+    int RenewalSequence,
     int CreditCount,
     int CommissionCount,
     string? Notes,
@@ -38,10 +42,71 @@ public sealed record FinancialPermitDetailResponse(
     bool StatusAlertsEnabledByDefault,
     int DaysUntilExpiration,
     string AlertState,
+    Guid? RenewedFromPermitId,
+    Guid CurrentRootPermitId,
+    bool IsCurrentVersion,
+    int RenewalSequence,
     string? Notes,
     DateTimeOffset CreatedUtc,
     DateTimeOffset? UpdatedUtc,
+    IReadOnlyList<FinancialPermitRenewalHistoryResponse> RenewalHistory,
     IReadOnlyList<FinancialCreditResponse> Credits);
+
+public sealed record FinancialPermitRenewalHistoryResponse(
+    Guid Id,
+    Guid? RenewedFromPermitId,
+    Guid CurrentRootPermitId,
+    bool IsCurrentVersion,
+    int RenewalSequence,
+    DateOnly ValidFrom,
+    DateOnly ValidTo,
+    string PlaceOrStand,
+    string Schedule,
+    string StatusCode,
+    string StatusName,
+    DateTimeOffset CreatedUtc,
+    DateTimeOffset? UpdatedUtc);
+
+public sealed record FinancialPermitRenewalChainResponse(
+    Guid CurrentRootPermitId,
+    Guid CurrentPermitId,
+    FinancialPermitRenewalChainPermitResponse CurrentPermit,
+    IReadOnlyList<FinancialPermitRenewalChainPermitResponse> Permits,
+    FinancialPermitRenewalChainSummaryResponse Summary,
+    IReadOnlyList<FinancialCreditResponse> Credits);
+
+public sealed record FinancialPermitRenewalChainPermitResponse(
+    Guid Id,
+    Guid? RenewedFromPermitId,
+    Guid CurrentRootPermitId,
+    bool IsCurrentVersion,
+    int RenewalSequence,
+    string FinancialName,
+    string InstitutionOrDependency,
+    string PlaceOrStand,
+    DateOnly ValidFrom,
+    DateOnly ValidTo,
+    string Schedule,
+    int StatusCatalogEntryId,
+    string StatusCode,
+    string StatusName,
+    bool StatusIsClosed,
+    int DaysUntilExpiration,
+    string AlertState,
+    DateTimeOffset CreatedUtc,
+    DateTimeOffset? UpdatedUtc);
+
+public sealed record FinancialPermitRenewalChainSummaryResponse(
+    int PermitsCount,
+    int TotalCreditsCount,
+    decimal TotalCreditsAmount,
+    int TotalCommissionsCount,
+    decimal TotalCommissionsAmount,
+    decimal TotalPromoterCommission,
+    decimal TotalAdminCommission,
+    decimal TotalThirdPartyCommission,
+    DateOnly? OperationFrom,
+    DateOnly? OperationTo);
 
 public sealed record CreateFinancialPermitRequest(
     string FinancialName,
@@ -52,6 +117,14 @@ public sealed record CreateFinancialPermitRequest(
     string Schedule,
     string NegotiatedTerms,
     int StatusCatalogEntryId,
+    string? Notes);
+
+public sealed record RenewFinancialPermitRequest(
+    DateOnly ValidFrom,
+    DateOnly ValidTo,
+    string? PlaceOrStand,
+    string? Schedule,
+    string? NegotiatedTerms,
     string? Notes);
 
 public sealed record FinancialPermitAlertResponse(
@@ -114,3 +187,10 @@ public sealed record FinancialCreditCommissionResponse(
     decimal CommissionAmount,
     string? Notes,
     DateTimeOffset CreatedUtc);
+
+public sealed record FinancialPermitOperationBlockedResponse(
+    string Message,
+    string ReasonCode,
+    Guid PermitId,
+    Guid CurrentRootPermitId,
+    Guid? CurrentPermitId);

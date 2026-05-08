@@ -421,6 +421,79 @@ public sealed class DocumentCatalogTests : IClassFixture<AuthorizationRegression
     }
 
     [Fact]
+    public async Task Document_light_exports_cover_catalog_work_queue_and_review_queue_with_safe_csv_headers()
+    {
+        var marketTenant = await SeedMarketTenantAsync();
+        var catalogDocumentId = await SeedStoredDocumentAsync(
+            "MARKETS",
+            DocumentAreaCodes.MarketsTenantCertificates,
+            "MARKET_TENANT",
+            "export-catalogo.pdf",
+            "application/pdf",
+            "catalog export regression",
+            entityId: marketTenant.TenantId,
+            documentClassCode: DocumentClassCodes.Certificate,
+            isPrimaryDocument: true);
+        var missingFileDocumentId = await SeedStoredDocumentAsync(
+            "DONATARIAS",
+            DocumentAreaCodes.DonationsApplicationEvidences,
+            "DONATION_APPLICATION_EVIDENCE",
+            "export-workqueue.pdf",
+            "application/pdf",
+            "work queue export regression",
+            createPhysicalFile: false,
+            documentClassCode: DocumentClassCodes.SupportingDocument);
+        var reviewDueDocumentId = await SeedStoredDocumentAsync(
+            "FEDERATION",
+            DocumentAreaCodes.FederationApplicationEvidences,
+            "FEDERATION_DONATION_APPLICATION_EVIDENCE",
+            "export-reviewqueue.pdf",
+            "application/pdf",
+            "review queue export regression",
+            documentClassCode: DocumentClassCodes.SupportingDocument,
+            retentionUntilUtc: DateTimeOffset.UtcNow.AddDays(10));
+        var adminToken = await LoginAsync(AuthorizationRegressionWebApplicationFactory.AdminUserName, AuthorizationRegressionWebApplicationFactory.AdminPassword);
+        var readOnlyToken = await LoginAsync(AuthorizationRegressionWebApplicationFactory.ReadOnlyUserName, AuthorizationRegressionWebApplicationFactory.ReadOnlyPassword);
+
+        using var catalogExport = await SendGetAsync(
+            $"/api/documents/export?moduleCode=MARKETS&entityType=MARKET_TENANT&entityId={marketTenant.TenantId}&take=200",
+            adminToken);
+        using var workQueueExport = await SendGetAsync(
+            "/api/documents/work-queue/export?workItemType=DOCUMENT_INTEGRITY_ISSUE&take=200",
+            adminToken);
+        using var reviewQueueExport = await SendGetAsync(
+            "/api/documents/review-queue/export?moduleCode=FEDERATION&take=200",
+            adminToken);
+        using var forbiddenReviewQueueExport = await SendGetAsync(
+            "/api/documents/review-queue/export?take=20",
+            readOnlyToken);
+        var catalogCsv = await catalogExport.Content.ReadAsStringAsync();
+        var workQueueCsv = await workQueueExport.Content.ReadAsStringAsync();
+        var reviewQueueCsv = await reviewQueueExport.Content.ReadAsStringAsync();
+
+        AssertCsvDownloadHeaders(catalogExport, "documents-catalog");
+        Assert.Contains("documentId,moduleCode,moduleName,documentAreaCode", catalogCsv);
+        Assert.Contains(catalogDocumentId.ToString(), catalogCsv);
+        Assert.Contains("MARKETS", catalogCsv);
+        Assert.DoesNotContain("storedRelativePath", catalogCsv, StringComparison.OrdinalIgnoreCase);
+
+        AssertCsvDownloadHeaders(workQueueExport, "documents-work-queue");
+        Assert.Contains("workItemKey,workItemType,severity,moduleCode", workQueueCsv);
+        Assert.Contains(missingFileDocumentId.ToString(), workQueueCsv);
+        Assert.Contains("DOCUMENT_INTEGRITY_ISSUE", workQueueCsv);
+        Assert.Contains("REVIEW", workQueueCsv);
+        Assert.DoesNotContain("storedRelativePath", workQueueCsv, StringComparison.OrdinalIgnoreCase);
+
+        AssertCsvDownloadHeaders(reviewQueueExport, "documents-review-queue");
+        Assert.Contains("documentId,moduleCode,moduleName,entityType", reviewQueueCsv);
+        Assert.Contains(reviewDueDocumentId.ToString(), reviewQueueCsv);
+        Assert.Contains(DocumentRetentionReviewStatusCodes.Pending, reviewQueueCsv);
+        Assert.DoesNotContain("storedRelativePath", reviewQueueCsv, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenReviewQueueExport.StatusCode);
+    }
+
+    [Fact]
     public async Task Document_summary_reports_kpis_and_respects_mapped_module_access()
     {
         var incompleteMarketTenant = await SeedMarketTenantAsync();
@@ -1837,6 +1910,16 @@ public sealed class DocumentCatalogTests : IClassFixture<AuthorizationRegression
         using var request = new HttpRequestMessage(HttpMethod.Delete, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         return await _client.SendAsync(request);
+    }
+
+    private static void AssertCsvDownloadHeaders(HttpResponseMessage response, string fileNamePrefix)
+    {
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/csv", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("utf-8", response.Content.Headers.ContentType?.CharSet ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(fileNamePrefix, response.Content.Headers.ContentDisposition?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("attachment", response.Content.Headers.ContentDisposition?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("no-store", response.Headers.CacheControl?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ResolveStorageRoot(string documentAreaCode)

@@ -25,7 +25,7 @@
 | PMB-010 | P2 | Security | Seguridad de adjuntos | Alinear acceso a evidencias y archivos con futuras reglas de autenticacion y autorizacion | Entregado, pendiente de aprobacion |
 | PMB-011 | P2 | Analytics | Dashboard analitico | Definir indicadores posteriores al MVP sin rebasar aun la trazabilidad real disponible | Pendiente |
 | PMB-012 | P2 | Analytics | Exportaciones | Evaluar exportaciones simples y acotadas antes de abrir reporteria mas pesada | Pendiente |
-| PMB-013 | P3 | Evolution | Evolucion funcional posterior | Identificar mejoras funcionales posteriores una vez cerrados los tracks transversales prioritarios | Pendiente |
+| PMB-013 | P3 | Evolution | Evolucion funcional posterior | Identificar y ejecutar mejoras funcionales posteriores acotadas, sin rehacer modulos ni abrir workflow complejo | Iniciado, pendiente de aprobacion |
 | PMB-014 | P1 | Hardening | Entorno local estable | Estandarizar SQL Server local en Docker, puertos, storage, migraciones, arranque y smoke checks para sesiones repetibles de desarrollo y validacion | Entregado, pendiente de aprobacion |
 | PMB-015 | P1 | Hardening | Tooling de doctor y reset | Incorporar preflight operativo para detectar prerequisitos y conflictos locales, y reset controlado de base local con confirmacion explicita o `--force` | Entregado, pendiente de aprobacion |
 | PMB-016 | P1 | Hardening | Wiring local frontend/API | Resolver el frontend de desarrollo contra el backend configurado via proxy local y `apiBaseUrl` relativo en desarrollo, sin editar codigo fuente cuando cambie el puerto del API | Entregado, pendiente de aprobacion |
@@ -42,6 +42,9 @@
 | PMB-027 | P1 | Document Management | Reemplazo documental trazable | Registrar relacion minima entre documento reemplazado y vigente, especialmente cédulas de `MarketTenant`, sin abrir versionado completo ni plataforma documental avanzada | Entregado, pendiente de aprobacion |
 | PMB-028 | P1 | Document Management | Timeline documental minimo | Mostrar historia documental por documento y entidad usando `StoredDocument`, `AuditEvent` y replacement traceability sin abrir versionado completo ni plataforma documental avanzada | Entregado, pendiente de aprobacion |
 | PMB-029 | P1 | Document Management | Bandeja documental unificada | Consolidar pendientes de completitud, integridad documental y revision de retencion en una superficie operativa filtrable sin abrir workflow ni asignaciones | Entregado, pendiente de aprobacion |
+| PMB-030 | P3 | Evolution | Renovacion minima de oficios de Financieras | Registrar renovaciones de `FinancialPermit` con permiso anterior historico, nuevo vigente, historial simple, alertas coherentes y auditoria minima, sin abrir versionado contractual completo | Entregado, pendiente de aprobacion |
+| PMB-031 | P3 | Evolution | Continuidad operativa de cadena de Financieras | Consultar la cadena de permisos renovados como una misma linea operativa con creditos y comisiones agregadas, sin abrir BI, comparativos avanzados ni workflow complejo | Entregado, pendiente de aprobacion |
+| PMB-032 | P3 | Evolution | Captura solo en permiso vigente de Financieras | Impedir altas nuevas de creditos y comisiones sobre permisos historicos renovados o terminales, conservando consulta historica y navegacion al vigente sin abrir workflow ni versionado contractual avanzado | Entregado, pendiente de aprobacion |
 
 ## Corte sugerido para la primera aprobacion post-MVP
 - PMB-001

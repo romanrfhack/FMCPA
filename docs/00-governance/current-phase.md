@@ -1,23 +1,60 @@
 # Current Phase
 
 ## Fase actual
-**Track 4 post-MVP: Centro operativo ejecutivo transversal minimo**
+**Track 5 post-MVP: Continuidad operativa minima y captura endurecida por cadena de permisos de Financieras**
 
 ## Estado actual
-- Fecha de inicio documentada: 2026-05-05
-- Estado de la fase: Track 4 abierto con centro operativo transversal minimo, endpoints `GET /api/operations/summary` y `GET /api/operations/work-queue`, vista Angular `/operations`, composicion de dashboard, summary/work queue documental y observabilidad de seguridad, severidad simple `HIGH`/`MEDIUM`/`LOW` y filtrado por permisos efectivos; pendiente de aprobacion formal
+- Fecha de inicio documentada: 2026-05-08
+- Estado de la fase: Track 5 abierto con renovacion formal minima de `FinancialPermit`, continuidad operativa por cadena y captura nueva restringida al permiso vigente/no terminal; pendiente de aprobacion formal
 - Estado del MVP: **Cerrado con reservas**
-- Estado del track anterior: `Track 3` queda entregado y sigue pendiente de aprobacion formal
-- Enfoque: consolidar senales clave de negocio, documentacion y seguridad en una superficie ejecutiva de lectura/priorizacion, reutilizando dashboard, documentos y observabilidad de seguridad ya existentes, sin abrir BI pesado, exportaciones complejas, scheduler, notificaciones, asignaciones, workflow complejo ni analitica avanzada
+- Estado del track anterior: `Track 4` queda con centro operativo, ventanas temporales y exportacion CSV ligera entregados y pendientes de aprobacion formal
+- Enfoque: permitir renovar formalmente un oficio/autorizacion de Financieras sin abrir workflow complejo, aprobaciones multinivel, versionado contractual completo ni refactor del modulo
 
 ## Nota operativa
-- El MVP permanece cerrado con reservas; `Track 4` no reabre alcance funcional ni agrega modulos de negocio nuevos.
+- El MVP permanece cerrado con reservas; `Track 5` abre evolucion funcional acotada solo sobre Financieras.
+- `FinancialPermit` incorpora trazabilidad minima de renovacion: `RenewedFromPermitId`, `CurrentRootPermitId`, `IsCurrentVersion` y `RenewalSequence`.
+- `POST /api/financials/{permitId}/renew` crea un nuevo permiso a partir del anterior, captura nuevo periodo y permite actualizar lugar/stand, horario, terminos negociados y observaciones.
+- La politica elegida mantiene el permiso anterior como historico no vigente, conserva el original sin borrar ni sobrescribir, y deja el nuevo permiso como vigente de la cadena.
+- Solo se puede renovar un permiso vigente; intentar renovar un historico o terminal devuelve conflicto operativo.
+- Las alertas de renovacion de Financieras y el dashboard financiero consideran solo permisos `IsCurrentVersion=true`, por lo que un permiso ya renovado no sigue ensuciando la cola operativa.
+- El detalle y el listado de Financieras exponen vigente/historico, raiz de renovacion, secuencia y relacion con el permiso anterior.
+- El detalle de un permiso incluye un historial simple de renovaciones de su misma raiz, ordenado por `RenewalSequence`.
+- La operacion de renovacion reutiliza `FINANCIALS_WRITE`; queda disponible para `ADMIN` y `OPERATOR`, y `READONLY` recibe `403`.
+- La UI de Financieras agrega accion minima `Renovar`, formulario simple de nuevo periodo/datos editables, indicador de vigente y vista simple del historial.
+- La auditoria registra `FINANCIAL_PERMIT_RENEWED` en `AuditEvent` con identificadores del permiso anterior, nuevo, raiz y secuencia.
+- La migracion `Track5FinancialPermitRenewal` agrega los campos de trazabilidad y backfill de `CurrentRootPermitId = Id` para permisos existentes.
+- `GET /api/financials/{permitId}/renewal-chain` expone la cadena operativa completa de un permiso, el permiso vigente, la lista ordenada por `RenewalSequence`, creditos de toda la cadena y resumen agregado de montos/comisiones.
+- Los agregados de cadena se calculan en lectura sobre datos existentes: creditos por permisos de la misma raiz y comisiones por los creditos asociados; no mueven ni reescriben historicos.
+- La UI de Financieras agrega un panel simple de cadena con resumen agregado, vigente vs historicos y creditos de la cadena; no abre graficas, comparativos avanzados ni BI.
+- La captura nueva de creditos queda restringida a permisos `IsCurrentVersion=true` y no terminales; un permiso historico renovado o cerrado queda en modo consulta y responde `409 Conflict` con contexto de raiz y permiso vigente sugerido cuando aplica.
+- La captura nueva de comisiones queda restringida a creditos cuyo permiso asociado sigue vigente y no terminal; creditos historicos permanecen consultables dentro de la cadena, pero no admiten nuevas comisiones.
+- La UI de Financieras oculta los formularios de alta de credito/comision cuando el permiso seleccionado es historico o terminal, muestra indicador `Solo lectura` y ofrece navegar al permiso vigente de la cadena cuando existe.
+- En esta subetapa no se agrega migracion nueva: se reutiliza la cadena minima ya persistida por `Track5FinancialPermitRenewal`.
+- La validacion runtime del endurecimiento de captura se cerro sobre SQL Server aislado `fmcpa-sql-hold-runtime` en puerto `14345`, base `FMCPA_Track5CurrentPermitOperation_Runtime`, backend local en `5099`, frontend local en `4203`, pruebas HTTP reales de bloqueo historico/terminal y validacion Playwright de modo solo lectura.
+- La validacion runtime se cerro sobre SQL Server aislado `fmcpa-sql-hold-runtime` en puerto `14345`, base `FMCPA_Track5PermitRenewal_Runtime`, backend local en `5080`, bootstrap local de roles y pruebas HTTP reales de alta, renovacion, historico, alertas, dashboard, auditoria y `403` para `READONLY`.
 - `Track 4` no reabre modulos de negocio ni sustituye las pantallas fuente; compone una vista ejecutiva de priorizacion sobre senales existentes.
 - `GET /api/operations/summary` consolida KPIs de negocio permitidos, summary documental filtrado por permisos de modulo y summary de seguridad solo cuando el usuario tiene `USERS_ADMIN`.
 - `GET /api/operations/work-queue` consolida alertas operativas de dashboard, items de `GET /api/documents/work-queue` y senales de seguridad ADMIN-only como usuarios bloqueados o actividad reciente.
+- Cada item de `GET /api/operations/work-queue` expone navegacion canonica (`routeHint`), `actionKind`, `actionLabel`, contexto minimo (`ContextLabel`, entidad/modulo) y quick action solo cuando existe una accion backend segura y ya implementada.
+- La normalizacion de deep links usa rutas fuente permitidas para negocio, `/documents/work-queue` o `/documents/review` segun permisos para documentos, y `/admin/security` para observabilidad/administracion de seguridad.
+- La unica quick action habilitada en esta subetapa es `UNLOCK_USER` sobre usuarios bloqueados, reutilizando `POST /api/admin/users/{id}/unlock`; backend conserva `USERS_ADMIN` como control real.
+- `GET /api/operations/summary` y `GET /api/operations/work-queue` aceptan `timeWindowCode=TODAY`, `LAST_7_DAYS`, `NEXT_30_DAYS` o `ALL`; si se envian `fromUtc`/`toUtc`, el rango explicito tiene precedencia y ambos limites son obligatorios.
+- Sin filtro temporal, el centro operativo conserva el comportamiento global `ALL`; con ventana activa, summary y work queue solo agregan senales con fecha operativa clara.
+- Las senales de negocio usan `DashboardAlertItemResponse.RelevantDate`; documentos usan la fecha objetivo de retencion/revision cuando existe; seguridad usa `AuditEvent.OccurredUtc` y `ApplicationUser.LockoutEndUtc` para usuarios bloqueados.
+- Los items sin fecha operativa aplicable quedan fuera de la work queue temporal y de los conteos temporales para evitar precision falsa.
+- La UI `/operations` agrega selector simple de ventana con `Hoy`, `Ultimos 7 dias`, `Proximos 30 dias` y `Todo`, y recarga summary/work queue con el mismo filtro.
+- `GET /api/operations/summary/export` y `GET /api/operations/work-queue/export` generan CSV ligero con `Content-Disposition` de attachment y cache `no-store`.
+- La exportacion de summary incluye KPIs de negocio, metricas documentales y metricas de seguridad permitidas por los permisos efectivos del usuario.
+- La exportacion de work queue reutiliza filtros `categoryCode`, `severityCode`, `timeWindowCode`, `fromUtc`, `toUtc`, `skip` y `take`; `take` sigue normalizado hasta `200` para evitar exportacion masiva.
+- Las exportaciones de `/operations` no exponen rutas fisicas internas ni metadata de storage; solo rutas de navegacion operativa (`routeHint`) ya visibles en la UI.
+- La UI `/operations` agrega botones `Exportar summary` y `Exportar bandeja`, reutilizando la ventana temporal y el filtro de severidad activo.
 - La severidad transversal queda documentada como `HIGH` para bloqueos, integridad rota, vencimientos criticos o usuarios bloqueados; `MEDIUM` para atencion prioritaria sin bloqueo inmediato; `LOW` para seguimiento/contexto accionable.
 - La autorizacion del centro operativo usa `DASHBOARD_READ` como permiso de entrada y filtra internamente cada superficie por claims efectivos; seguridad no se expone a `OPERATOR` ni `READONLY`.
-- La UI Angular agrega `/operations` con KPIs principales, secciones de operacion, documentos y seguridad, y una bandeja transversal con enlaces a contexto/remediacion existente.
+- La UI Angular agrega `/operations` con KPIs principales, secciones de operacion, documentos y seguridad, y una bandeja transversal con boton `Ir a resolver`, badge de accion y quick action acotada donde aplica.
+- `GET /api/documents/export`, `GET /api/documents/work-queue/export` y `GET /api/documents/review-queue/export` generan CSV ligero en lectura con `Content-Disposition` de attachment y cache `no-store`.
+- Las exportaciones reutilizan los filtros de sus consultas base, respetan el mismo filtrado por permisos de modulo y no incluyen rutas fisicas internas ni `StoredRelativePath`.
+- El limite de exportacion queda acotado por la paginacion existente (`take` normalizado hasta `200`); no se abre exportacion masiva ni un centro de reportes.
+- La UI Angular agrega botones `Exportar CSV` en `/documents`, `/documents/work-queue` y `/documents/review`, reutilizando los filtros activos de cada pantalla.
 - `Track 3` inicia con una superficie minima `/api/documents` autenticada y una pantalla Angular `/documents`.
 - El listado documental soporta filtros por `moduleCode`, `entityType`, `entityId`, `documentAreaCode`, `integrityState`, `documentOperationalStatusCode`, `documentClassCode`, `statusCode`, `includeArchived`, `fromUtc`, `toUtc`, `skip` y `take`.
 - La clasificacion minima usa clases documentadas: `CERTIFICATE`, `SIGNED_DOCUMENT`, `SUPPORTING_DOCUMENT`, `PHOTO_EVIDENCE`, `VIDEO_EVIDENCE` y `OTHER`.
@@ -173,6 +210,12 @@
 - Exponer una superficie minima ADMIN-only de observabilidad y operacion de seguridad reutilizando `AuditEvent`, lockout y gestion de usuarios.
 - Exponer un centro operativo transversal minimo con resumen y bandeja unificada, sin persistir metricas ni abrir BI.
 - Respetar permisos efectivos por superficie al consolidar negocio, documentos y seguridad.
+- Permitir consultar summary y work queue del centro operativo por una ventana temporal minima y coherente.
+- Mantener la misma ventana temporal en los conteos y en los items de la bandeja para no mezclar cifras globales con cola filtrada.
+- Exponer exportacion CSV ligera de summary y work queue del centro operativo, respetando filtros, ventanas temporales y permisos por superficie.
+- Exponer exportacion CSV ligera de catalogo documental, work queue documental y review queue de retencion.
+- Reutilizar filtros y permisos existentes de cada consulta documental exportada.
+- Mantener fuera reportes avanzados, XLSX complejo, exportaciones masivas, backup real y storage externo.
 
 ## Entregables esperados de esta fase
 - Endpoint `GET /api/documents`
@@ -192,6 +235,9 @@
 - Endpoint `GET /api/documents/completeness/by-entity`
 - Endpoint `GET /api/documents/pending`
 - Endpoint `GET /api/documents/work-queue`
+- Endpoint `GET /api/documents/export`
+- Endpoint `GET /api/documents/work-queue/export`
+- Endpoint `GET /api/documents/review-queue/export`
 - Endpoint `GET /api/documents/summary`
 - Endpoint `POST /api/markets/tenants/{tenantId}/cedula`
 - Contratos de catalogo documental transversal
@@ -285,9 +331,14 @@
 - `smoke.sh` actualizado con validacion opcional de `READONLY`
 - Nota de implementacion del track bajo `docs/05-post-mvp`
 - Endpoint `GET /api/operations/summary`
+- Endpoint `GET /api/operations/summary/export`
 - Endpoint `GET /api/operations/work-queue`
+- Endpoint `GET /api/operations/work-queue/export`
+- Filtro temporal `timeWindowCode` y rango `fromUtc`/`toUtc` en summary y work queue de operaciones
 - Contratos de centro operativo transversal
 - Vista Angular `/operations`
+- Selector temporal simple en `/operations`
+- Botones de exportacion CSV en `/operations`
 - Convencion de severidad transversal `HIGH`/`MEDIUM`/`LOW`
 - Pruebas de regresion de composicion y permisos del centro operativo
 
@@ -368,6 +419,10 @@
 - `OPERATOR` y `READONLY` reciben `403` en la superficie `/api/admin/security`.
 - Existe `GET /api/operations/summary` y consolida negocio, documentos y seguridad segun permisos.
 - Existe `GET /api/operations/work-queue` y consolida alertas operativas, bandeja documental y seguridad ADMIN-only segun permisos.
+- Summary y work queue de operaciones aceptan ventanas `TODAY`, `LAST_7_DAYS`, `NEXT_30_DAYS`, `ALL` y rango explicito `fromUtc`/`toUtc`.
+- La UI `/operations` permite cambiar ventana temporal y recarga summary/work queue con la misma ventana.
+- Existe exportacion CSV de summary y work queue de `/operations`, coherente con filtros, ventana temporal y permisos.
+- Las descargas CSV de `/operations` responden con `text/csv`, attachment y `no-store`.
 - La UI `/operations` muestra una vista transversal util con KPIs, secciones y bandeja accionable.
 - Modulos o superficies no permitidos no aparecen en el centro operativo.
 - No se abre BI pesado, exportaciones complejas, scheduler, notificaciones ni workflow de asignacion.
@@ -377,7 +432,7 @@
 - La documentacion de etapa, riesgos, decisiones y runbook local queda actualizada.
 
 ## Siguiente decision esperada
-- Revisar y aceptar o rechazar la apertura de `Track 4` con centro operativo ejecutivo transversal minimo.
+- Revisar y aceptar o rechazar `Track 4` con centro operativo transversal accionable, ventanas temporales operativas y exportacion ligera.
 - Revisar y aceptar o rechazar el ciclo de vida documental minimo `ACTIVE`/`ARCHIVED`.
 - Revisar y aceptar o rechazar la clasificacion documental minima transversal.
 - Revisar y aceptar o rechazar la edicion administrativa minima de metadata documental.
@@ -409,6 +464,9 @@
 - [Document Management Track](../05-post-mvp/document-management-track.md)
 - [Analytics Track](../05-post-mvp/analytics-track.md)
 - [Operations Center Implementation Note](../05-post-mvp/analytics-track-operations-center-implementation-note.md)
+- [Operations Actionability Implementation Note](../05-post-mvp/analytics-track-operations-actionability-implementation-note.md)
+- [Operations Time Window Implementation Note](../05-post-mvp/analytics-track-operations-time-window-implementation-note.md)
+- [Operations Light Export Implementation Note](../05-post-mvp/analytics-track-operations-light-export-implementation-note.md)
 - [Document Management Track Transversal Catalog Implementation Note](../05-post-mvp/document-management-track-transversal-catalog-implementation-note.md)
 - [Document Management Track Document Lifecycle Implementation Note](../05-post-mvp/document-management-track-document-lifecycle-implementation-note.md)
 - [Document Management Track Document Classification Implementation Note](../05-post-mvp/document-management-track-document-classification-implementation-note.md)

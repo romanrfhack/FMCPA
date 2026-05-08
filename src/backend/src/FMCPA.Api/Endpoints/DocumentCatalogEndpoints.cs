@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 using FMCPA.Api.Auth;
 using FMCPA.Api.Contracts.Documents;
 using FMCPA.Api.DocumentRules;
@@ -29,6 +30,10 @@ public static class DocumentCatalogEndpoints
     private const string SeverityHigh = "HIGH";
     private const string SeverityMedium = "MEDIUM";
     private const string SeverityLow = "LOW";
+    private const string CsvContentType = "text/csv; charset=utf-8";
+    private const string ExportActionKindView = "VIEW";
+    private const string ExportActionKindRemediate = "REMEDIATE";
+    private const string ExportActionKindReview = "REVIEW";
 
     private static readonly IReadOnlySet<string> DocumentTimelineAuditActionTypes =
         new HashSet<string>(StringComparer.Ordinal)
@@ -311,6 +316,51 @@ public static class DocumentCatalogEndpoints
                     normalizedSkip,
                     normalizedTake,
                     items));
+            });
+
+        group.MapGet(
+            "/export",
+            async (
+                string? moduleCode,
+                string? entityType,
+                Guid? entityId,
+                string? documentAreaCode,
+                string? integrityState,
+                string? documentOperationalStatusCode,
+                string? documentClassCode,
+                string? retentionPolicyCode,
+                string? retentionStatusCode,
+                string? statusCode,
+                bool? includeArchived,
+                DateTimeOffset? fromUtc,
+                DateTimeOffset? toUtc,
+                int? skip,
+                int? take,
+                PlatformDbContext dbContext,
+                IDocumentBinaryStore documentBinaryStore,
+                HttpContext httpContext,
+                CancellationToken cancellationToken) =>
+            {
+                return await ExportDocumentCatalogAsync(
+                    moduleCode,
+                    entityType,
+                    entityId,
+                    documentAreaCode,
+                    integrityState,
+                    documentOperationalStatusCode,
+                    documentClassCode,
+                    retentionPolicyCode,
+                    retentionStatusCode,
+                    statusCode,
+                    includeArchived,
+                    fromUtc,
+                    toUtc,
+                    skip,
+                    take,
+                    dbContext,
+                    documentBinaryStore,
+                    httpContext,
+                    cancellationToken);
             });
 
         group.MapGet(
@@ -754,6 +804,31 @@ public static class DocumentCatalogEndpoints
             });
 
         group.MapGet(
+            "/work-queue/export",
+            async (
+                string? moduleCode,
+                string? workItemType,
+                string? severityCode,
+                int? skip,
+                int? take,
+                PlatformDbContext dbContext,
+                IDocumentBinaryStore documentBinaryStore,
+                HttpContext httpContext,
+                CancellationToken cancellationToken) =>
+            {
+                return await ExportDocumentWorkQueueAsync(
+                    moduleCode,
+                    workItemType,
+                    severityCode,
+                    skip,
+                    take,
+                    dbContext,
+                    documentBinaryStore,
+                    httpContext,
+                    cancellationToken);
+            });
+
+        group.MapGet(
             "/review-queue",
             async (
                 string? moduleCode,
@@ -816,6 +891,30 @@ public static class DocumentCatalogEndpoints
                     normalizedSkip,
                     normalizedTake,
                     items));
+            })
+            .RequireUsersAdminAccess();
+
+        group.MapGet(
+            "/review-queue/export",
+            async (
+                string? moduleCode,
+                string? retentionReviewStatusCode,
+                int? skip,
+                int? take,
+                PlatformDbContext dbContext,
+                IDocumentBinaryStore documentBinaryStore,
+                HttpContext httpContext,
+                CancellationToken cancellationToken) =>
+            {
+                return await ExportDocumentRetentionReviewQueueAsync(
+                    moduleCode,
+                    retentionReviewStatusCode,
+                    skip,
+                    take,
+                    dbContext,
+                    documentBinaryStore,
+                    httpContext,
+                    cancellationToken);
             })
             .RequireUsersAdminAccess();
 
@@ -1322,6 +1421,564 @@ public static class DocumentCatalogEndpoints
             });
 
         return app;
+    }
+
+    private static async Task<IResult> ExportDocumentCatalogAsync(
+        string? moduleCode,
+        string? entityType,
+        Guid? entityId,
+        string? documentAreaCode,
+        string? integrityState,
+        string? documentOperationalStatusCode,
+        string? documentClassCode,
+        string? retentionPolicyCode,
+        string? retentionStatusCode,
+        string? statusCode,
+        bool? includeArchived,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        int? skip,
+        int? take,
+        PlatformDbContext dbContext,
+        IDocumentBinaryStore documentBinaryStore,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        var allowedModuleCodes = ResolveAllowedModuleCodes(httpContext.User);
+        var requestedModuleCode = NormalizeOptionalCode(moduleCode);
+        var normalizedSkip = NormalizeSkip(skip);
+        var normalizedTake = NormalizeTake(take);
+
+        if (requestedModuleCode is not null)
+        {
+            if (!allowedModuleCodes.Contains(requestedModuleCode, StringComparer.Ordinal))
+            {
+                return BuildCsvResponse(httpContext, "documents-catalog", BuildCatalogExportCsv([]));
+            }
+
+            allowedModuleCodes = [requestedModuleCode];
+        }
+
+        if (allowedModuleCodes.Count == 0)
+        {
+            return BuildCsvResponse(httpContext, "documents-catalog", BuildCatalogExportCsv([]));
+        }
+
+        var normalizedEntityType = NormalizeOptionalCode(entityType);
+        var normalizedDocumentAreaCode = NormalizeOptionalCode(documentAreaCode);
+        var normalizedIntegrityState = NormalizeOptionalCode(integrityState);
+        var normalizedOperationalStatusCode = NormalizeOptionalCode(documentOperationalStatusCode);
+        var normalizedDocumentClassCode = NormalizeOptionalCode(documentClassCode);
+        var normalizedRetentionPolicyCode = NormalizeOptionalCode(retentionPolicyCode);
+        var normalizedRetentionStatusCode = NormalizeOptionalCode(retentionStatusCode);
+        var normalizedStatusCode = NormalizeOptionalCode(statusCode);
+
+        var errors = ValidateCatalogFilters(
+            normalizedDocumentClassCode,
+            normalizedOperationalStatusCode,
+            normalizedRetentionPolicyCode,
+            normalizedRetentionStatusCode,
+            normalizedStatusCode);
+        if (errors.Count > 0)
+        {
+            return Results.ValidationProblem(errors);
+        }
+
+        var query = dbContext.StoredDocuments
+            .AsNoTracking()
+            .Where(document => allowedModuleCodes.Contains(document.ModuleCode));
+
+        if (normalizedEntityType is not null)
+        {
+            query = query.Where(document => document.EntityType == normalizedEntityType);
+        }
+
+        if (entityId is not null)
+        {
+            query = query.Where(document => document.EntityId == entityId.Value);
+        }
+
+        if (normalizedDocumentAreaCode is not null)
+        {
+            query = query.Where(document => document.DocumentAreaCode == normalizedDocumentAreaCode);
+        }
+
+        if (normalizedDocumentClassCode is not null)
+        {
+            query = query.Where(document => document.DocumentClassCode == normalizedDocumentClassCode);
+        }
+
+        if (normalizedRetentionPolicyCode is not null)
+        {
+            query = ApplyRetentionPolicyFilter(query, normalizedRetentionPolicyCode);
+        }
+
+        if (normalizedRetentionStatusCode is not null)
+        {
+            query = ApplyRetentionStatusFilter(query, normalizedRetentionStatusCode, DateTimeOffset.UtcNow);
+        }
+
+        if (normalizedStatusCode is not null)
+        {
+            query = query.Where(document => document.StatusCode == normalizedStatusCode);
+        }
+        else if (includeArchived != true)
+        {
+            query = query.Where(document => document.StatusCode == StoredDocument.ActiveStatusCode);
+        }
+
+        if (fromUtc is not null)
+        {
+            query = query.Where(document => document.CreatedUtc >= fromUtc.Value);
+        }
+
+        if (toUtc is not null)
+        {
+            query = query.Where(document => document.CreatedUtc <= toUtc.Value);
+        }
+
+        var orderedQuery = query
+            .OrderByDescending(document => document.CreatedUtc)
+            .ThenBy(document => document.OriginalFileName);
+
+        if (normalizedIntegrityState is null && normalizedOperationalStatusCode is null)
+        {
+            var documents = await orderedQuery
+                .Skip(normalizedSkip)
+                .Take(normalizedTake)
+                .ToListAsync(cancellationToken);
+            var items = await BuildItemsAsync(documents, documentBinaryStore, dbContext, cancellationToken);
+            return BuildCsvResponse(httpContext, "documents-catalog", BuildCatalogExportCsv(items));
+        }
+
+        var candidateDocuments = await orderedQuery.ToListAsync(cancellationToken);
+        var inspectedItems = await BuildItemsAsync(candidateDocuments, documentBinaryStore, dbContext, cancellationToken);
+        var filteredItems = inspectedItems
+            .Where(item => normalizedIntegrityState is null
+                           || string.Equals(item.IntegrityState, normalizedIntegrityState, StringComparison.Ordinal))
+            .Where(item => normalizedOperationalStatusCode is null
+                           || string.Equals(item.DocumentOperationalStatusCode, normalizedOperationalStatusCode, StringComparison.Ordinal))
+            .Skip(normalizedSkip)
+            .Take(normalizedTake)
+            .ToArray();
+
+        return BuildCsvResponse(httpContext, "documents-catalog", BuildCatalogExportCsv(filteredItems));
+    }
+
+    private static async Task<IResult> ExportDocumentWorkQueueAsync(
+        string? moduleCode,
+        string? workItemType,
+        string? severityCode,
+        int? skip,
+        int? take,
+        PlatformDbContext dbContext,
+        IDocumentBinaryStore documentBinaryStore,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        var normalizedModuleCode = NormalizeOptionalCode(moduleCode);
+        var normalizedWorkItemType = NormalizeOptionalCode(workItemType);
+        var normalizedSeverityCode = NormalizeOptionalCode(severityCode);
+        var normalizedSkip = NormalizeSkip(skip);
+        var normalizedTake = NormalizeTake(take);
+        var errors = ValidateWorkQueueFilters(normalizedModuleCode, normalizedWorkItemType, normalizedSeverityCode);
+
+        if (errors.Count > 0)
+        {
+            return Results.ValidationProblem(errors);
+        }
+
+        var allowedModuleCodes = ResolveAllowedModuleCodes(httpContext.User);
+        if (normalizedModuleCode is not null)
+        {
+            if (!allowedModuleCodes.Contains(normalizedModuleCode, StringComparer.Ordinal))
+            {
+                return BuildCsvResponse(httpContext, "documents-work-queue", BuildWorkQueueExportCsv([]));
+            }
+
+            allowedModuleCodes = [normalizedModuleCode];
+        }
+
+        if (allowedModuleCodes.Count == 0)
+        {
+            return BuildCsvResponse(httpContext, "documents-work-queue", BuildWorkQueueExportCsv([]));
+        }
+
+        var workItems = await BuildDocumentWorkQueueAsync(
+            dbContext,
+            documentBinaryStore,
+            allowedModuleCodes,
+            cancellationToken);
+
+        if (normalizedWorkItemType is not null)
+        {
+            workItems = workItems
+                .Where(item => item.WorkItemType == normalizedWorkItemType)
+                .ToArray();
+        }
+
+        if (normalizedSeverityCode is not null)
+        {
+            workItems = workItems
+                .Where(item => item.SeverityCode == normalizedSeverityCode)
+                .ToArray();
+        }
+
+        var items = workItems
+            .OrderBy(item => ResolveSeveritySortOrder(item.SeverityCode))
+            .ThenBy(item => item.ModuleCode, StringComparer.Ordinal)
+            .ThenBy(item => item.WorkItemType, StringComparer.Ordinal)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.WorkItemKey, StringComparer.Ordinal)
+            .Skip(normalizedSkip)
+            .Take(normalizedTake)
+            .ToArray();
+
+        return BuildCsvResponse(httpContext, "documents-work-queue", BuildWorkQueueExportCsv(items));
+    }
+
+    private static async Task<IResult> ExportDocumentRetentionReviewQueueAsync(
+        string? moduleCode,
+        string? retentionReviewStatusCode,
+        int? skip,
+        int? take,
+        PlatformDbContext dbContext,
+        IDocumentBinaryStore documentBinaryStore,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        var normalizedModuleCode = NormalizeOptionalCode(moduleCode);
+        var normalizedReviewStatusCode = NormalizeOptionalCode(retentionReviewStatusCode);
+        var normalizedSkip = NormalizeSkip(skip);
+        var normalizedTake = NormalizeTake(take);
+
+        if (normalizedModuleCode is not null && !ModuleAccess.ContainsKey(normalizedModuleCode))
+        {
+            return BuildCsvResponse(httpContext, "documents-review-queue", BuildReviewQueueExportCsv([]));
+        }
+
+        if (normalizedReviewStatusCode is not null
+            && !DocumentRetentionReviewStatusCodes.Supported.Contains(normalizedReviewStatusCode))
+        {
+            return Results.ValidationProblem(
+                new Dictionary<string, string[]>
+                {
+                    ["retentionReviewStatusCode"] = ["RetentionReviewStatusCode must be REVIEW_PENDING, REVIEW_COMPLETED or REVIEW_DEFERRED."]
+                });
+        }
+
+        var moduleCodes = normalizedModuleCode is null
+            ? ModuleAccess.Keys.ToArray()
+            : [normalizedModuleCode];
+        var nowUtc = DateTimeOffset.UtcNow;
+        var query = dbContext.StoredDocuments
+            .AsNoTracking()
+            .Where(document => moduleCodes.Contains(document.ModuleCode));
+
+        query = ApplyRetentionReviewQueueFilter(query, normalizedReviewStatusCode, nowUtc);
+
+        var documents = await query
+            .OrderBy(document => document.NextRetentionReviewUtc ?? document.RetentionOverrideUntilUtc ?? document.RetentionUntilUtc)
+            .ThenByDescending(document => document.CreatedUtc)
+            .ThenBy(document => document.OriginalFileName)
+            .Skip(normalizedSkip)
+            .Take(normalizedTake)
+            .ToListAsync(cancellationToken);
+        var items = await BuildItemsAsync(documents, documentBinaryStore, dbContext, cancellationToken);
+
+        return BuildCsvResponse(httpContext, "documents-review-queue", BuildReviewQueueExportCsv(items));
+    }
+
+    private static Dictionary<string, string[]> ValidateCatalogFilters(
+        string? normalizedDocumentClassCode,
+        string? normalizedOperationalStatusCode,
+        string? normalizedRetentionPolicyCode,
+        string? normalizedRetentionStatusCode,
+        string? normalizedStatusCode)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        if (normalizedDocumentClassCode is not null && !DocumentClassCodes.Supported.Contains(normalizedDocumentClassCode))
+        {
+            errors["documentClassCode"] = ["DocumentClassCode must be CERTIFICATE, SIGNED_DOCUMENT, SUPPORTING_DOCUMENT, PHOTO_EVIDENCE, VIDEO_EVIDENCE or OTHER."];
+        }
+
+        if (normalizedOperationalStatusCode is not null
+            && !DocumentOperationalStatusCodes.SupportedStatuses.Contains(normalizedOperationalStatusCode))
+        {
+            errors["documentOperationalStatusCode"] = ["DocumentOperationalStatusCode must be ACTIVE_OK, INTEGRITY_ISSUE, ON_HOLD, REVIEW_DUE, RETENTION_EXPIRED, ARCHIVED or SUPERSEDED."];
+        }
+
+        if (normalizedRetentionPolicyCode is not null
+            && !DocumentRetentionPolicyCodes.SupportedPolicies.Contains(normalizedRetentionPolicyCode))
+        {
+            errors["retentionPolicyCode"] = ["RetentionPolicyCode must be CERTIFICATE_REVIEW, SIGNED_LONG_TERM, EVIDENCE_MEDIUM_TERM or GENERIC_REVIEW."];
+        }
+
+        if (normalizedRetentionStatusCode is not null
+            && !DocumentRetentionPolicyCodes.SupportedStatuses.Contains(normalizedRetentionStatusCode))
+        {
+            errors["retentionStatusCode"] = ["RetentionStatusCode must be ACTIVE_RETENTION, REVIEW_DUE or EXPIRED_RETENTION."];
+        }
+
+        if (normalizedStatusCode is not null && !IsSupportedStatusCode(normalizedStatusCode))
+        {
+            errors["statusCode"] = ["StatusCode must be ACTIVE or ARCHIVED."];
+        }
+
+        return errors;
+    }
+
+    private static Dictionary<string, string[]> ValidateWorkQueueFilters(
+        string? normalizedModuleCode,
+        string? normalizedWorkItemType,
+        string? normalizedSeverityCode)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        if (normalizedModuleCode is not null && !ModuleAccess.ContainsKey(normalizedModuleCode))
+        {
+            errors["moduleCode"] = ["ModuleCode must be MARKETS, DONATARIAS or FEDERATION."];
+        }
+
+        if (normalizedWorkItemType is not null && !WorkQueueItemTypes.Contains(normalizedWorkItemType))
+        {
+            errors["workItemType"] = ["WorkItemType must be COMPLETENESS_PENDING, DOCUMENT_INTEGRITY_ISSUE or RETENTION_REVIEW."];
+        }
+
+        if (normalizedSeverityCode is not null && !WorkQueueSeverityCodes.Contains(normalizedSeverityCode))
+        {
+            errors["severityCode"] = ["SeverityCode must be HIGH, MEDIUM or LOW."];
+        }
+
+        return errors;
+    }
+
+    private static string BuildCatalogExportCsv(IReadOnlyList<DocumentCatalogItemResponse> items)
+    {
+        return BuildCsv(
+            [
+                "documentId",
+                "moduleCode",
+                "moduleName",
+                "documentAreaCode",
+                "entityType",
+                "entityId",
+                "originDisplayName",
+                "originSummary",
+                "originRouteHint",
+                "originalFileName",
+                "documentClassCode",
+                "statusCode",
+                "documentOperationalStatusCode",
+                "documentOperationalSeverityCode",
+                "integrityState",
+                "retentionPolicyCode",
+                "retentionStatusCode",
+                "retentionEffectivePolicyCode",
+                "retentionEffectiveUntilUtc",
+                "retentionReviewStatusCode",
+                "isAdministrativeHold",
+                "isSuperseded",
+                "createdUtc"
+            ],
+            items.Select(item => new string?[]
+            {
+                item.Id.ToString(),
+                item.ModuleCode,
+                item.ModuleName,
+                item.DocumentAreaCode,
+                item.EntityType,
+                item.EntityId.ToString(),
+                item.OriginContext.DisplayName,
+                item.OriginContext.Summary,
+                item.OriginContext.RouteHint,
+                item.OriginalFileName,
+                item.DocumentClassCode,
+                item.StatusCode,
+                item.DocumentOperationalStatusCode,
+                item.DocumentOperationalSeverityCode,
+                item.IntegrityState,
+                item.RetentionPolicyCode,
+                item.RetentionStatusCode,
+                item.RetentionEffectivePolicyCode,
+                FormatCsvDate(item.RetentionEffectiveUntilUtc),
+                item.RetentionReviewStatusCode,
+                FormatCsvBool(item.IsAdministrativeHold),
+                FormatCsvBool(item.IsSuperseded),
+                FormatCsvDate(item.CreatedUtc)
+            }));
+    }
+
+    private static string BuildWorkQueueExportCsv(IReadOnlyList<DocumentWorkQueueItemResponse> items)
+    {
+        return BuildCsv(
+            [
+                "workItemKey",
+                "workItemType",
+                "severity",
+                "moduleCode",
+                "moduleName",
+                "entityType",
+                "entityId",
+                "originDisplayName",
+                "documentId",
+                "title",
+                "summary",
+                "reasonCode",
+                "currentStatusCode",
+                "documentOperationalStatusCode",
+                "actionKind",
+                "routeHint",
+                "remediationHint"
+            ],
+            items.Select(item => new string?[]
+            {
+                item.WorkItemKey,
+                item.WorkItemType,
+                item.SeverityCode,
+                item.ModuleCode,
+                item.ModuleName,
+                item.EntityType,
+                item.EntityId.ToString(),
+                item.OriginContext.DisplayName,
+                item.DocumentId?.ToString(),
+                item.Title,
+                item.Summary,
+                item.ReasonCode,
+                item.CurrentStatusCode,
+                item.DocumentOperationalStatusCode,
+                ResolveWorkQueueExportActionKind(item),
+                item.RouteHint,
+                item.RemediationHint
+            }));
+    }
+
+    private static string BuildReviewQueueExportCsv(IReadOnlyList<DocumentCatalogItemResponse> items)
+    {
+        return BuildCsv(
+            [
+                "documentId",
+                "moduleCode",
+                "moduleName",
+                "entityType",
+                "entityId",
+                "originDisplayName",
+                "documentClassCode",
+                "retentionStatusCode",
+                "retentionReviewStatusCode",
+                "retentionEffectivePolicyCode",
+                "retentionEffectiveUntilUtc",
+                "nextRetentionReviewUtc",
+                "isAdministrativeHold",
+                "documentOperationalStatusCode",
+                "integrityState",
+                "createdUtc"
+            ],
+            items.Select(item => new string?[]
+            {
+                item.Id.ToString(),
+                item.ModuleCode,
+                item.ModuleName,
+                item.EntityType,
+                item.EntityId.ToString(),
+                item.OriginContext.DisplayName,
+                item.DocumentClassCode,
+                item.RetentionStatusCode,
+                item.RetentionReviewStatusCode,
+                item.RetentionEffectivePolicyCode,
+                FormatCsvDate(item.RetentionEffectiveUntilUtc),
+                FormatCsvDate(item.NextRetentionReviewUtc),
+                FormatCsvBool(item.IsAdministrativeHold),
+                item.DocumentOperationalStatusCode,
+                item.IntegrityState,
+                FormatCsvDate(item.CreatedUtc)
+            }));
+    }
+
+    private static string BuildCsv(IReadOnlyList<string> headers, IEnumerable<string?[]> rows)
+    {
+        var builder = new StringBuilder();
+        AppendCsvRow(builder, headers);
+
+        foreach (var row in rows)
+        {
+            AppendCsvRow(builder, row);
+        }
+
+        return builder.ToString();
+    }
+
+    private static void AppendCsvRow(StringBuilder builder, IEnumerable<string?> values)
+    {
+        var isFirst = true;
+        foreach (var value in values)
+        {
+            if (!isFirst)
+            {
+                builder.Append(',');
+            }
+
+            builder.Append(EscapeCsvValue(value));
+            isFirst = false;
+        }
+
+        builder.AppendLine();
+    }
+
+    private static string EscapeCsvValue(string? value)
+    {
+        var normalized = (value ?? string.Empty)
+            .Replace('\r', ' ')
+            .Replace('\n', ' ')
+            .Trim();
+
+        if (normalized.Length > 0 && normalized[0] is '=' or '+' or '-' or '@')
+        {
+            normalized = $"'{normalized}";
+        }
+
+        return normalized.Contains('"') || normalized.Contains(',') || normalized.Contains(' ')
+            ? $"\"{normalized.Replace("\"", "\"\"")}\""
+            : normalized;
+    }
+
+    private static IResult BuildCsvResponse(HttpContext httpContext, string fileNamePrefix, string csv)
+    {
+        httpContext.Response.Headers.CacheControl = "no-store";
+        httpContext.Response.Headers.Pragma = "no-cache";
+        httpContext.Response.Headers.Expires = "0";
+
+        var fileName = $"{fileNamePrefix}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.csv";
+        return Results.File(
+            Encoding.UTF8.GetBytes(csv),
+            CsvContentType,
+            fileDownloadName: fileName);
+    }
+
+    private static string ResolveWorkQueueExportActionKind(DocumentWorkQueueItemResponse item)
+    {
+        return item.WorkItemType switch
+        {
+            WorkItemCompletenessPending => ExportActionKindRemediate,
+            WorkItemDocumentIntegrityIssue or WorkItemRetentionReview => ExportActionKindReview,
+            _ => ExportActionKindView
+        };
+    }
+
+    private static string FormatCsvDate(DateTimeOffset value)
+    {
+        return value.ToUniversalTime().ToString("O");
+    }
+
+    private static string? FormatCsvDate(DateTimeOffset? value)
+    {
+        return value is null ? null : FormatCsvDate(value.Value);
+    }
+
+    private static string FormatCsvBool(bool value)
+    {
+        return value ? "true" : "false";
     }
 
     private static async Task<IReadOnlyList<DocumentCatalogItemResponse>> BuildItemsAsync(
@@ -1847,7 +2504,8 @@ public static class DocumentCatalogEndpoints
             DocumentOperationalSeverityCode: null,
             completeness.OriginContext.RouteHint ?? DocumentsNavigationPath,
             DocumentDetailUrl: null,
-            completeness.RemediationHint);
+            completeness.RemediationHint,
+            RelevantUtc: null);
     }
 
     private static DocumentWorkQueueItemResponse BuildIntegrityWorkQueueItem(
@@ -1876,7 +2534,8 @@ public static class DocumentCatalogEndpoints
             DocumentOperationalStatusCodes.ResolveSeverity(operationalStatusCode),
             originContext.RouteHint ?? DocumentsNavigationPath,
             $"/api/documents/{document.Id}",
-            "Revisar metadata/storage local desde el detalle documental; no se descarga hasta recuperar integridad VALID.");
+            "Revisar metadata/storage local desde el detalle documental; no se descarga hasta recuperar integridad VALID.",
+            RelevantUtc: null);
     }
 
     private static DocumentWorkQueueItemResponse BuildRetentionWorkQueueItem(
@@ -1913,7 +2572,8 @@ public static class DocumentCatalogEndpoints
             DocumentOperationalStatusCodes.ResolveSeverity(operationalStatusCode),
             originContext.RouteHint ?? DocumentsNavigationPath,
             $"/api/documents/{document.Id}",
-            "Revisar la retencion operativa; ADMIN puede marcar revisado o diferir en la bandeja de revision documental.");
+            "Revisar la retencion operativa; ADMIN puede marcar revisado o diferir en la bandeja de revision documental.",
+            document.NextRetentionReviewUtc ?? document.ResolveEffectiveRetentionUntilUtc());
     }
 
     private static int ResolveSeveritySortOrder(string severityCode)

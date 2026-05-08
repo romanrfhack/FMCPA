@@ -3,8 +3,9 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
-import { OperationsKpi, OperationsSummary, OperationsWorkQueueItem } from '../../core/models/operations.models';
+import { OperationsKpi, OperationsSummary, OperationsTimeWindowCode, OperationsWorkQueueItem } from '../../core/models/operations.models';
 import { OperationsService } from '../../core/services/operations.service';
+import { UserManagementService } from '../../core/services/user-management.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
 @Component({
@@ -18,11 +19,29 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           <p class="page-kicker">TRACK 4</p>
           <h2>Centro operativo</h2>
         </div>
-        <button type="button" class="ghost" (click)="reloadPage()">Actualizar</button>
+        <div class="header-actions">
+          <div class="filters">
+            @for (option of timeWindowOptions; track option.code) {
+              <button
+                type="button"
+                [class.active]="selectedTimeWindowCode() === option.code"
+                (click)="setTimeWindow(option.code)">
+                {{ option.label }}
+              </button>
+            }
+          </div>
+          <button type="button" class="ghost" (click)="reloadPage()">Actualizar</button>
+          <button type="button" class="ghost" [disabled]="isExporting()" (click)="exportSummary()">Exportar summary</button>
+          <button type="button" class="ghost" [disabled]="isExporting()" (click)="exportWorkQueue()">Exportar bandeja</button>
+        </div>
       </header>
 
       @if (pageError()) {
         <p class="alert error">{{ pageError() }}</p>
+      }
+
+      @if (pageSuccess()) {
+        <p class="alert success">{{ pageSuccess() }}</p>
       }
 
       @if (isLoading()) {
@@ -144,25 +163,47 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           } @else {
             <div class="queue-list">
               @for (item of queueItems(); track item.workItemKey) {
-                <a class="queue-row" [routerLink]="item.routeHint">
-                  <div class="row-top">
-                    <strong>{{ item.title }}</strong>
-                    <span
-                      class="badge"
-                      [class.high]="isSeverity(item.severityCode, 'HIGH')"
-                      [class.medium]="isSeverity(item.severityCode, 'MEDIUM')"
-                      [class.low]="isSeverity(item.severityCode, 'LOW')">
-                      {{ item.severityCode }}
-                    </span>
+                <article class="queue-row">
+                  <div class="queue-main">
+                    <div class="row-top">
+                      <strong>{{ item.title }}</strong>
+                      <div class="badges">
+                        <span
+                          class="badge"
+                          [class.high]="isSeverity(item.severityCode, 'HIGH')"
+                          [class.medium]="isSeverity(item.severityCode, 'MEDIUM')"
+                          [class.low]="isSeverity(item.severityCode, 'LOW')">
+                          {{ item.severityCode }}
+                        </span>
+                        <span class="badge action">{{ item.actionKind }}</span>
+                      </div>
+                    </div>
+                    <p>{{ item.summary }}</p>
+                    <small>
+                      {{ item.categoryCode }} · {{ item.moduleName }} · {{ item.reasonCode }}
+                      @if (item.contextLabel) {
+                        · {{ item.contextLabel }}
+                      }
+                      @if (item.relevantUtc) {
+                        · {{ item.relevantUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}
+                      }
+                    </small>
                   </div>
-                  <p>{{ item.summary }}</p>
-                  <small>
-                    {{ item.categoryCode }} · {{ item.moduleName }} · {{ item.reasonCode }}
-                    @if (item.relevantUtc) {
-                      · {{ item.relevantUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}
+                  <div class="row-actions">
+                    <a class="resolve-link" [routerLink]="item.routeHint">
+                      {{ item.actionLabel || 'Ir a resolver' }}
+                    </a>
+                    @if (canRunQuickAction(item)) {
+                      <button
+                        type="button"
+                        class="ghost"
+                        [disabled]="isQuickActionRunning(item)"
+                        (click)="runQuickAction(item)">
+                        {{ isQuickActionRunning(item) ? 'Procesando...' : (item.quickActionLabel || 'Ejecutar') }}
+                      </button>
                     }
-                  </small>
-                </a>
+                  </div>
+                </article>
               }
             </div>
           }
@@ -187,6 +228,9 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .row-top,
       .compact-row,
       .stats-list div,
+      .badges,
+      .row-actions,
+      .header-actions,
       .filters {
         display: flex;
         gap: 1rem;
@@ -196,6 +240,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .panel-header,
       .row-top,
       .compact-row,
+      .queue-row,
       .stats-list div {
         align-items: start;
         justify-content: space-between;
@@ -219,7 +264,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
       .metric-card,
       .compact-row,
-      .queue-row,
+      .resolve-link,
       .panel-header a {
         color: inherit;
         text-decoration: none;
@@ -279,10 +324,37 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         color: #175cd3;
       }
 
+      .badge.action {
+        background: rgba(77, 124, 15, 0.1);
+        color: #365314;
+      }
+
       .compact-row,
       .queue-row {
         padding: 0.8rem 0;
         border-top: 1px solid rgba(29, 45, 42, 0.08);
+      }
+
+      .queue-row {
+        display: flex;
+        gap: 1rem;
+      }
+
+      .queue-main {
+        min-width: 0;
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      .badges {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .row-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        min-width: 10rem;
       }
 
       .compact-row:first-child,
@@ -299,15 +371,29 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         flex-wrap: wrap;
       }
 
+      .header-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
       .filters button,
-      .ghost {
+      .ghost,
+      .resolve-link {
         border: 1px solid rgba(15, 118, 110, 0.18);
+        border-radius: 8px;
+        padding: 0.55rem 0.75rem;
         background: transparent;
         color: #0f766e;
+        font-weight: 800;
       }
 
       .filters button.active {
         background: rgba(15, 118, 110, 0.12);
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
       }
 
       .alert {
@@ -320,18 +406,46 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         background: rgba(254, 243, 242, 0.9);
         color: #b42318;
       }
+
+      .alert.success {
+        background: rgba(220, 252, 231, 0.9);
+        color: #166534;
+      }
+
+      @media (max-width: 760px) {
+        .queue-row,
+        .row-top {
+          display: grid;
+        }
+
+        .row-actions,
+        .badges {
+          justify-content: flex-start;
+        }
+      }
     `
   ]
 })
 export class OperationsPageComponent {
   private readonly operationsService = inject(OperationsService);
+  private readonly userManagementService = inject(UserManagementService);
 
   protected readonly isLoading = signal(true);
+  protected readonly isExporting = signal(false);
   protected readonly pageError = signal('');
+  protected readonly pageSuccess = signal('');
   protected readonly summary = signal<OperationsSummary | null>(null);
   protected readonly queueItems = signal<OperationsWorkQueueItem[]>([]);
   protected readonly queueTotalCount = signal(0);
   protected readonly queueFilter = signal('');
+  protected readonly selectedTimeWindowCode = signal<OperationsTimeWindowCode>('NEXT_30_DAYS');
+  protected readonly quickActionItemKeys = signal<Set<string>>(new Set());
+  protected readonly timeWindowOptions: Array<{ code: OperationsTimeWindowCode; label: string }> = [
+    { code: 'TODAY', label: 'Hoy' },
+    { code: 'LAST_7_DAYS', label: 'Ultimos 7 dias' },
+    { code: 'NEXT_30_DAYS', label: 'Proximos 30 dias' },
+    { code: 'ALL', label: 'Todo' }
+  ];
 
   protected readonly primaryBusinessKpis = computed(() =>
     this.summary()?.businessKpis.slice(0, 4) ?? []);
@@ -344,22 +458,80 @@ export class OperationsPageComponent {
     await this.loadPage();
   }
 
+  protected async exportSummary() {
+    await this.runExport(
+      () => this.operationsService.exportSummary(this.buildTimeWindowFilters()),
+      'No se pudo exportar el resumen operativo.');
+  }
+
+  protected async exportWorkQueue() {
+    await this.runExport(
+      () => this.operationsService.exportWorkQueue({
+        ...this.buildTimeWindowFilters(),
+        severityCode: this.queueFilter() || null,
+        take: 200
+      }),
+      'No se pudo exportar la bandeja operativa.');
+  }
+
   protected async setQueueFilter(severityCode: string) {
     this.queueFilter.set(severityCode);
     await this.loadQueue();
+  }
+
+  protected async setTimeWindow(timeWindowCode: OperationsTimeWindowCode) {
+    this.selectedTimeWindowCode.set(timeWindowCode);
+    await this.loadPage();
   }
 
   protected isSeverity(actual: string, expected: string) {
     return actual.trim().toUpperCase() === expected;
   }
 
+  protected canRunQuickAction(item: OperationsWorkQueueItem) {
+    return item.quickActionCode === 'UNLOCK_USER' && !!item.entityId;
+  }
+
+  protected isQuickActionRunning(item: OperationsWorkQueueItem) {
+    return this.quickActionItemKeys().has(item.workItemKey);
+  }
+
+  protected async runQuickAction(item: OperationsWorkQueueItem) {
+    if (!this.canRunQuickAction(item) || !item.entityId) {
+      return;
+    }
+
+    this.pageError.set('');
+    this.pageSuccess.set('');
+    this.quickActionItemKeys.update((current) => new Set(current).add(item.workItemKey));
+
+    try {
+      await firstValueFrom(this.userManagementService.unlockUser(item.entityId));
+      this.pageSuccess.set('Accion ejecutada correctamente.');
+      const [summary] = await Promise.all([
+        firstValueFrom(this.operationsService.getSummary(this.buildTimeWindowFilters())),
+        this.loadQueue()
+      ]);
+      this.summary.set(summary);
+    } catch (error) {
+      this.pageError.set(getApiErrorMessage(error, 'No fue posible ejecutar la accion.'));
+    } finally {
+      this.quickActionItemKeys.update((current) => {
+        const next = new Set(current);
+        next.delete(item.workItemKey);
+        return next;
+      });
+    }
+  }
+
   private async loadPage() {
     this.isLoading.set(true);
     this.pageError.set('');
+    this.pageSuccess.set('');
 
     try {
       const [summary] = await Promise.all([
-        firstValueFrom(this.operationsService.getSummary()),
+        firstValueFrom(this.operationsService.getSummary(this.buildTimeWindowFilters())),
         this.loadQueue()
       ]);
       this.summary.set(summary);
@@ -372,11 +544,36 @@ export class OperationsPageComponent {
 
   private async loadQueue() {
     const response = await firstValueFrom(this.operationsService.getWorkQueue({
+      ...this.buildTimeWindowFilters(),
       severityCode: this.queueFilter() || null,
       take: 50
     }));
 
     this.queueItems.set(response.items);
     this.queueTotalCount.set(response.totalCount);
+  }
+
+  private async runExport(exportAction: () => Promise<void>, fallbackMessage: string) {
+    if (this.isExporting()) {
+      return;
+    }
+
+    this.pageError.set('');
+    this.pageSuccess.set('');
+    this.isExporting.set(true);
+
+    try {
+      await exportAction();
+    } catch (error) {
+      this.pageError.set(getApiErrorMessage(error, fallbackMessage));
+    } finally {
+      this.isExporting.set(false);
+    }
+  }
+
+  private buildTimeWindowFilters() {
+    return {
+      timeWindowCode: this.selectedTimeWindowCode()
+    };
   }
 }

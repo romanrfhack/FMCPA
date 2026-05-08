@@ -14,6 +14,10 @@ export interface FinancialPermitSummary {
   statusAlertsEnabledByDefault: boolean;
   daysUntilExpiration: number;
   alertState: string;
+  renewedFromPermitId: string | null;
+  currentRootPermitId: string;
+  isCurrentVersion: boolean;
+  renewalSequence: number;
   creditCount: number;
   commissionCount: number;
   notes: string | null;
@@ -37,10 +41,75 @@ export interface FinancialPermitDetail {
   statusAlertsEnabledByDefault: boolean;
   daysUntilExpiration: number;
   alertState: string;
+  renewedFromPermitId: string | null;
+  currentRootPermitId: string;
+  isCurrentVersion: boolean;
+  renewalSequence: number;
   notes: string | null;
   createdUtc: string;
   updatedUtc: string | null;
+  renewalHistory: FinancialPermitRenewalHistory[];
   credits: FinancialCredit[];
+}
+
+export interface FinancialPermitRenewalHistory {
+  id: string;
+  renewedFromPermitId: string | null;
+  currentRootPermitId: string;
+  isCurrentVersion: boolean;
+  renewalSequence: number;
+  validFrom: string;
+  validTo: string;
+  placeOrStand: string;
+  schedule: string;
+  statusCode: string;
+  statusName: string;
+  createdUtc: string;
+  updatedUtc: string | null;
+}
+
+export interface FinancialPermitRenewalChain {
+  currentRootPermitId: string;
+  currentPermitId: string;
+  currentPermit: FinancialPermitRenewalChainPermit;
+  permits: FinancialPermitRenewalChainPermit[];
+  summary: FinancialPermitRenewalChainSummary;
+  credits: FinancialCredit[];
+}
+
+export interface FinancialPermitRenewalChainPermit {
+  id: string;
+  renewedFromPermitId: string | null;
+  currentRootPermitId: string;
+  isCurrentVersion: boolean;
+  renewalSequence: number;
+  financialName: string;
+  institutionOrDependency: string;
+  placeOrStand: string;
+  validFrom: string;
+  validTo: string;
+  schedule: string;
+  statusCatalogEntryId: number;
+  statusCode: string;
+  statusName: string;
+  statusIsClosed: boolean;
+  daysUntilExpiration: number;
+  alertState: string;
+  createdUtc: string;
+  updatedUtc: string | null;
+}
+
+export interface FinancialPermitRenewalChainSummary {
+  permitsCount: number;
+  totalCreditsCount: number;
+  totalCreditsAmount: number;
+  totalCommissionsCount: number;
+  totalCommissionsAmount: number;
+  totalPromoterCommission: number;
+  totalAdminCommission: number;
+  totalThirdPartyCommission: number;
+  operationFrom: string | null;
+  operationTo: string | null;
 }
 
 export interface CreateFinancialPermitRequest {
@@ -52,6 +121,15 @@ export interface CreateFinancialPermitRequest {
   schedule: string;
   negotiatedTerms: string;
   statusCatalogEntryId: number;
+  notes: string | null;
+}
+
+export interface RenewFinancialPermitRequest {
+  validFrom: string;
+  validTo: string;
+  placeOrStand: string | null;
+  schedule: string | null;
+  negotiatedTerms: string | null;
   notes: string | null;
 }
 

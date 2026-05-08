@@ -6,6 +6,7 @@
 - Contratos backend bajo `FMCPA.Api.Contracts.Operations`.
 - Vista Angular `/operations` con KPIs principales, secciones de operacion, documentos y seguridad, y bandeja unificada.
 - Pruebas de regresion para composicion, permisos y exclusion de modulos/superficies no permitidas.
+- La accionabilidad posterior de la bandeja queda documentada en `analytics-track-operations-actionability-implementation-note.md`.
 
 ## Senales consolidadas
 - Negocio: KPIs ya derivados del dashboard ejecutivo, filtrados por permisos de modulo.

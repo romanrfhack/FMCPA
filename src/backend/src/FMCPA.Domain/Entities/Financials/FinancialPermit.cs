@@ -40,6 +40,8 @@ public sealed class FinancialPermit
         StatusCatalogEntryId = statusCatalogEntryId;
         Notes = NormalizeOptional(notes);
         CreatedUtc = DateTimeOffset.UtcNow;
+        CurrentRootPermitId = Id;
+        IsCurrentVersion = true;
     }
 
     public Guid Id { get; private set; }
@@ -66,6 +68,14 @@ public sealed class FinancialPermit
 
     public DateTimeOffset? UpdatedUtc { get; private set; }
 
+    public Guid? RenewedFromPermitId { get; private set; }
+
+    public Guid CurrentRootPermitId { get; private set; }
+
+    public bool IsCurrentVersion { get; private set; }
+
+    public int RenewalSequence { get; private set; }
+
     public ModuleStatusCatalogEntry? StatusCatalogEntry { get; private set; }
 
     public ICollection<FinancialCredit> Credits { get; } = new List<FinancialCredit>();
@@ -78,6 +88,25 @@ public sealed class FinancialPermit
         }
 
         StatusCatalogEntryId = statusCatalogEntryId;
+        UpdatedUtc = DateTimeOffset.UtcNow;
+    }
+
+    public void MarkRenewed()
+    {
+        IsCurrentVersion = false;
+        UpdatedUtc = DateTimeOffset.UtcNow;
+    }
+
+    public void LinkAsRenewalOf(FinancialPermit previousPermit)
+    {
+        ArgumentNullException.ThrowIfNull(previousPermit);
+
+        RenewedFromPermitId = previousPermit.Id;
+        CurrentRootPermitId = previousPermit.CurrentRootPermitId == Guid.Empty
+            ? previousPermit.Id
+            : previousPermit.CurrentRootPermitId;
+        RenewalSequence = previousPermit.RenewalSequence + 1;
+        IsCurrentVersion = true;
         UpdatedUtc = DateTimeOffset.UtcNow;
     }
 
