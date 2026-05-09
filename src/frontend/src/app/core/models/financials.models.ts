@@ -145,6 +145,45 @@ export interface FinancialPermitAlert {
   alertState: string;
 }
 
+export interface FinancialPermitActiveConflict {
+  message: string;
+  reasonCode: string;
+  conflictingPermitId: string;
+  currentRootPermitId: string;
+  financialName: string;
+  institutionOrDependency: string;
+  placeOrStand: string;
+  conflictingValidFrom: string;
+  conflictingValidTo: string;
+}
+
+export interface FinancialPermitCurrentResolution {
+  permitId: string;
+  currentRootPermitId: string;
+  renewalSequence: number;
+  financialName: string;
+  institutionOrDependency: string;
+  placeOrStand: string;
+  validFrom: string;
+  validTo: string;
+  schedule: string;
+  statusCatalogEntryId: number;
+  statusCode: string;
+  statusName: string;
+  statusIsClosed: boolean;
+  daysUntilExpiration: number;
+  alertState: string;
+  summary: string;
+}
+
+export interface FinancialPermitOperationBlocked {
+  message: string;
+  reasonCode: 'FINANCIAL_PERMIT_NOT_CURRENT' | 'FINANCIAL_PERMIT_TERMINAL' | string;
+  permitId: string;
+  currentRootPermitId: string;
+  currentPermitId: string | null;
+}
+
 export interface CreateFinancialCreditRequest {
   promoterContactId: string | null;
   promoterName: string;

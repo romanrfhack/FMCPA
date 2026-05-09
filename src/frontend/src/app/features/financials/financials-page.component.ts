@@ -1,4 +1,5 @@
 import { DecimalPipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -8,8 +9,11 @@ import {
   CreateFinancialCreditRequest,
   CreateFinancialPermitRequest,
   FinancialCredit,
+  FinancialPermitActiveConflict,
   FinancialPermitAlert,
+  FinancialPermitCurrentResolution,
   FinancialPermitDetail,
+  FinancialPermitOperationBlocked,
   FinancialPermitRenewalChain,
   FinancialPermitSummary,
   RenewFinancialPermitRequest
@@ -75,6 +79,57 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           <article class="form-card">
             <div class="card-header">
               <div>
+                <h3>Captura contextual de crédito</h3>
+                <p>Busca el oficio vigente por contexto operativo y abre la captura existente.</p>
+              </div>
+            </div>
+
+            @if (contextualCreditError()) {
+              <p class="alert error">{{ contextualCreditError() }}</p>
+            }
+
+            @if (contextualCreditBlocked(); as blocked) {
+              @if (blocked.currentPermitId) {
+                <div class="form-actions contextual-action">
+                  <button type="button" class="ghost" (click)="openCurrentPermit(blocked.currentPermitId)">
+                    Ir al permiso vigente
+                  </button>
+                </div>
+              }
+            }
+
+            @if (contextualCreditResolution(); as currentPermit) {
+              <div class="alert success conflict-action">
+                <span>{{ currentPermit.summary }} · Secuencia {{ currentPermit.renewalSequence }}</span>
+              </div>
+            }
+
+            <form class="form-grid" [formGroup]="contextualCreditForm" (ngSubmit)="startContextualCreditCapture()">
+              <label>
+                <span>Financiera</span>
+                <input type="text" formControlName="financialName" placeholder="Nombre de la financiera" />
+              </label>
+
+              <label>
+                <span>Dependencia o institución</span>
+                <input type="text" formControlName="institutionOrDependency" placeholder="Institución o dependencia" />
+              </label>
+
+              <label class="full-width">
+                <span>Lugar / stand</span>
+                <input type="text" formControlName="placeOrStand" placeholder="Stand o lugar de operación" />
+              </label>
+
+              <div class="form-actions full-width">
+                <button type="submit" [disabled]="isPreparingContextualCredit() || !canWrite()">Capturar crédito</button>
+                <button type="button" class="ghost" (click)="resetContextualCreditForm()">Limpiar</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="form-card">
+            <div class="card-header">
+              <div>
                 <h3>Alta de oficio o autorización</h3>
                 <p>Registro base de vigencia, stand y términos negociados.</p>
               </div>
@@ -82,6 +137,26 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
             @if (permitFormError()) {
               <p class="alert error">{{ permitFormError() }}</p>
+            }
+
+            @if (permitFormConflict(); as conflict) {
+              <div class="alert error conflict-action">
+                <button type="button" class="ghost" (click)="openConflictPermit(conflict.conflictingPermitId)">
+                  Abrir oficio vigente
+                </button>
+                <span>{{ conflict.financialName }} · {{ conflict.institutionOrDependency }} · {{ conflict.placeOrStand }}</span>
+              </div>
+            }
+
+            @if (currentPermitLookupResult(); as currentPermit) {
+              <div class="alert success conflict-action">
+                <button type="button" class="ghost" (click)="openCurrentPermit(currentPermit.permitId)">
+                  Ir al permiso vigente
+                </button>
+                <span>{{ currentPermit.summary }} · Secuencia {{ currentPermit.renewalSequence }}</span>
+              </div>
+            } @else if (currentPermitLookupMessage()) {
+              <p class="alert error">{{ currentPermitLookupMessage() }}</p>
             }
 
             @if (permitFormSuccess()) {
@@ -140,6 +215,9 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               </label>
 
               <div class="form-actions full-width">
+                <button type="button" class="ghost" (click)="resolveCurrentPermit()" [disabled]="isResolvingCurrentPermit()">
+                  Buscar vigente
+                </button>
                 <button type="submit" [disabled]="isSubmittingPermit() || !canWrite()">Registrar oficio</button>
                 <button type="button" class="ghost" (click)="resetPermitForm()">Limpiar</button>
               </div>
@@ -426,6 +504,15 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   <p class="alert error">{{ renewalFormError() }}</p>
                 }
 
+                @if (renewalFormConflict(); as conflict) {
+                  <div class="alert error conflict-action">
+                    <button type="button" class="ghost" (click)="openConflictPermit(conflict.conflictingPermitId)">
+                      Abrir oficio vigente
+                    </button>
+                    <span>{{ conflict.financialName }} · {{ conflict.institutionOrDependency }} · {{ conflict.placeOrStand }}</span>
+                  </div>
+                }
+
                 @if (renewalFormSuccess()) {
                   <p class="alert success">{{ renewalFormSuccess() }}</p>
                 }
@@ -522,6 +609,24 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
                   @if (creditFormError()) {
                     <p class="alert error">{{ creditFormError() }}</p>
+                  }
+
+                  @if (creditFormBlocked(); as blocked) {
+                    @if (blocked.currentPermitId && blocked.currentPermitId !== permitDetail.id) {
+                      <div class="form-actions contextual-action">
+                        <button type="button" class="ghost" (click)="openCurrentPermit(blocked.currentPermitId)">
+                          Ir al permiso vigente
+                        </button>
+                      </div>
+                    }
+                  }
+
+                  @if (contextualCreditResolution(); as contextPermit) {
+                    @if (contextPermit.permitId === permitDetail.id) {
+                      <p class="inline-note">
+                        Captura iniciada desde contexto: {{ contextPermit.summary }}
+                      </p>
+                    }
                   }
 
                   @if (creditFormSuccess()) {
@@ -1131,6 +1236,16 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         color: #0f766e;
       }
 
+      .conflict-action {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+      }
+
+      .contextual-action {
+        margin-bottom: 0.75rem;
+      }
+
       @media (max-width: 1080px) {
         .page-grid,
         .detail-grid,
@@ -1173,14 +1288,24 @@ export class FinancialsPageComponent {
   protected readonly isSubmittingCredit = signal(false);
   protected readonly isSubmittingCommission = signal(false);
   protected readonly isSubmittingRenewal = signal(false);
+  protected readonly isResolvingCurrentPermit = signal(false);
+  protected readonly isPreparingContextualCredit = signal(false);
 
   protected readonly permitFormError = signal<string | null>(null);
   protected readonly permitFormSuccess = signal<string | null>(null);
+  protected readonly permitFormConflict = signal<FinancialPermitActiveConflict | null>(null);
+  protected readonly currentPermitLookupResult = signal<FinancialPermitCurrentResolution | null>(null);
+  protected readonly currentPermitLookupMessage = signal<string | null>(null);
+  protected readonly contextualCreditResolution = signal<FinancialPermitCurrentResolution | null>(null);
+  protected readonly contextualCreditBlocked = signal<FinancialPermitOperationBlocked | null>(null);
+  protected readonly contextualCreditError = signal<string | null>(null);
   protected readonly renewalFormError = signal<string | null>(null);
   protected readonly renewalFormSuccess = signal<string | null>(null);
+  protected readonly renewalFormConflict = signal<FinancialPermitActiveConflict | null>(null);
   protected readonly renewalTargetPermitId = signal<string | null>(null);
   protected readonly creditFormError = signal<string | null>(null);
   protected readonly creditFormSuccess = signal<string | null>(null);
+  protected readonly creditFormBlocked = signal<FinancialPermitOperationBlocked | null>(null);
   protected readonly commissionFormError = signal<string | null>(null);
   protected readonly commissionFormSuccess = signal<string | null>(null);
 
@@ -1240,6 +1365,12 @@ export class FinancialsPageComponent {
   protected readonly filtersForm = this.formBuilder.nonNullable.group({
     statusCode: [''],
     alertsOnly: [false]
+  });
+
+  protected readonly contextualCreditForm = this.formBuilder.nonNullable.group({
+    financialName: ['', [Validators.required, Validators.maxLength(200)]],
+    institutionOrDependency: ['', [Validators.required, Validators.maxLength(200)]],
+    placeOrStand: ['', [Validators.required, Validators.maxLength(200)]]
   });
 
   protected readonly permitForm = this.formBuilder.nonNullable.group({
@@ -1307,9 +1438,120 @@ export class FinancialsPageComponent {
   }
 
   protected async selectPermit(permitId: string): Promise<void> {
+    this.contextualCreditResolution.set(null);
+    this.contextualCreditBlocked.set(null);
+    this.contextualCreditError.set(null);
     this.selectedPermitId.set(permitId);
     this.selectedCreditId.set(null);
     await this.loadPermitDetail(permitId);
+  }
+
+  protected async openConflictPermit(permitId: string): Promise<void> {
+    await this.openPermitFromContext(permitId);
+  }
+
+  protected async openCurrentPermit(permitId: string | null | undefined): Promise<void> {
+    if (!permitId) {
+      return;
+    }
+
+    await this.openPermitFromContext(permitId);
+  }
+
+  protected async resolveCurrentPermit(): Promise<void> {
+    this.currentPermitLookupResult.set(null);
+    this.currentPermitLookupMessage.set(null);
+    this.permitFormConflict.set(null);
+    this.pageError.set(null);
+
+    const rawValue = this.permitForm.getRawValue();
+    const request = {
+      financialName: rawValue.financialName.trim(),
+      institutionOrDependency: rawValue.institutionOrDependency.trim(),
+      placeOrStand: rawValue.placeOrStand.trim()
+    };
+
+    if (!request.financialName || !request.institutionOrDependency || !request.placeOrStand) {
+      this.currentPermitLookupMessage.set('Captura financiera, dependencia o institucion y lugar/stand para buscar el permiso vigente.');
+      return;
+    }
+
+    this.isResolvingCurrentPermit.set(true);
+
+    try {
+      const currentPermit = await firstValueFrom(this.financialsService.resolveCurrentPermit(request));
+      this.currentPermitLookupResult.set(currentPermit);
+    } catch (error) {
+      const lookupMessage = this.extractCurrentPermitLookupMessage(error);
+      this.currentPermitLookupMessage.set(lookupMessage ?? getApiErrorMessage(error, 'No fue posible buscar el permiso vigente.'));
+    } finally {
+      this.isResolvingCurrentPermit.set(false);
+    }
+  }
+
+  protected async startContextualCreditCapture(): Promise<void> {
+    this.contextualCreditResolution.set(null);
+    this.contextualCreditBlocked.set(null);
+    this.contextualCreditError.set(null);
+    this.creditFormBlocked.set(null);
+    this.creditFormError.set(null);
+    this.pageError.set(null);
+
+    if (this.contextualCreditForm.invalid) {
+      this.contextualCreditForm.markAllAsTouched();
+      this.contextualCreditError.set('Captura financiera, dependencia o institucion y lugar/stand para iniciar la captura.');
+      return;
+    }
+
+    const rawValue = this.contextualCreditForm.getRawValue();
+    const request = {
+      financialName: rawValue.financialName.trim(),
+      institutionOrDependency: rawValue.institutionOrDependency.trim(),
+      placeOrStand: rawValue.placeOrStand.trim()
+    };
+
+    this.isPreparingContextualCredit.set(true);
+
+    try {
+      const currentPermit = await firstValueFrom(this.financialsService.resolveCurrentPermit(request));
+      await this.openPermitFromContext(currentPermit.permitId);
+      this.contextualCreditResolution.set(currentPermit);
+    } catch (error) {
+      const blocked = this.extractFinancialPermitOperationBlocked(error);
+      this.contextualCreditBlocked.set(blocked);
+      this.contextualCreditError.set(
+        blocked?.message
+          ?? this.extractCurrentPermitLookupMessage(error)
+          ?? getApiErrorMessage(error, 'No fue posible iniciar la captura contextual del crédito.'));
+    } finally {
+      this.isPreparingContextualCredit.set(false);
+    }
+  }
+
+  protected resetContextualCreditForm(): void {
+    this.contextualCreditResolution.set(null);
+    this.contextualCreditBlocked.set(null);
+    this.contextualCreditError.set(null);
+    this.contextualCreditForm.reset({
+      financialName: '',
+      institutionOrDependency: '',
+      placeOrStand: ''
+    });
+  }
+
+  private async openPermitFromContext(permitId: string): Promise<void> {
+    this.filtersForm.setValue({
+      statusCode: '',
+      alertsOnly: false
+    });
+    this.permitFormConflict.set(null);
+    this.currentPermitLookupResult.set(null);
+    this.currentPermitLookupMessage.set(null);
+    this.renewalFormConflict.set(null);
+    this.renewalTargetPermitId.set(null);
+    this.contextualCreditBlocked.set(null);
+    this.contextualCreditError.set(null);
+    await this.reloadPermits(permitId);
   }
 
   protected async closeSelectedPermit(): Promise<void> {
@@ -1345,6 +1587,7 @@ export class FinancialsPageComponent {
     this.pageError.set(null);
     this.renewalFormError.set(null);
     this.renewalFormSuccess.set(null);
+    this.renewalFormConflict.set(null);
     this.renewalTargetPermitId.set(permit.id);
     this.renewalForm.reset({
       validFrom: this.addDaysFromIso(permit.validTo, 1),
@@ -1360,6 +1603,7 @@ export class FinancialsPageComponent {
     this.renewalTargetPermitId.set(null);
     this.renewalFormError.set(null);
     this.renewalFormSuccess.set(null);
+    this.renewalFormConflict.set(null);
   }
 
   protected async submitRenewal(): Promise<void> {
@@ -1367,6 +1611,7 @@ export class FinancialsPageComponent {
 
     this.renewalFormError.set(null);
     this.renewalFormSuccess.set(null);
+    this.renewalFormConflict.set(null);
     this.pageError.set(null);
 
     if (!renewalTargetPermitId) {
@@ -1399,7 +1644,9 @@ export class FinancialsPageComponent {
       await this.reloadPermits(renewedPermit.id);
       await this.reloadAlerts();
     } catch (error) {
-      this.renewalFormError.set(getApiErrorMessage(error, 'No fue posible renovar el oficio.'));
+      const conflict = this.extractActivePermitConflict(error);
+      this.renewalFormConflict.set(conflict);
+      this.renewalFormError.set(conflict?.message ?? getApiErrorMessage(error, 'No fue posible renovar el oficio.'));
     } finally {
       this.isSubmittingRenewal.set(false);
     }
@@ -1418,6 +1665,9 @@ export class FinancialsPageComponent {
   protected async submitPermit(): Promise<void> {
     this.permitFormError.set(null);
     this.permitFormSuccess.set(null);
+    this.permitFormConflict.set(null);
+    this.currentPermitLookupResult.set(null);
+    this.currentPermitLookupMessage.set(null);
     this.pageError.set(null);
 
     if (this.permitForm.invalid) {
@@ -1448,7 +1698,9 @@ export class FinancialsPageComponent {
       await this.reloadPermits(permit.id);
       await this.reloadAlerts();
     } catch (error) {
-      this.permitFormError.set(getApiErrorMessage(error, 'No fue posible registrar el oficio.'));
+      const conflict = this.extractActivePermitConflict(error);
+      this.permitFormConflict.set(conflict);
+      this.permitFormError.set(conflict?.message ?? getApiErrorMessage(error, 'No fue posible registrar el oficio.'));
     } finally {
       this.isSubmittingPermit.set(false);
     }
@@ -1459,6 +1711,7 @@ export class FinancialsPageComponent {
 
     this.creditFormError.set(null);
     this.creditFormSuccess.set(null);
+    this.creditFormBlocked.set(null);
     this.pageError.set(null);
 
     if (!selectedPermitId) {
@@ -1499,7 +1752,9 @@ export class FinancialsPageComponent {
       await this.reloadPermits(selectedPermitId);
       await this.loadPermitDetail(selectedPermitId, credit.id);
     } catch (error) {
-      this.creditFormError.set(getApiErrorMessage(error, 'No fue posible registrar el crédito.'));
+      const blocked = this.extractFinancialPermitOperationBlocked(error);
+      this.creditFormBlocked.set(blocked);
+      this.creditFormError.set(blocked?.message ?? getApiErrorMessage(error, 'No fue posible registrar el crédito.'));
     } finally {
       this.isSubmittingCredit.set(false);
     }
@@ -1609,6 +1864,9 @@ export class FinancialsPageComponent {
   }
 
   protected resetPermitForm(): void {
+    this.permitFormConflict.set(null);
+    this.currentPermitLookupResult.set(null);
+    this.currentPermitLookupMessage.set(null);
     this.permitForm.reset({
       financialName: '',
       institutionOrDependency: '',
@@ -1623,6 +1881,7 @@ export class FinancialsPageComponent {
   }
 
   protected resetCreditForm(): void {
+    this.creditFormBlocked.set(null);
     this.creditForm.reset({
       promoterContactId: '',
       promoterName: '',
@@ -1804,6 +2063,58 @@ export class FinancialsPageComponent {
   private async reloadAlerts(): Promise<void> {
     const alerts = await firstValueFrom(this.financialsService.getPermitAlerts());
     this.permitAlerts.set(alerts);
+  }
+
+  private extractActivePermitConflict(error: unknown): FinancialPermitActiveConflict | null {
+    if (!(error instanceof HttpErrorResponse)) {
+      return null;
+    }
+
+    const response = error.error as Partial<FinancialPermitActiveConflict> | undefined;
+    if (
+      response?.reasonCode !== 'FINANCIAL_PERMIT_ACTIVE_CONFLICT'
+      || typeof response.conflictingPermitId !== 'string'
+    ) {
+      return null;
+    }
+
+    return response as FinancialPermitActiveConflict;
+  }
+
+  private extractFinancialPermitOperationBlocked(error: unknown): FinancialPermitOperationBlocked | null {
+    if (!(error instanceof HttpErrorResponse)) {
+      return null;
+    }
+
+    const response = error.error as Partial<FinancialPermitOperationBlocked> | undefined;
+    if (
+      response?.reasonCode !== 'FINANCIAL_PERMIT_NOT_CURRENT'
+      && response?.reasonCode !== 'FINANCIAL_PERMIT_TERMINAL'
+    ) {
+      return null;
+    }
+
+    if (typeof response.message !== 'string' || typeof response.permitId !== 'string') {
+      return null;
+    }
+
+    return response as FinancialPermitOperationBlocked;
+  }
+
+  private extractCurrentPermitLookupMessage(error: unknown): string | null {
+    if (!(error instanceof HttpErrorResponse)) {
+      return null;
+    }
+
+    const response = error.error as Partial<{ message: string; reasonCode: string }> | undefined;
+    if (
+      response?.reasonCode === 'FINANCIAL_PERMIT_CURRENT_NOT_FOUND'
+      || response?.reasonCode === 'FINANCIAL_PERMIT_CURRENT_AMBIGUOUS'
+    ) {
+      return response.message ?? null;
+    }
+
+    return null;
   }
 
   private async loadPermitDetail(permitId: string, preferredCreditId?: string): Promise<void> {

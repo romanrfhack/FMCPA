@@ -108,6 +108,39 @@ public sealed record FinancialPermitRenewalChainSummaryResponse(
     DateOnly? OperationFrom,
     DateOnly? OperationTo);
 
+public sealed record FinancialPermitCurrentResolutionResponse(
+    Guid PermitId,
+    Guid CurrentRootPermitId,
+    int RenewalSequence,
+    string FinancialName,
+    string InstitutionOrDependency,
+    string PlaceOrStand,
+    DateOnly ValidFrom,
+    DateOnly ValidTo,
+    string Schedule,
+    int StatusCatalogEntryId,
+    string StatusCode,
+    string StatusName,
+    bool StatusIsClosed,
+    int DaysUntilExpiration,
+    string AlertState,
+    string Summary);
+
+public sealed record FinancialPermitCurrentResolutionNotFoundResponse(
+    string Message,
+    string ReasonCode,
+    string FinancialName,
+    string InstitutionOrDependency,
+    string PlaceOrStand);
+
+public sealed record FinancialPermitCurrentResolutionAmbiguousResponse(
+    string Message,
+    string ReasonCode,
+    string FinancialName,
+    string InstitutionOrDependency,
+    string PlaceOrStand,
+    IReadOnlyList<FinancialPermitCurrentResolutionResponse> Matches);
+
 public sealed record CreateFinancialPermitRequest(
     string FinancialName,
     string InstitutionOrDependency,
@@ -194,3 +227,14 @@ public sealed record FinancialPermitOperationBlockedResponse(
     Guid PermitId,
     Guid CurrentRootPermitId,
     Guid? CurrentPermitId);
+
+public sealed record FinancialPermitActiveConflictResponse(
+    string Message,
+    string ReasonCode,
+    Guid ConflictingPermitId,
+    Guid CurrentRootPermitId,
+    string FinancialName,
+    string InstitutionOrDependency,
+    string PlaceOrStand,
+    DateOnly ConflictingValidFrom,
+    DateOnly ConflictingValidTo);

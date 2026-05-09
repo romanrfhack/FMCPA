@@ -362,34 +362,326 @@ public sealed class FinancialsPermitRenewalTests : IClassFixture<AuthorizationRe
         Assert.Equal(HttpStatusCode.Forbidden, readOnlyRenewResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task Financial_permit_create_and_renewal_block_active_operational_conflicts()
+    {
+        var statusId = await SeedFinancialPermitStatusAsync();
+        var adminToken = await LoginAsync(
+            AuthorizationRegressionWebApplicationFactory.AdminUserName,
+            AuthorizationRegressionWebApplicationFactory.AdminPassword);
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        using var basePermitResponse = await SendPostAsync(
+            "/api/financials",
+            adminToken,
+            new
+            {
+                financialName = $"Financiera Conflicto {suffix}",
+                institutionOrDependency = "Dependencia Regression",
+                placeOrStand = "Stand Norte",
+                validFrom = today,
+                validTo = today.AddDays(90),
+                schedule = "09:00-14:00",
+                negotiatedTerms = "Terminos base",
+                statusCatalogEntryId = statusId,
+                notes = "Permiso base de conflicto"
+            });
+        var basePermit = await basePermitResponse.Content.ReadFromJsonAsync<FinancialPermitSummaryTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Created, basePermitResponse.StatusCode);
+        Assert.NotNull(basePermit);
+
+        using var normalizedConflictResponse = await SendPostAsync(
+            "/api/financials",
+            adminToken,
+            new
+            {
+                financialName = $"  financiera conflicto {suffix}  ",
+                institutionOrDependency = " dependencia   regression ",
+                placeOrStand = " stand   norte ",
+                validFrom = today.AddDays(120),
+                validTo = today.AddDays(150),
+                schedule = "10:00-15:00",
+                negotiatedTerms = "Terminos conflictivos",
+                statusCatalogEntryId = statusId,
+                notes = "Alta conflictiva normalizada"
+            });
+        var normalizedConflict = await normalizedConflictResponse.Content.ReadFromJsonAsync<FinancialPermitActiveConflictTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Conflict, normalizedConflictResponse.StatusCode);
+        Assert.NotNull(normalizedConflict);
+        Assert.Equal("FINANCIAL_PERMIT_ACTIVE_CONFLICT", normalizedConflict!.ReasonCode);
+        Assert.Equal(basePermit!.Id, normalizedConflict.ConflictingPermitId);
+        Assert.Equal(basePermit.CurrentRootPermitId, normalizedConflict.CurrentRootPermitId);
+        Assert.Contains("oficio vigente", normalizedConflict.Message);
+
+        using var allowedDifferentStandResponse = await SendPostAsync(
+            "/api/financials",
+            adminToken,
+            new
+            {
+                financialName = $"Financiera Conflicto {suffix}",
+                institutionOrDependency = "Dependencia Regression",
+                placeOrStand = "Stand Sur",
+                validFrom = today.AddDays(120),
+                validTo = today.AddDays(150),
+                schedule = "10:00-15:00",
+                negotiatedTerms = "Terminos no conflictivos",
+                statusCatalogEntryId = statusId,
+                notes = "Alta permitida por lugar distinto"
+            });
+
+        Assert.Equal(HttpStatusCode.Created, allowedDifferentStandResponse.StatusCode);
+
+        using var competingPermitResponse = await SendPostAsync(
+            "/api/financials",
+            adminToken,
+            new
+            {
+                financialName = $"Financiera Conflicto {suffix}",
+                institutionOrDependency = "Dependencia Regression",
+                placeOrStand = "Stand Oriente",
+                validFrom = today.AddDays(300),
+                validTo = today.AddDays(330),
+                schedule = "11:00-16:00",
+                negotiatedTerms = "Terminos de otro stand",
+                statusCatalogEntryId = statusId,
+                notes = "Permiso vigente de otra cadena"
+            });
+        var competingPermit = await competingPermitResponse.Content.ReadFromJsonAsync<FinancialPermitSummaryTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Created, competingPermitResponse.StatusCode);
+        Assert.NotNull(competingPermit);
+
+        using var blockedRenewalResponse = await SendPostAsync(
+            $"/api/financials/{basePermit.Id}/renew",
+            adminToken,
+            new
+            {
+                validFrom = today.AddDays(91),
+                validTo = today.AddDays(180),
+                placeOrStand = " stand   oriente ",
+                schedule = "12:00-17:00",
+                negotiatedTerms = "Renovacion hacia stand conflictivo",
+                notes = "Debe bloquearse por conflicto operativo"
+            });
+        var blockedRenewal = await blockedRenewalResponse.Content.ReadFromJsonAsync<FinancialPermitActiveConflictTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Conflict, blockedRenewalResponse.StatusCode);
+        Assert.NotNull(blockedRenewal);
+        Assert.Equal("FINANCIAL_PERMIT_ACTIVE_CONFLICT", blockedRenewal!.ReasonCode);
+        Assert.Equal(competingPermit!.Id, blockedRenewal.ConflictingPermitId);
+        Assert.Equal(competingPermit.CurrentRootPermitId, blockedRenewal.CurrentRootPermitId);
+
+        using var validRenewalResponse = await SendPostAsync(
+            $"/api/financials/{basePermit.Id}/renew",
+            adminToken,
+            new
+            {
+                validFrom = today.AddDays(91),
+                validTo = today.AddDays(180),
+                placeOrStand = "Stand Poniente",
+                schedule = "12:00-17:00",
+                negotiatedTerms = "Renovacion no conflictiva",
+                notes = "Debe conservar la cadena valida"
+            });
+        var validRenewal = await validRenewalResponse.Content.ReadFromJsonAsync<FinancialPermitDetailTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Created, validRenewalResponse.StatusCode);
+        Assert.NotNull(validRenewal);
+        Assert.True(validRenewal!.IsCurrentVersion);
+        Assert.Equal(basePermit.CurrentRootPermitId, validRenewal.CurrentRootPermitId);
+        Assert.Equal(1, validRenewal.RenewalSequence);
+    }
+
+    [Fact]
+    public async Task Financial_current_permit_resolution_uses_operational_key_and_current_chain()
+    {
+        var statusId = await SeedFinancialPermitStatusAsync();
+        var adminToken = await LoginAsync(
+            AuthorizationRegressionWebApplicationFactory.AdminUserName,
+            AuthorizationRegressionWebApplicationFactory.AdminPassword);
+        var readOnlyToken = await LoginAsync(
+            AuthorizationRegressionWebApplicationFactory.ReadOnlyUserName,
+            AuthorizationRegressionWebApplicationFactory.ReadOnlyPassword);
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var financialName = $"Financiera Ágil {suffix}";
+        const string institutionOrDependency = "Institución Pública";
+
+        using var basePermitResponse = await SendPostAsync(
+            "/api/financials",
+            adminToken,
+            new
+            {
+                financialName,
+                institutionOrDependency,
+                placeOrStand = "Módulo Norte",
+                validFrom = today,
+                validTo = today.AddDays(90),
+                schedule = "09:00-14:00",
+                negotiatedTerms = "Terminos de resolucion",
+                statusCatalogEntryId = statusId,
+                notes = "Permiso base para resolver vigente"
+            });
+        var basePermit = await basePermitResponse.Content.ReadFromJsonAsync<FinancialPermitSummaryTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Created, basePermitResponse.StatusCode);
+        Assert.NotNull(basePermit);
+
+        using var foundResponse = await SendGetAsync(
+            BuildCurrentPermitResolutionPath($" financiera agil {suffix} ", " institucion   publica ", " modulo norte "),
+            readOnlyToken);
+        var found = await foundResponse.Content.ReadFromJsonAsync<FinancialPermitCurrentResolutionTestResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, foundResponse.StatusCode);
+        Assert.NotNull(found);
+        Assert.Equal(basePermit!.Id, found!.PermitId);
+        Assert.Equal(basePermit.CurrentRootPermitId, found.CurrentRootPermitId);
+        Assert.Equal(0, found.RenewalSequence);
+        Assert.Equal("IN_PROCESS", found.StatusCode);
+        Assert.Contains("Módulo Norte", found.Summary);
+
+        using var renewResponse = await SendPostAsync(
+            $"/api/financials/{basePermit.Id}/renew",
+            adminToken,
+            new
+            {
+                validFrom = today.AddDays(91),
+                validTo = today.AddDays(180),
+                placeOrStand = "Módulo Sur",
+                schedule = "10:00-15:00",
+                negotiatedTerms = "Terminos renovados de resolucion",
+                notes = "Renovacion para resolver vigente"
+            });
+        var renewedPermit = await renewResponse.Content.ReadFromJsonAsync<FinancialPermitDetailTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Created, renewResponse.StatusCode);
+        Assert.NotNull(renewedPermit);
+
+        using var renewedFoundResponse = await SendGetAsync(
+            BuildCurrentPermitResolutionPath(financialName, institutionOrDependency, "modulo   sur"),
+            readOnlyToken);
+        var renewedFound = await renewedFoundResponse.Content.ReadFromJsonAsync<FinancialPermitCurrentResolutionTestResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, renewedFoundResponse.StatusCode);
+        Assert.NotNull(renewedFound);
+        Assert.Equal(renewedPermit!.Id, renewedFound!.PermitId);
+        Assert.Equal(basePermit.CurrentRootPermitId, renewedFound.CurrentRootPermitId);
+        Assert.Equal(1, renewedFound.RenewalSequence);
+
+        using var contextualCreditResponse = await SendPostAsync(
+            $"/api/financials/{renewedFound.PermitId}/credits",
+            adminToken,
+            new
+            {
+                promoterContactId = (Guid?)null,
+                promoterName = $"Promotor contextual {suffix}",
+                beneficiaryContactId = (Guid?)null,
+                beneficiaryName = $"Beneficiario contextual {suffix}",
+                phoneNumber = "5550303",
+                whatsAppPhone = "5550303",
+                authorizationDate = today.AddDays(10),
+                amount = 1500m,
+                notes = "Credito iniciado desde contexto operativo"
+            });
+        var contextualCredit = await contextualCreditResponse.Content.ReadFromJsonAsync<FinancialCreditTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Created, contextualCreditResponse.StatusCode);
+        Assert.NotNull(contextualCredit);
+        Assert.Equal(renewedPermit.Id, contextualCredit!.FinancialPermitId);
+
+        using var historicalContextResponse = await SendGetAsync(
+            BuildCurrentPermitResolutionPath(financialName, institutionOrDependency, "modulo norte"),
+            readOnlyToken);
+        var historicalContext = await historicalContextResponse.Content.ReadFromJsonAsync<FinancialPermitOperationBlockedTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Conflict, historicalContextResponse.StatusCode);
+        Assert.NotNull(historicalContext);
+        Assert.Equal("FINANCIAL_PERMIT_NOT_CURRENT", historicalContext!.ReasonCode);
+        Assert.Equal(basePermit.Id, historicalContext.PermitId);
+        Assert.Equal(renewedPermit.Id, historicalContext.CurrentPermitId);
+
+        using var missingResponse = await SendGetAsync(
+            BuildCurrentPermitResolutionPath(financialName, institutionOrDependency, "Modulo inexistente"),
+            readOnlyToken);
+        var missing = await missingResponse.Content.ReadFromJsonAsync<FinancialPermitCurrentNotFoundTestResponse>();
+
+        Assert.Equal(HttpStatusCode.NotFound, missingResponse.StatusCode);
+        Assert.NotNull(missing);
+        Assert.Equal("FINANCIAL_PERMIT_CURRENT_NOT_FOUND", missing!.ReasonCode);
+        Assert.Contains("No existe un oficio vigente", missing.Message);
+
+        using var closeRenewedResponse = await SendPostAsync(
+            $"/api/financials/{renewedPermit.Id}/close",
+            adminToken,
+            new
+            {
+                reason = "Cierre terminal para validar resolucion contextual"
+            });
+
+        Assert.Equal(HttpStatusCode.OK, closeRenewedResponse.StatusCode);
+
+        using var terminalContextResponse = await SendGetAsync(
+            BuildCurrentPermitResolutionPath(financialName, institutionOrDependency, "modulo sur"),
+            readOnlyToken);
+        var terminalContext = await terminalContextResponse.Content.ReadFromJsonAsync<FinancialPermitOperationBlockedTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Conflict, terminalContextResponse.StatusCode);
+        Assert.NotNull(terminalContext);
+        Assert.Equal("FINANCIAL_PERMIT_TERMINAL", terminalContext!.ReasonCode);
+        Assert.Equal(renewedPermit.Id, terminalContext.PermitId);
+        Assert.Equal(renewedPermit.Id, terminalContext.CurrentPermitId);
+    }
+
     private async Task<int> SeedFinancialPermitStatusAsync()
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
-        var status = new ModuleStatusCatalogEntry(
-            "FINANCIALS",
-            "Financieras",
-            "FINANCIAL_PERMIT",
-            "Oficio o autorizacion",
-            "IN_PROCESS",
-            "En proceso",
-            description: null,
-            sortOrder: 1,
-            isClosed: false,
-            alertsEnabledByDefault: true);
-        var closedStatus = new ModuleStatusCatalogEntry(
-            "FINANCIALS",
-            "Financieras",
-            "FINANCIAL_PERMIT",
-            "Oficio o autorizacion",
-            "CLOSED",
-            "Cerrado",
-            description: null,
-            sortOrder: 2,
-            isClosed: true,
-            alertsEnabledByDefault: false);
 
-        dbContext.ModuleStatusCatalogEntries.AddRange(status, closedStatus);
+        var status = await dbContext.ModuleStatusCatalogEntries
+            .SingleOrDefaultAsync(
+                item => item.ModuleCode == "FINANCIALS"
+                    && item.ContextCode == "FINANCIAL_PERMIT"
+                    && item.StatusCode == "IN_PROCESS");
+        if (status is null)
+        {
+            status = new ModuleStatusCatalogEntry(
+                "FINANCIALS",
+                "Financieras",
+                "FINANCIAL_PERMIT",
+                "Oficio o autorizacion",
+                "IN_PROCESS",
+                "En proceso",
+                description: null,
+                sortOrder: 1,
+                isClosed: false,
+                alertsEnabledByDefault: true);
+            dbContext.ModuleStatusCatalogEntries.Add(status);
+        }
+
+        var closedStatusExists = await dbContext.ModuleStatusCatalogEntries
+            .AnyAsync(
+                item => item.ModuleCode == "FINANCIALS"
+                    && item.ContextCode == "FINANCIAL_PERMIT"
+                    && item.StatusCode == "CLOSED");
+        if (!closedStatusExists)
+        {
+            dbContext.ModuleStatusCatalogEntries.Add(
+                new ModuleStatusCatalogEntry(
+                    "FINANCIALS",
+                    "Financieras",
+                    "FINANCIAL_PERMIT",
+                    "Oficio o autorizacion",
+                    "CLOSED",
+                    "Cerrado",
+                    description: null,
+                    sortOrder: 2,
+                    isClosed: true,
+                    alertsEnabledByDefault: false));
+        }
+
         await dbContext.SaveChangesAsync();
 
         return status.Id;
@@ -451,6 +743,17 @@ public sealed class FinancialsPermitRenewalTests : IClassFixture<AuthorizationRe
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         request.Content = JsonContent.Create(body);
         return await _client.SendAsync(request);
+    }
+
+    private static string BuildCurrentPermitResolutionPath(
+        string financialName,
+        string institutionOrDependency,
+        string placeOrStand)
+    {
+        return "/api/financials/current-permit"
+            + $"?financialName={Uri.EscapeDataString(financialName)}"
+            + $"&institutionOrDependency={Uri.EscapeDataString(institutionOrDependency)}"
+            + $"&placeOrStand={Uri.EscapeDataString(placeOrStand)}";
     }
 
     private async Task<int> CountAuditEventsAsync(string entityType)
@@ -523,6 +826,23 @@ public sealed class FinancialsPermitRenewalTests : IClassFixture<AuthorizationRe
         Guid PermitId,
         Guid CurrentRootPermitId,
         Guid? CurrentPermitId);
+
+    private sealed record FinancialPermitActiveConflictTestResponse(
+        string Message,
+        string ReasonCode,
+        Guid ConflictingPermitId,
+        Guid CurrentRootPermitId);
+
+    private sealed record FinancialPermitCurrentResolutionTestResponse(
+        Guid PermitId,
+        Guid CurrentRootPermitId,
+        int RenewalSequence,
+        string StatusCode,
+        string Summary);
+
+    private sealed record FinancialPermitCurrentNotFoundTestResponse(
+        string Message,
+        string ReasonCode);
 
     private sealed record FinancialPermitAlertTestResponse(
         Guid PermitId,

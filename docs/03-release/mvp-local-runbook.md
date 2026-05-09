@@ -574,8 +574,23 @@ curl -s http://127.0.0.1:5080/api/financials/${PERMIT_ID}/renew -H "Authorizatio
 curl -s http://127.0.0.1:5080/api/financials/${PERMIT_ID} -H "Authorization: Bearer ${ADMIN_TOKEN}"
 curl -s http://127.0.0.1:5080/api/financials/${PERMIT_ID}/renewal-chain -H "Authorization: Bearer ${ADMIN_TOKEN}"
 # La cadena debe mostrar `currentPermitId`, permisos ordenados por `renewalSequence`, creditos de toda la cadena y agregados de comisiones.
+curl -i "http://127.0.0.1:5080/api/financials/current-permit?financialName=Financiera%20Local&institutionOrDependency=Direccion%20local&placeOrStand=Stand%202" -H "Authorization: Bearer ${ADMIN_TOKEN}"
+# Debe responder 200 con `permitId`, `currentRootPermitId`, periodo, estatus, `renewalSequence` y resumen operativo del permiso vigente/no terminal.
+curl -i "http://127.0.0.1:5080/api/financials/current-permit?financialName=Financiera%20Local&institutionOrDependency=Direccion%20local&placeOrStand=Stand%20inexistente" -H "Authorization: Bearer ${ADMIN_TOKEN}"
+# Debe responder 404 con `reasonCode=FINANCIAL_PERMIT_CURRENT_NOT_FOUND` cuando no exista vigente para ese contexto.
+curl -i "http://127.0.0.1:5080/api/financials/current-permit?financialName=Financiera%20Local&institutionOrDependency=Direccion%20local&placeOrStand=Stand%202" -H "Authorization: Bearer ${ADMIN_TOKEN}"
+CONTEXT_CURRENT_PERMIT_ID="<permitId-devuelto-por-current-permit>"
+curl -i http://127.0.0.1:5080/api/financials/${CONTEXT_CURRENT_PERMIT_ID}/credits -H "Authorization: Bearer ${ADMIN_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"promoterName":"Promotor contexto","beneficiaryName":"Beneficiario contexto","authorizationDate":"2026-06-10","amount":1500}'
+# La captura contextual de UI usa este mismo patron: resuelve vigente por contexto y reutiliza el alta existente de credito sobre el permiso devuelto.
+# Si el contexto apunta a un permiso historico debe responder `409 FINANCIAL_PERMIT_NOT_CURRENT` con `currentPermitId`; si apunta a terminal debe responder `409 FINANCIAL_PERMIT_TERMINAL`.
 CURRENT_PERMIT_ID="<currentPermitId-devuelto-por-renewal-chain>"
 HISTORICAL_CREDIT_ID="<credit-id-del-permiso-historico-si-existe>"
+BASE_CONFLICT_PERMIT_ID="<permiso-vigente-base>"
+OTHER_CONFLICT_PERMIT_ID="<otro-permiso-vigente-de-otra-cadena>"
+curl -i http://127.0.0.1:5080/api/financials -H "Authorization: Bearer ${ADMIN_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"financialName":"Financiera Local","institutionOrDependency":"Direccion local","placeOrStand":"Stand 2","validFrom":"2027-01-01","validTo":"2027-03-31","schedule":"09:00-18:00","negotiatedTerms":"Duplicado operativo","statusCatalogEntryId":'"${FINANCIAL_STATUS_ID}"'}'
+# Debe responder 409 con `reasonCode=FINANCIAL_PERMIT_ACTIVE_CONFLICT` si ya existe otro permiso vigente/no terminal con la misma financiera/dependencia/stand normalizados.
+curl -i http://127.0.0.1:5080/api/financials/${BASE_CONFLICT_PERMIT_ID}/renew -H "Authorization: Bearer ${ADMIN_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"validFrom":"2027-04-01","validTo":"2027-06-30","placeOrStand":"Stand conflictivo","schedule":"10:00-18:00","negotiatedTerms":"Renovacion conflictiva"}'
+# Debe responder 409 con `conflictingPermitId=${OTHER_CONFLICT_PERMIT_ID}` cuando la renovacion apunte a la combinacion operativa vigente de otra cadena.
 curl -i http://127.0.0.1:5080/api/financials/${PERMIT_ID}/credits -H "Authorization: Bearer ${ADMIN_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"promoterName":"Promotor historico","beneficiaryName":"Beneficiario historico","authorizationDate":"2026-06-10","amount":1000}'
 # Debe responder 409 con `reasonCode=FINANCIAL_PERMIT_NOT_CURRENT` si `${PERMIT_ID}` ya es historico.
 curl -i http://127.0.0.1:5080/api/financials/${CURRENT_PERMIT_ID}/credits -H "Authorization: Bearer ${ADMIN_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"promoterName":"Promotor vigente","beneficiaryName":"Beneficiario vigente","authorizationDate":"2026-06-10","amount":1000}'
@@ -604,8 +619,12 @@ curl -s http://127.0.0.1:4200/admin/users
 - Si una exportacion de `/operations` devuelve pocos registros, revisar primero la ventana temporal, el filtro de severidad/categoria y el rol usado; la seguridad no se exporta para roles sin `USERS_ADMIN`.
 - Si un permiso de Financieras renovado sigue apareciendo en alertas como vencido, confirmar que `IsCurrentVersion=false` en el permiso anterior y que la consulta se esta haciendo contra una base migrada con `Track5FinancialPermitRenewal`.
 - Si `GET /api/financials/{permitId}/renewal-chain` devuelve agregados en cero, confirmar que los creditos esten registrados en permisos de la misma `CurrentRootPermitId` y que las comisiones usen `CommissionType`/`RecipientCategory` existentes.
+- Si `GET /api/financials/current-permit` devuelve `404 FINANCIAL_PERMIT_CURRENT_NOT_FOUND`, confirmar que los tres campos operativos coincidan bajo la normalizacion basica: trim, espacios colapsados, case-insensitive y remocion de diacriticos; si el contexto es nuevo, registrar un permiso nuevo.
+- Si la captura contextual de credito no abre el formulario de alta, revisar primero la respuesta de `GET /api/financials/current-permit`: `FINANCIAL_PERMIT_CURRENT_NOT_FOUND` implica que no hay vigente para ese contexto, `FINANCIAL_PERMIT_NOT_CURRENT` apunta a un historico y `FINANCIAL_PERMIT_TERMINAL` a un permiso cerrado/no operable.
+- Si `GET /api/financials/current-permit` devuelve `409 FINANCIAL_PERMIT_CURRENT_AMBIGUOUS`, revisar datos heredados o cadenas duplicadas porque la unicidad operativa deberia impedir nuevos casos por API.
 - Si `POST /api/financials/{permitId}/credits` o `POST /api/financials/credits/{creditId}/commissions` devuelve `409 FINANCIAL_PERMIT_NOT_CURRENT`, cambiar la captura al `currentPermitId` devuelto por `/renewal-chain`.
 - Si esas altas devuelven `409 FINANCIAL_PERMIT_TERMINAL`, el permiso asociado ya esta cerrado/terminal y queda en modo consulta; no se debe reabrir captura sin una etapa de ajuste historico aprobada.
+- Si `POST /api/financials` o `POST /api/financials/{permitId}/renew` devuelve `409 FINANCIAL_PERMIT_ACTIVE_CONFLICT`, abrir el `conflictingPermitId` devuelto y operar sobre ese permiso vigente o revisar la cadena antes de crear otro oficio.
 - Si `POST /api/financials/{permitId}/renew` devuelve `409`, revisar si el permiso ya es historico/no vigente o si esta en estado terminal/cerrado.
 - Si la renovacion por `curl` devuelve `400 Solicitud web no permitida`, incluir `X-FMCPA-Client: FMCPA-Web` cuando se simule una mutacion web protegida.
 - Si el bootstrap local no crea o sincroniza un usuario, revisar que la password configurada cumpla la politica minima; el backend registra un warning y omite ese usuario si la password es debil.
@@ -645,3 +664,6 @@ curl -s http://127.0.0.1:4200/admin/users
 - [Functional Track Financial Permit Renewal Implementation Note](../05-post-mvp/functional-track-financial-permit-renewal-implementation-note.md)
 - [Functional Track Financial Permit Renewal Chain Implementation Note](../05-post-mvp/functional-track-financial-permit-renewal-chain-implementation-note.md)
 - [Functional Track Financial Current Permit Operation Implementation Note](../05-post-mvp/functional-track-financial-current-permit-operation-implementation-note.md)
+- [Functional Track Financial Permit Active Conflict Implementation Note](../05-post-mvp/functional-track-financial-permit-active-conflict-implementation-note.md)
+- [Functional Track Financial Current Permit Resolution Implementation Note](../05-post-mvp/functional-track-financial-current-permit-resolution-implementation-note.md)
+- [Functional Track Financial Contextual Credit Capture Implementation Note](../05-post-mvp/functional-track-financial-contextual-credit-capture-implementation-note.md)

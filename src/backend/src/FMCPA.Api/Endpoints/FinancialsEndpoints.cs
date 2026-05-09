@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using FMCPA.Api.Auth;
 using FMCPA.Api.Contracts.Closeout;
 using FMCPA.Api.Contracts.Financials;
@@ -26,6 +28,9 @@ public static class FinancialsEndpoints
     private const string PromoterCommissionTypeCode = "PROMOTER";
     private const string NotCurrentPermitOperationReasonCode = "FINANCIAL_PERMIT_NOT_CURRENT";
     private const string TerminalPermitOperationReasonCode = "FINANCIAL_PERMIT_TERMINAL";
+    private const string ActivePermitConflictReasonCode = "FINANCIAL_PERMIT_ACTIVE_CONFLICT";
+    private const string CurrentPermitNotFoundReasonCode = "FINANCIAL_PERMIT_CURRENT_NOT_FOUND";
+    private const string CurrentPermitAmbiguousReasonCode = "FINANCIAL_PERMIT_CURRENT_AMBIGUOUS";
     private const string DueSoonAlertState = "DUE_SOON";
     private const string ExpiredAlertState = "EXPIRED";
     private const string RenewalAlertState = "RENEWAL";
@@ -142,6 +147,91 @@ public static class FinancialsEndpoints
                 }
 
                 return Results.Ok(summaries);
+            });
+
+        readGroup.MapGet(
+            "/current-permit",
+            async (
+                string? financialName,
+                string? institutionOrDependency,
+                string? placeOrStand,
+                PlatformDbContext dbContext,
+                CancellationToken cancellationToken) =>
+            {
+                var errors = ValidateCurrentPermitResolutionRequest(financialName, institutionOrDependency, placeOrStand);
+                if (errors.Count > 0)
+                {
+                    return Results.ValidationProblem(errors);
+                }
+
+                var currentMatches = await FindCurrentOperationalPermitMatchesAsync(
+                    dbContext,
+                    financialName!,
+                    institutionOrDependency!,
+                    placeOrStand!,
+                    excludedRootPermitId: null,
+                    cancellationToken);
+                var matches = currentMatches
+                    .Where(item => !StateTransitionSupport.IsTerminal(item.StatusCatalogEntry))
+                    .ToList();
+
+                var resolvedMatches = matches
+                    .Select(BuildCurrentPermitResolutionResponse)
+                    .ToList();
+
+                if (resolvedMatches.Count > 1)
+                {
+                    return Results.Conflict(
+                        new FinancialPermitCurrentResolutionAmbiguousResponse(
+                            "Se encontraron varios oficios vigentes/no terminales para la misma combinacion operativa. Revisa la cadena o depura datos antes de capturar.",
+                            CurrentPermitAmbiguousReasonCode,
+                            financialName!.Trim(),
+                            institutionOrDependency!.Trim(),
+                            placeOrStand!.Trim(),
+                            resolvedMatches));
+                }
+
+                if (resolvedMatches.Count == 1)
+                {
+                    return Results.Ok(resolvedMatches[0]);
+                }
+
+                var terminalMatch = currentMatches
+                    .Where(item => StateTransitionSupport.IsTerminal(item.StatusCatalogEntry))
+                    .OrderByDescending(item => item.RenewalSequence)
+                    .ThenByDescending(item => item.CreatedUtc)
+                    .FirstOrDefault();
+                if (terminalMatch is not null)
+                {
+                    return Results.Conflict(
+                        BuildTerminalPermitOperationBlockedResponse(
+                            terminalMatch,
+                            "capturar un crédito"));
+                }
+
+                var historicalMatch = await FindHistoricalOperationalPermitMatchAsync(
+                    dbContext,
+                    financialName!,
+                    institutionOrDependency!,
+                    placeOrStand!,
+                    cancellationToken);
+                if (historicalMatch is not null)
+                {
+                    return Results.Conflict(
+                        await BuildNotCurrentPermitOperationBlockedResponseAsync(
+                            dbContext,
+                            historicalMatch,
+                            "capturar un crédito",
+                            cancellationToken));
+                }
+
+                return Results.NotFound(
+                    new FinancialPermitCurrentResolutionNotFoundResponse(
+                        "No existe un oficio vigente/no terminal para esa financiera, dependencia o institucion y lugar/stand. Registra o renueva el oficio vigente antes de capturar el crédito.",
+                        CurrentPermitNotFoundReasonCode,
+                        financialName!.Trim(),
+                        institutionOrDependency!.Trim(),
+                        placeOrStand!.Trim()));
             });
 
         readGroup.MapGet(
@@ -280,6 +370,21 @@ public static class FinancialsEndpoints
                     return Results.ValidationProblem(errors);
                 }
 
+                if (!StateTransitionSupport.IsTerminal(permitStatus))
+                {
+                    var activeConflict = await FindActiveOperationalPermitConflictAsync(
+                        dbContext,
+                        request.FinancialName,
+                        request.InstitutionOrDependency,
+                        request.PlaceOrStand,
+                        excludedRootPermitId: null,
+                        cancellationToken);
+                    if (activeConflict is not null)
+                    {
+                        return Results.Conflict(BuildActivePermitConflictResponse(activeConflict, "registrar el oficio"));
+                    }
+                }
+
                 var permit = new FinancialPermit(
                     request.FinancialName,
                     request.InstitutionOrDependency,
@@ -385,6 +490,18 @@ public static class FinancialsEndpoints
                 var schedule = NormalizeOptionalText(request.Schedule) ?? previousPermit.Schedule;
                 var negotiatedTerms = NormalizeOptionalText(request.NegotiatedTerms) ?? previousPermit.NegotiatedTerms;
                 var notes = NormalizeOptionalText(request.Notes);
+
+                var renewalConflict = await FindActiveOperationalPermitConflictAsync(
+                    dbContext,
+                    previousPermit.FinancialName,
+                    previousPermit.InstitutionOrDependency,
+                    placeOrStand,
+                    GetCurrentRootPermitId(previousPermit),
+                    cancellationToken);
+                if (renewalConflict is not null)
+                {
+                    return Results.Conflict(BuildActivePermitConflictResponse(renewalConflict, "renovar el oficio"));
+                }
 
                 var renewedPermit = new FinancialPermit(
                     previousPermit.FinancialName,
@@ -1049,6 +1166,172 @@ public static class FinancialsEndpoints
             permit.IsCurrentVersion ? permit.Id : null);
     }
 
+    private static async Task<FinancialPermit?> FindActiveOperationalPermitConflictAsync(
+        PlatformDbContext dbContext,
+        string financialName,
+        string institutionOrDependency,
+        string placeOrStand,
+        Guid? excludedRootPermitId,
+        CancellationToken cancellationToken)
+    {
+        var matches = await FindActiveOperationalPermitMatchesAsync(
+            dbContext,
+            financialName,
+            institutionOrDependency,
+            placeOrStand,
+            excludedRootPermitId,
+            cancellationToken);
+
+        return matches.FirstOrDefault();
+    }
+
+    private static async Task<IReadOnlyList<FinancialPermit>> FindActiveOperationalPermitMatchesAsync(
+        PlatformDbContext dbContext,
+        string financialName,
+        string institutionOrDependency,
+        string placeOrStand,
+        Guid? excludedRootPermitId,
+        CancellationToken cancellationToken)
+    {
+        var matches = await FindCurrentOperationalPermitMatchesAsync(
+            dbContext,
+            financialName,
+            institutionOrDependency,
+            placeOrStand,
+            excludedRootPermitId,
+            cancellationToken);
+
+        return matches
+            .Where(item => !StateTransitionSupport.IsTerminal(item.StatusCatalogEntry))
+            .ToList();
+    }
+
+    private static async Task<IReadOnlyList<FinancialPermit>> FindCurrentOperationalPermitMatchesAsync(
+        PlatformDbContext dbContext,
+        string financialName,
+        string institutionOrDependency,
+        string placeOrStand,
+        Guid? excludedRootPermitId,
+        CancellationToken cancellationToken)
+    {
+        var requestedKey = BuildOperationalKey(financialName, institutionOrDependency, placeOrStand);
+        var candidates = await dbContext.FinancialPermits
+            .AsNoTracking()
+            .Include(item => item.StatusCatalogEntry)
+            .Where(item => item.IsCurrentVersion)
+            .ToListAsync(cancellationToken);
+
+        return candidates
+            .Where(item => excludedRootPermitId is null || GetCurrentRootPermitId(item) != excludedRootPermitId.Value)
+            .Where(item => BuildOperationalKey(item.FinancialName, item.InstitutionOrDependency, item.PlaceOrStand) == requestedKey)
+            .OrderByDescending(item => item.RenewalSequence)
+            .ThenByDescending(item => item.CreatedUtc)
+            .ToList();
+    }
+
+    private static async Task<FinancialPermit?> FindHistoricalOperationalPermitMatchAsync(
+        PlatformDbContext dbContext,
+        string financialName,
+        string institutionOrDependency,
+        string placeOrStand,
+        CancellationToken cancellationToken)
+    {
+        var requestedKey = BuildOperationalKey(financialName, institutionOrDependency, placeOrStand);
+        var candidates = await dbContext.FinancialPermits
+            .AsNoTracking()
+            .Include(item => item.StatusCatalogEntry)
+            .Where(item => !item.IsCurrentVersion)
+            .ToListAsync(cancellationToken);
+
+        return candidates
+            .Where(item => BuildOperationalKey(item.FinancialName, item.InstitutionOrDependency, item.PlaceOrStand) == requestedKey)
+            .OrderByDescending(item => item.RenewalSequence)
+            .ThenByDescending(item => item.CreatedUtc)
+            .FirstOrDefault();
+    }
+
+    private static FinancialPermitCurrentResolutionResponse BuildCurrentPermitResolutionResponse(FinancialPermit permit)
+    {
+        var daysUntilExpiration = GetDaysUntilExpiration(permit.ValidTo);
+        var alertState = GetPermitAlertState(permit, daysUntilExpiration);
+
+        return new FinancialPermitCurrentResolutionResponse(
+            permit.Id,
+            GetCurrentRootPermitId(permit),
+            permit.RenewalSequence,
+            permit.FinancialName,
+            permit.InstitutionOrDependency,
+            permit.PlaceOrStand,
+            permit.ValidFrom,
+            permit.ValidTo,
+            permit.Schedule,
+            permit.StatusCatalogEntryId,
+            permit.StatusCatalogEntry!.StatusCode,
+            permit.StatusCatalogEntry.StatusName,
+            permit.StatusCatalogEntry.IsClosed,
+            daysUntilExpiration,
+            alertState,
+            $"{permit.FinancialName} · {permit.InstitutionOrDependency} · {permit.PlaceOrStand}");
+    }
+
+    private static FinancialPermitActiveConflictResponse BuildActivePermitConflictResponse(
+        FinancialPermit conflictingPermit,
+        string operationLabel)
+    {
+        return new FinancialPermitActiveConflictResponse(
+            $"No es posible {operationLabel} porque ya existe un oficio vigente/no terminal para la misma financiera, dependencia o institucion y lugar/stand. Opera sobre el oficio vigente en conflicto o revisa la cadena antes de continuar.",
+            ActivePermitConflictReasonCode,
+            conflictingPermit.Id,
+            GetCurrentRootPermitId(conflictingPermit),
+            conflictingPermit.FinancialName,
+            conflictingPermit.InstitutionOrDependency,
+            conflictingPermit.PlaceOrStand,
+            conflictingPermit.ValidFrom,
+            conflictingPermit.ValidTo);
+    }
+
+    private static FinancialPermitOperationalKey BuildOperationalKey(
+        string financialName,
+        string institutionOrDependency,
+        string placeOrStand)
+    {
+        return new FinancialPermitOperationalKey(
+            NormalizeOperationalText(financialName),
+            NormalizeOperationalText(institutionOrDependency),
+            NormalizeOperationalText(placeOrStand));
+    }
+
+    private static string NormalizeOperationalText(string value)
+    {
+        var normalizedValue = value.Trim().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalizedValue.Length);
+        var previousWasWhitespace = false;
+
+        foreach (var character in normalizedValue)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsWhiteSpace(character))
+            {
+                if (!previousWasWhitespace && builder.Length > 0)
+                {
+                    builder.Append(' ');
+                    previousWasWhitespace = true;
+                }
+
+                continue;
+            }
+
+            builder.Append(char.ToUpperInvariant(character));
+            previousWasWhitespace = false;
+        }
+
+        return builder.ToString().Trim();
+    }
+
     private static Guid GetCurrentRootPermitId(FinancialPermit permit)
     {
         return permit.CurrentRootPermitId == Guid.Empty ? permit.Id : permit.CurrentRootPermitId;
@@ -1112,6 +1395,31 @@ public static class FinancialsEndpoints
         }
 
         return ValidAlertState;
+    }
+
+    private static Dictionary<string, string[]> ValidateCurrentPermitResolutionRequest(
+        string? financialName,
+        string? institutionOrDependency,
+        string? placeOrStand)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        if (string.IsNullOrWhiteSpace(financialName))
+        {
+            errors["financialName"] = ["FinancialName is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(institutionOrDependency))
+        {
+            errors["institutionOrDependency"] = ["InstitutionOrDependency is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(placeOrStand))
+        {
+            errors["placeOrStand"] = ["PlaceOrStand is required."];
+        }
+
+        return errors;
     }
 
     private static Dictionary<string, string[]> ValidateCreateFinancialPermitRequest(CreateFinancialPermitRequest request)
@@ -1260,4 +1568,9 @@ public static class FinancialsEndpoints
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
+
+    private sealed record FinancialPermitOperationalKey(
+        string FinancialName,
+        string InstitutionOrDependency,
+        string PlaceOrStand);
 }

@@ -13,6 +13,7 @@ import {
   FinancialCredit,
   FinancialCreditCommission,
   FinancialPermitAlert,
+  FinancialPermitCurrentResolution,
   FinancialPermitDetail,
   FinancialPermitRenewalChain,
   FinancialPermitSummary,
@@ -46,6 +47,19 @@ export class FinancialsService {
 
   getPermitRenewalChain(permitId: string) {
     return this.httpClient.get<FinancialPermitRenewalChain>(`${this.apiBaseUrl}/${permitId}/renewal-chain`);
+  }
+
+  resolveCurrentPermit(request: {
+    financialName: string;
+    institutionOrDependency: string;
+    placeOrStand: string;
+  }) {
+    const params = new HttpParams()
+      .set('financialName', request.financialName)
+      .set('institutionOrDependency', request.institutionOrDependency)
+      .set('placeOrStand', request.placeOrStand);
+
+    return this.httpClient.get<FinancialPermitCurrentResolution>(`${this.apiBaseUrl}/current-permit`, { params });
   }
 
   createPermit(request: CreateFinancialPermitRequest) {
