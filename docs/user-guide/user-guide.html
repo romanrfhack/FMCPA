@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FMCPA Platform · Guía rápida de operación</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f2eb;
+      --bg-soft: #f7f6f2;
+      --bg-warm: #ede8db;
+      --surface: rgba(255, 255, 255, 0.88);
+      --surface-strong: #fff;
+      --ink: #1d2d2a;
+      --ink-soft: #29403b;
+      --muted: #445854;
+      --muted-2: #60716d;
+      --teal: #0f766e;
+      --teal-dark: #123f3b;
+      --cream: #f6f6f2;
+      --border: rgba(29, 45, 42, 0.1);
+      --shadow: 0 16px 30px rgba(32, 44, 41, 0.06);
+      --danger: #9f1239;
+      --danger-bg: rgba(159, 18, 57, 0.08);
+      --warning: #92400e;
+      --warning-bg: rgba(146, 64, 14, 0.1);
+      --success: #166534;
+      --success-bg: rgba(22, 101, 52, 0.08);
+      --info: #1d4ed8;
+      --info-bg: rgba(59, 130, 246, 0.12);
+      --admin: #4338ca;
+      --admin-bg: rgba(79, 70, 229, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      font-size: 16px;
+    }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(7, 114, 103, 0.14), transparent 28rem),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 52%, var(--bg-warm) 100%);
+    }
+
+    a {
+      color: var(--teal);
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .page {
+      display: grid;
+      grid-template-columns: 17rem minmax(0, 1fr);
+      gap: 1.5rem;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    .nav {
+      position: sticky;
+      top: 1rem;
+      align-self: start;
+      display: grid;
+      gap: 0.45rem;
+      max-height: calc(100vh - 2rem);
+      overflow: auto;
+      padding: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: var(--shadow);
+    }
+
+    .nav strong {
+      display: block;
+      margin-bottom: 0.4rem;
+      color: var(--teal-dark);
+    }
+
+    .nav a {
+      display: block;
+      padding: 0.72rem 0.8rem;
+      border-radius: 0.85rem;
+      color: var(--ink-soft);
+      font-size: 0.94rem;
+      font-weight: 700;
+    }
+
+    .nav a:hover {
+      background: rgba(15, 118, 110, 0.08);
+      text-decoration: none;
+    }
+
+    .content {
+      display: grid;
+      gap: 1.25rem;
+      min-width: 0;
+    }
+
+    .hero,
+    .section,
+    .critical-panel,
+    .matrix-panel {
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      display: grid;
+      gap: 1.2rem;
+      padding: 2rem;
+      background:
+        linear-gradient(135deg, rgba(18, 63, 59, 0.96), rgba(15, 118, 110, 0.90)),
+        var(--teal-dark);
+      color: var(--cream);
+    }
+
+    .hero .kicker,
+    .section .kicker {
+      margin: 0;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .section .kicker {
+      color: var(--teal);
+    }
+
+    .hero h1 {
+      max-width: 52rem;
+      margin: 0;
+      font-size: clamp(2.2rem, 5vw, 4.4rem);
+      line-height: 0.98;
+    }
+
+    .hero p {
+      max-width: 58rem;
+      margin: 0;
+      color: rgba(246, 246, 242, 0.84);
+      line-height: 1.65;
+    }
+
+    .hero-meta,
+    .legend,
+    .route-grid,
+    .module-grid,
+    .role-grid,
+    .critical-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+    }
+
+    .hero-meta span,
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 0.32rem 0.62rem;
+      font-size: 0.78rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .hero-meta span {
+      color: var(--cream);
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(246, 246, 242, 0.18);
+    }
+
+    .badge.available {
+      color: var(--success);
+      background: var(--success-bg);
+    }
+
+    .badge.partial {
+      color: var(--warning);
+      background: var(--warning-bg);
+    }
+
+    .badge.dev {
+      color: var(--info);
+      background: var(--info-bg);
+    }
+
+    .badge.critical {
+      color: var(--danger);
+      background: var(--danger-bg);
+    }
+
+    .badge.admin {
+      color: var(--admin);
+      background: var(--admin-bg);
+    }
+
+    .section,
+    .critical-panel,
+    .matrix-panel {
+      padding: 1.35rem;
+    }
+
+    .section h2,
+    .critical-panel h2,
+    .matrix-panel h2 {
+      margin: 0.35rem 0 0;
+      font-size: 1.5rem;
+      color: var(--ink);
+    }
+
+    .section p,
+    .critical-panel p,
+    .matrix-panel p,
+    li {
+      color: var(--muted);
+      line-height: 1.62;
+    }
+
+    .section p:last-child,
+    .critical-panel p:last-child {
+      margin-bottom: 0;
+    }
+
+    .lead {
+      max-width: 70rem;
+      margin-bottom: 0;
+      font-size: 1.02rem;
+    }
+
+    .legend {
+      margin-top: 1rem;
+    }
+
+    .module-grid,
+    .role-grid,
+    .critical-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    .card {
+      min-width: 0;
+      padding: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.9rem;
+      background: var(--surface-strong);
+    }
+
+    .card h3 {
+      margin: 0 0 0.55rem;
+      font-size: 1.02rem;
+      color: var(--ink);
+    }
+
+    .card p {
+      margin: 0.45rem 0 0;
+      font-size: 0.94rem;
+    }
+
+    .route-grid {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.6rem;
+    }
+
+    .route {
+      padding: 0.7rem 0.8rem;
+      border: 1px solid rgba(29, 45, 42, 0.08);
+      border-radius: 0.8rem;
+      background: rgba(255, 255, 255, 0.76);
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .critical-panel {
+      border-color: rgba(159, 18, 57, 0.18);
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .critical-panel h2 {
+      color: var(--danger);
+    }
+
+    .critical-grid .card {
+      border-color: rgba(159, 18, 57, 0.14);
+      background: rgba(159, 18, 57, 0.035);
+    }
+
+    .table-wrap {
+      margin-top: 1rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 0.85rem;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 860px;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+
+    th,
+    td {
+      padding: 0.82rem 0.9rem;
+      border-bottom: 1px solid rgba(29, 45, 42, 0.08);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--ink);
+      background: rgba(15, 118, 110, 0.08);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      border-radius: 0.4rem;
+      padding: 0.1rem 0.3rem;
+      color: var(--teal-dark);
+      background: rgba(15, 118, 110, 0.08);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    .footer {
+      padding: 1rem 0 0.5rem;
+      color: var(--muted-2);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 1120px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .nav {
+        position: static;
+        max-height: none;
+        grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+      }
+
+      .nav strong {
+        grid-column: 1 / -1;
+      }
+
+      .module-grid,
+      .role-grid,
+      .critical-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .route-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      .page {
+        padding: 1rem;
+      }
+
+      .hero,
+      .section,
+      .critical-panel,
+      .matrix-panel {
+        border-radius: 1rem;
+        padding: 1rem;
+      }
+
+      .module-grid,
+      .role-grid,
+      .critical-grid,
+      .route-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .page {
+        display: block;
+        padding: 0;
+      }
+
+      .nav {
+        display: none;
+      }
+
+      .hero,
+      .section,
+      .critical-panel,
+      .matrix-panel {
+        break-inside: avoid;
+        margin-bottom: 1rem;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <nav class="nav" aria-label="Navegación interna">
+      <strong>FMCPA · Guía rápida</strong>
+      <a href="#inicio">Inicio</a>
+      <a href="#estados">Estados</a>
+      <a href="#acceso">Acceso</a>
+      <a href="#navegacion">Navegación</a>
+      <a href="#operations">Operations</a>
+      <a href="#modulos">Módulos</a>
+      <a href="#documentos">Documentos</a>
+      <a href="#historia">Histórico</a>
+      <a href="#seguridad">Seguridad</a>
+      <a href="#matriz">Matriz</a>
+      <a href="#criticos">Pendientes críticos</a>
+      <a href="#recomendaciones">Recomendaciones</a>
+    </nav>
+
+    <main class="content">
+      <header class="hero" id="inicio">
+        <p class="kicker">Guía rápida de operación</p>
+        <h1>FMCPA Platform</h1>
+        <p>
+          Base profesional para usuario final, construida desde el estado real del repositorio.
+          Cubre módulos disponibles, funciones parciales, tracks en desarrollo y pendientes críticos
+          visibles para operación.
+        </p>
+        <div class="hero-meta">
+          <span>Corte: 2026-05-12</span>
+          <span>Angular 21</span>
+          <span>.NET 10</span>
+          <span>JWT local</span>
+          <span>MVP cerrado con reservas</span>
+        </div>
+      </header>
+
+      <section class="section" id="estados">
+        <p class="kicker">Convención visual</p>
+        <h2>Estados usados en la guía</h2>
+        <p class="lead">
+          Las etiquetas indican el estado operativo encontrado en el repositorio. Una función puede existir
+          técnicamente y aun así estar marcada como parcial o en desarrollo si la documentación del proyecto
+          la mantiene acotada o pendiente de aprobación formal.
+        </p>
+        <div class="legend">
+          <span class="badge available">Disponible</span>
+          <span class="badge partial">Parcial</span>
+          <span class="badge dev">En desarrollo</span>
+          <span class="badge critical">Pendiente crítica</span>
+          <span class="badge admin">Solo ADMIN</span>
+        </div>
+      </section>
+
+      <section class="section" id="acceso">
+        <p class="kicker">Acceso</p>
+        <h2>Inicio de sesión y roles</h2>
+        <p>
+          <span class="badge available">Disponible</span>
+          El acceso se realiza desde <code>/login</code>. La sesión usa JWT local y las pantallas
+          se filtran por permisos efectivos del usuario.
+        </p>
+        <div class="role-grid">
+          <article class="card">
+            <h3>READONLY</h3>
+            <span class="badge available">Consulta</span>
+            <p>Puede leer dashboard, histórico, contactos, módulos de negocio, documentos permitidos y catálogos de lectura.</p>
+          </article>
+          <article class="card">
+            <h3>OPERATOR</h3>
+            <span class="badge available">Operación</span>
+            <p>Puede crear registros funcionales normales en contactos, mercados, donatarias, financieras y federación.</p>
+          </article>
+          <article class="card">
+            <h3>ADMIN</h3>
+            <span class="badge admin">Administración</span>
+            <p>Puede administrar usuarios, seguridad, catálogos, revisión documental y cierres formales.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="navegacion">
+        <p class="kicker">Navegación real</p>
+        <h2>Pantallas disponibles</h2>
+        <p>
+          La navegación principal existe como shell autenticado con menú lateral. Las rutas siguientes fueron
+          detectadas en el frontend y están protegidas por permisos.
+        </p>
+        <div class="route-grid">
+          <div class="route">/dashboard</div>
+          <div class="route">/operations</div>
+          <div class="route">/history</div>
+          <div class="route">/commissions</div>
+          <div class="route">/bitacora</div>
+          <div class="route">/documents</div>
+          <div class="route">/documents/work-queue</div>
+          <div class="route">/documents/review</div>
+          <div class="route">/contacts</div>
+          <div class="route">/admin/users</div>
+          <div class="route">/admin/security</div>
+          <div class="route">/markets</div>
+          <div class="route">/donatarias</div>
+          <div class="route">/financials</div>
+          <div class="route">/federation</div>
+          <div class="route">/account/password</div>
+        </div>
+      </section>
+
+      <section class="section" id="operations">
+        <p class="kicker">Centro operativo</p>
+        <h2>Operations</h2>
+        <p>
+          <span class="badge dev">En desarrollo</span>
+          <code>/operations</code> consolida señales de negocio, documentos y seguridad según permisos.
+          Incluye KPIs, bandeja transversal, severidades, ventanas temporales y exportaciones CSV ligeras.
+        </p>
+        <p>
+          <span class="badge partial">Parcial</span>
+          No es workflow, no asigna responsables, no maneja SLA y no reemplaza los módulos fuente.
+        </p>
+        <p>
+          <span class="badge admin">Solo ADMIN</span>
+          La acción rápida detectada es limpiar lockout de usuarios bloqueados cuando el backend lo permite.
+        </p>
+      </section>
+
+      <section class="section" id="modulos">
+        <p class="kicker">Operación por módulo</p>
+        <h2>Módulos principales</h2>
+        <div class="module-grid">
+          <article class="card">
+            <h3>Dashboard</h3>
+            <span class="badge available">Disponible</span>
+            <p>Resumen ejecutivo, alertas activas principales, enlaces a módulos e histórico reciente.</p>
+          </article>
+          <article class="card">
+            <h3>Mercados</h3>
+            <span class="badge available">Disponible</span>
+            <p>Mercados, locatarios, cédulas digitalizadas, incidencias y alertas de vigencia.</p>
+            <p><span class="badge admin">Solo ADMIN</span> Cierre formal.</p>
+          </article>
+          <article class="card">
+            <h3>Donatarias</h3>
+            <span class="badge available">Disponible</span>
+            <p>Donación maestra, aplicaciones, evidencias, progreso aplicado y alertas de aplicación parcial.</p>
+            <p><span class="badge partial">Parcial</span> La evidencia mínima no equivale a suficiencia legal.</p>
+          </article>
+          <article class="card">
+            <h3>Financieras</h3>
+            <span class="badge available">Disponible</span>
+            <p>Oficios, vigencias, créditos, comisiones, alertas y cierre formal.</p>
+            <p><span class="badge dev">En desarrollo</span> Renovación, cadena y captura contextual pendientes de aprobación formal.</p>
+          </article>
+          <article class="card">
+            <h3>Federación</h3>
+            <span class="badge available">Disponible</span>
+            <p>Gestiones, participantes, donaciones, aplicaciones, comisiones y evidencias.</p>
+            <p><span class="badge partial">Parcial</span> Persisten riesgos de precisión operativa en reglas finas.</p>
+          </article>
+          <article class="card">
+            <h3>Contactos y catálogos</h3>
+            <span class="badge available">Disponible</span>
+            <p>Contactos compartidos reutilizables. Catálogos de comisión, evidencia y estatus por módulo.</p>
+            <p><span class="badge admin">Solo ADMIN</span> Alta de catálogos administrativos.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="documentos">
+        <p class="kicker">Documentos</p>
+        <h2>Catálogo, bandeja y revisión documental</h2>
+        <p>
+          <span class="badge available">Disponible</span>
+          <code>/documents</code> permite consultar resumen ejecutivo documental, filtros, detalle, descarga,
+          pendientes, timeline y exportación CSV ligera.
+        </p>
+        <p>
+          <span class="badge available">Disponible</span>
+          <code>/documents/work-queue</code> consolida completitud, integridad y retención por severidad.
+        </p>
+        <p>
+          <span class="badge admin">Solo ADMIN</span>
+          <code>/documents/review</code> opera revisión de retención. En el detalle documental, ADMIN puede
+          editar metadata, override de retención, hold administrativo, archivar y restaurar.
+        </p>
+        <p>
+          <span class="badge critical">Pendiente crítica</span>
+          No hay backup real, storage externo, OCR, clasificación avanzada, legal hold formal, borrado físico
+          seguro ni cumplimiento normativo avanzado.
+        </p>
+      </section>
+
+      <section class="section" id="historia">
+        <p class="kicker">Seguimiento</p>
+        <h2>Histórico, bitácora y comisiones</h2>
+        <div class="module-grid">
+          <article class="card">
+            <h3>Histórico</h3>
+            <span class="badge partial">Parcial</span>
+            <p>Consulta cerrados o archivados. Mantiene reservas por timestamp formal de cierre.</p>
+          </article>
+          <article class="card">
+            <h3>Bitácora</h3>
+            <span class="badge partial">Parcial</span>
+            <p>Consulta eventos transversales, pero no equivale a auditoría forense completa.</p>
+          </article>
+          <article class="card">
+            <h3>Comisiones</h3>
+            <span class="badge partial">Parcial</span>
+            <p>Consolidado operativo de Financieras y Federación; no es contabilidad definitiva ni BI.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="seguridad">
+        <p class="kicker">Seguridad</p>
+        <h2>Usuarios y observabilidad</h2>
+        <p>
+          <span class="badge admin">Solo ADMIN</span>
+          <code>/admin/users</code> permite crear usuarios, asignar rol, activar/desactivar, resetear contraseña
+          y limpiar lockout.
+        </p>
+        <p>
+          <span class="badge admin">Solo ADMIN</span>
+          <code>/admin/security</code> muestra eventos SECURITY, usuarios bloqueados, logins fallidos y resumen básico.
+        </p>
+        <p>
+          <span class="badge critical">Pendiente crítica</span>
+          No existen MFA, forgot password, IdP externo, refresh tokens avanzados, revocación multi-dispositivo
+          avanzada ni SIEM.
+        </p>
+      </section>
+
+      <section class="matrix-panel" id="matriz">
+        <p class="kicker">Estado funcional</p>
+        <h2>Matriz rápida</h2>
+        <p>Resumen ejecutivo de funciones principales. La matriz completa está en <code>drafts/feature-status-matrix.md</code>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Módulo</th>
+                <th>Pantalla / flujo</th>
+                <th>Estado</th>
+                <th>Justificación</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Acceso</td>
+                <td>/login, /account/password</td>
+                <td><span class="badge available">Disponible</span></td>
+                <td>Login JWT local y cambio de contraseña autenticado.</td>
+              </tr>
+              <tr>
+                <td>Operations</td>
+                <td>/operations</td>
+                <td><span class="badge dev">En desarrollo</span></td>
+                <td>Centro transversal implementado, pendiente de aprobación formal del track.</td>
+              </tr>
+              <tr>
+                <td>Mercados</td>
+                <td>/markets</td>
+                <td><span class="badge available">Disponible</span></td>
+                <td>Mercados, locatarios, cédulas, incidencias y alertas.</td>
+              </tr>
+              <tr>
+                <td>Donatarias</td>
+                <td>/donatarias</td>
+                <td><span class="badge available">Disponible</span> <span class="badge partial">Parcial</span></td>
+                <td>Flujo operativo completo; suficiencia documental/legal no cubierta.</td>
+              </tr>
+              <tr>
+                <td>Financieras</td>
+                <td>/financials</td>
+                <td><span class="badge available">Disponible</span> <span class="badge dev">En desarrollo</span></td>
+                <td>Oficios, créditos y comisiones disponibles; renovación/captura contextual en Track 5.</td>
+              </tr>
+              <tr>
+                <td>Federación</td>
+                <td>/federation</td>
+                <td><span class="badge available">Disponible</span> <span class="badge partial">Parcial</span></td>
+                <td>Gestiones y donaciones disponibles; reglas finas aún con riesgos documentados.</td>
+              </tr>
+              <tr>
+                <td>Documentos</td>
+                <td>/documents, /documents/work-queue</td>
+                <td><span class="badge available">Disponible</span></td>
+                <td>Catálogo, resumen, pendientes, detalle, descarga, timeline y CSV ligero.</td>
+              </tr>
+              <tr>
+                <td>Revisión documental</td>
+                <td>/documents/review</td>
+                <td><span class="badge admin">Solo ADMIN</span></td>
+                <td>Revisión de retención, diferir, marcar revisado y exportar.</td>
+              </tr>
+              <tr>
+                <td>Histórico / bitácora</td>
+                <td>/history, /bitacora</td>
+                <td><span class="badge partial">Parcial</span></td>
+                <td>Consulta útil, pero no auditoría forense ni cierre histórico perfecto.</td>
+              </tr>
+              <tr>
+                <td>Reportes</td>
+                <td>CSV ligero</td>
+                <td><span class="badge available">Disponible</span> <span class="badge critical">Pendiente crítica</span></td>
+                <td>CSV acotado disponible; BI, XLSX formal y reportes avanzados no existen.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="critical-panel" id="criticos">
+        <p class="kicker">Atención</p>
+        <h2>Funcionalidades marcadas como pendientes críticas</h2>
+        <div class="critical-grid">
+          <article class="card">
+            <h3>Aprobación formal</h3>
+            <p>El MVP está cerrado con reservas y varios tracks post-MVP siguen pendientes de aprobación formal.</p>
+          </article>
+          <article class="card">
+            <h3>Bitácora e histórico</h3>
+            <p>Falta robustecer eventos mínimos obligatorios, cambios finos de estado y marca formal de cierre consistente.</p>
+          </article>
+          <article class="card">
+            <h3>Política documental</h3>
+            <p>Faltan backup real, retención formal, limpieza segura, legal hold formal, OCR y cumplimiento avanzado.</p>
+          </article>
+          <article class="card">
+            <h3>Analítica y reportes</h3>
+            <p>No hay BI, reportes históricos formales, exportaciones masivas ni analítica predictiva.</p>
+          </article>
+          <article class="card">
+            <h3>Seguridad avanzada</h3>
+            <p>No hay MFA, IdP externo, forgot password, SIEM ni sesiones avanzadas.</p>
+          </article>
+          <article class="card">
+            <h3>Notificaciones y catálogos maestros</h3>
+            <p>No hay alertas por correo/WhatsApp ni catálogo maestro de financieras, instituciones o stands.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="recomendaciones">
+        <p class="kicker">Uso recomendado</p>
+        <h2>Recomendaciones operativas</h2>
+        <ul>
+          <li>Iniciar la jornada revisando <code>/operations</code> y <code>/dashboard</code>.</li>
+          <li>Atender pendientes documentales desde <code>/documents/work-queue</code> o desde el módulo origen.</li>
+          <li>Usar cierres formales únicamente con usuario ADMIN y criterio operativo claro.</li>
+          <li>No interpretar CSV ligeros como reportes históricos oficiales ni como respaldo documental.</li>
+          <li>Registrar evidencias desde el contexto correcto: locatario, aplicación de Donatarias o aplicación de Federación.</li>
+          <li>En Financieras, confirmar el contexto operativo antes de capturar crédito, crear oficio o renovar.</li>
+        </ul>
+      </section>
+
+      <p class="footer">
+        Documento generado desde `src/frontend`, `src/backend` y documentación del proyecto. No incluye capturas ni assets externos.
+      </p>
+    </main>
+  </div>
+</body>
+</html>

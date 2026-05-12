@@ -215,6 +215,7 @@ public sealed class AuthorizationRegressionTests : IClassFixture<AuthorizationRe
             new("Financials read", HttpMethod.Get.Method, "/api/financials", allRoles, []),
             new("Financials current permit resolution read", HttpMethod.Get.Method, "/api/financials/current-permit?financialName=F&institutionOrDependency=D&placeOrStand=S", allRoles, []),
             new("Financials renewal chain read", HttpMethod.Get.Method, $"/api/financials/{MissingEntityId}/renewal-chain", allRoles, []),
+            new("Financials renewal draft read", HttpMethod.Get.Method, $"/api/financials/{MissingEntityId}/renewal-draft", allRoles, []),
             new("Financials write", HttpMethod.Post.Method, "/api/financials", writeRoles, ["READONLY"]),
             new("Financials permit renewal", HttpMethod.Post.Method, $"/api/financials/{MissingEntityId}/renew", writeRoles, ["READONLY"]),
             new("Financials formal close", HttpMethod.Post.Method, $"/api/financials/{MissingEntityId}/close", adminOnly, nonAdmins),

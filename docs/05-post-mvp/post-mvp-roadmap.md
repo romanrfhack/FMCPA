@@ -13,7 +13,7 @@
 | 2 | Seguridad transversal | Incorporar autenticacion, autorizacion futura y controles de acceso minimos | Conviene partir de una base ya mas consistente antes de cerrar seguridad operativa | Pendiente de aprobacion |
 | 3 | Estrategia documental transversal | Pasar del storage por modulo a una politica transversal de documentos, respaldo y retencion | Requiere primero criterios mas firmes de operacion y seguridad | Pendiente de aprobacion |
 | 4 | Analitica y reporteo | Evolucionar dashboard y consulta transversal hacia analitica y exportaciones razonables | Debe apoyarse en datos mas consistentes, historico mas claro y seguridad minima | Pendiente de aprobacion |
-| 5 | Evolucion funcional posterior | Abrir mejoras funcionales ya fuera del cierre del MVP | Debe apoyarse en la base transversal ya endurecida y mantenerse acotado por modulo | Iniciado con renovacion minima, continuidad operativa por cadena, captura restringida al permiso vigente, unicidad operativa minima, resolucion contextual del permiso vigente y captura contextual de credito de Financieras |
+| 5 | Evolucion funcional posterior | Abrir mejoras funcionales ya fuera del cierre del MVP | Debe apoyarse en la base transversal ya endurecida y mantenerse acotado por modulo | Iniciado con renovacion minima, continuidad operativa por cadena, captura restringida al permiso vigente, unicidad operativa minima, resolucion contextual del permiso vigente, captura contextual de credito, sugerencias operativas por contexto, renovacion contextual prellenada y alta contextual prellenada de Financieras |
 
 ## Dependencias entre tracks
 - Track 2 depende de acuerdos minimos del Track 1.

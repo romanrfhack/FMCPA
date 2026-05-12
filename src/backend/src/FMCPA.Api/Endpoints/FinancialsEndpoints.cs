@@ -29,8 +29,11 @@ public static class FinancialsEndpoints
     private const string NotCurrentPermitOperationReasonCode = "FINANCIAL_PERMIT_NOT_CURRENT";
     private const string TerminalPermitOperationReasonCode = "FINANCIAL_PERMIT_TERMINAL";
     private const string ActivePermitConflictReasonCode = "FINANCIAL_PERMIT_ACTIVE_CONFLICT";
-    private const string CurrentPermitNotFoundReasonCode = "FINANCIAL_PERMIT_CURRENT_NOT_FOUND";
     private const string CurrentPermitAmbiguousReasonCode = "FINANCIAL_PERMIT_CURRENT_AMBIGUOUS";
+    private const string UseCurrentPermitSuggestionCode = "USE_CURRENT_PERMIT";
+    private const string RenewLastPermitSuggestionCode = "RENEW_LAST_PERMIT";
+    private const string CreateNewPermitSuggestionCode = "CREATE_NEW_PERMIT";
+    private const string ReviewTerminalChainSuggestionCode = "REVIEW_TERMINAL_CHAIN";
     private const string DueSoonAlertState = "DUE_SOON";
     private const string ExpiredAlertState = "EXPIRED";
     private const string RenewalAlertState = "RENEWAL";
@@ -176,7 +179,7 @@ public static class FinancialsEndpoints
                     .ToList();
 
                 var resolvedMatches = matches
-                    .Select(BuildCurrentPermitResolutionResponse)
+                    .Select(BuildFinancialPermitContextPermitResponse)
                     .ToList();
 
                 if (resolvedMatches.Count > 1)
@@ -188,12 +191,24 @@ public static class FinancialsEndpoints
                             financialName!.Trim(),
                             institutionOrDependency!.Trim(),
                             placeOrStand!.Trim(),
-                            resolvedMatches));
+                            matches
+                                .Select(BuildCurrentPermitResolutionResponse)
+                                .ToList()));
                 }
 
                 if (resolvedMatches.Count == 1)
                 {
-                    return Results.Ok(resolvedMatches[0]);
+                    var currentPermit = resolvedMatches[0];
+                    return Results.Ok(
+                        BuildFinancialPermitContextResolutionResponse(
+                            financialName!,
+                            institutionOrDependency!,
+                            placeOrStand!,
+                            currentPermit,
+                            lastKnownPermit: null,
+                            UseCurrentPermitSuggestionCode,
+                            "Usa el oficio vigente/no terminal encontrado para operar o capturar el crédito.",
+                            BuildPermitRouteHint(currentPermit.PermitId, includeChain: false)));
                 }
 
                 var terminalMatch = currentMatches
@@ -203,10 +218,17 @@ public static class FinancialsEndpoints
                     .FirstOrDefault();
                 if (terminalMatch is not null)
                 {
-                    return Results.Conflict(
-                        BuildTerminalPermitOperationBlockedResponse(
-                            terminalMatch,
-                            "capturar un crédito"));
+                    var lastKnownPermit = BuildFinancialPermitContextPermitResponse(terminalMatch);
+                    return Results.Ok(
+                        BuildFinancialPermitContextResolutionResponse(
+                            financialName!,
+                            institutionOrDependency!,
+                            placeOrStand!,
+                            currentPermit: null,
+                            lastKnownPermit,
+                            ReviewTerminalChainSuggestionCode,
+                            "La cadena encontrada esta en estado terminal. Revisa el ultimo permiso o la cadena antes de decidir si corresponde abrir un nuevo oficio.",
+                            BuildPermitRouteHint(lastKnownPermit.PermitId, includeChain: true)));
                 }
 
                 var historicalMatch = await FindHistoricalOperationalPermitMatchAsync(
@@ -217,21 +239,36 @@ public static class FinancialsEndpoints
                     cancellationToken);
                 if (historicalMatch is not null)
                 {
-                    return Results.Conflict(
-                        await BuildNotCurrentPermitOperationBlockedResponseAsync(
-                            dbContext,
-                            historicalMatch,
-                            "capturar un crédito",
-                            cancellationToken));
+                    var lastKnownPermit = BuildFinancialPermitContextPermitResponse(historicalMatch);
+                    var suggestionCode = StateTransitionSupport.IsTerminal(historicalMatch.StatusCatalogEntry)
+                        ? ReviewTerminalChainSuggestionCode
+                        : RenewLastPermitSuggestionCode;
+                    var suggestionMessage = suggestionCode == ReviewTerminalChainSuggestionCode
+                        ? "Solo se encontro antecedente terminal para este contexto. Revisa la cadena antes de crear o renovar un oficio."
+                        : "No hay oficio vigente para este contexto, pero existe antecedente historico. Abre el ultimo permiso o su cadena y prepara una renovacion operativa si corresponde.";
+
+                    return Results.Ok(
+                        BuildFinancialPermitContextResolutionResponse(
+                            financialName!,
+                            institutionOrDependency!,
+                            placeOrStand!,
+                            currentPermit: null,
+                            lastKnownPermit,
+                            suggestionCode,
+                            suggestionMessage,
+                            BuildPermitRouteHint(lastKnownPermit.PermitId, includeChain: true)));
                 }
 
-                return Results.NotFound(
-                    new FinancialPermitCurrentResolutionNotFoundResponse(
-                        "No existe un oficio vigente/no terminal para esa financiera, dependencia o institucion y lugar/stand. Registra o renueva el oficio vigente antes de capturar el crédito.",
-                        CurrentPermitNotFoundReasonCode,
-                        financialName!.Trim(),
-                        institutionOrDependency!.Trim(),
-                        placeOrStand!.Trim()));
+                return Results.Ok(
+                    BuildFinancialPermitContextResolutionResponse(
+                        financialName!,
+                        institutionOrDependency!,
+                        placeOrStand!,
+                        currentPermit: null,
+                        lastKnownPermit: null,
+                        CreateNewPermitSuggestionCode,
+                        "No hay oficio vigente ni antecedente para este contexto. Registra un nuevo oficio antes de capturar créditos.",
+                        "/financials"));
             });
 
         readGroup.MapGet(
@@ -268,6 +305,57 @@ public static class FinancialsEndpoints
 
                 var chain = await BuildPermitRenewalChainAsync(dbContext, permit, cancellationToken);
                 return Results.Ok(chain);
+            });
+
+        readGroup.MapGet(
+            "/{permitId:guid}/renewal-draft",
+            async (Guid permitId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
+            {
+                var sourcePermit = await dbContext.FinancialPermits
+                    .AsNoTracking()
+                    .Include(item => item.StatusCatalogEntry)
+                    .SingleOrDefaultAsync(item => item.Id == permitId, cancellationToken);
+
+                if (sourcePermit is null)
+                {
+                    return Results.NotFound();
+                }
+
+                if (StateTransitionSupport.IsTerminal(sourcePermit.StatusCatalogEntry))
+                {
+                    return Results.Conflict(
+                        BuildTerminalPermitOperationBlockedResponse(
+                            sourcePermit,
+                            "preparar una renovacion"));
+                }
+
+                var currentRootPermitId = GetCurrentRootPermitId(sourcePermit);
+                var renewalTargetPermit = await FindCurrentPermitInChainAsync(
+                    dbContext,
+                    currentRootPermitId,
+                    cancellationToken);
+                if (renewalTargetPermit is null)
+                {
+                    return Results.Conflict(
+                        new
+                        {
+                            message = "No es posible preparar la renovacion porque la cadena no tiene un oficio vigente identificado.",
+                            reasonCode = NotCurrentPermitOperationReasonCode,
+                            permitId = sourcePermit.Id,
+                            currentRootPermitId,
+                            currentPermitId = (Guid?)null
+                        });
+                }
+
+                if (StateTransitionSupport.IsTerminal(renewalTargetPermit.StatusCatalogEntry))
+                {
+                    return Results.Conflict(
+                        BuildTerminalPermitOperationBlockedResponse(
+                            renewalTargetPermit,
+                            "preparar una renovacion"));
+                }
+
+                return Results.Ok(BuildFinancialPermitRenewalDraftResponse(sourcePermit, renewalTargetPermit));
             });
 
         adminGroup.MapPost(
@@ -1250,6 +1338,21 @@ public static class FinancialsEndpoints
             .FirstOrDefault();
     }
 
+    private static async Task<FinancialPermit?> FindCurrentPermitInChainAsync(
+        PlatformDbContext dbContext,
+        Guid currentRootPermitId,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.FinancialPermits
+            .AsNoTracking()
+            .Include(item => item.StatusCatalogEntry)
+            .Where(item => item.CurrentRootPermitId == currentRootPermitId || item.Id == currentRootPermitId)
+            .Where(item => item.IsCurrentVersion)
+            .OrderByDescending(item => item.RenewalSequence)
+            .ThenByDescending(item => item.CreatedUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     private static FinancialPermitCurrentResolutionResponse BuildCurrentPermitResolutionResponse(FinancialPermit permit)
     {
         var daysUntilExpiration = GetDaysUntilExpiration(permit.ValidTo);
@@ -1272,6 +1375,101 @@ public static class FinancialsEndpoints
             daysUntilExpiration,
             alertState,
             $"{permit.FinancialName} · {permit.InstitutionOrDependency} · {permit.PlaceOrStand}");
+    }
+
+    private static FinancialPermitContextResolutionResponse BuildFinancialPermitContextResolutionResponse(
+        string financialName,
+        string institutionOrDependency,
+        string placeOrStand,
+        FinancialPermitContextPermitResponse? currentPermit,
+        FinancialPermitContextPermitResponse? lastKnownPermit,
+        string suggestionCode,
+        string suggestionMessage,
+        string routeHint)
+    {
+        return new FinancialPermitContextResolutionResponse(
+            financialName.Trim(),
+            institutionOrDependency.Trim(),
+            placeOrStand.Trim(),
+            currentPermit,
+            currentPermit?.CurrentRootPermitId ?? lastKnownPermit?.CurrentRootPermitId,
+            lastKnownPermit,
+            suggestionCode,
+            suggestionMessage,
+            routeHint);
+    }
+
+    private static FinancialPermitContextPermitResponse BuildFinancialPermitContextPermitResponse(FinancialPermit permit)
+    {
+        var daysUntilExpiration = GetDaysUntilExpiration(permit.ValidTo);
+        var alertState = GetPermitAlertState(permit, daysUntilExpiration);
+
+        return new FinancialPermitContextPermitResponse(
+            permit.Id,
+            GetCurrentRootPermitId(permit),
+            permit.RenewedFromPermitId,
+            permit.IsCurrentVersion,
+            permit.RenewalSequence,
+            permit.FinancialName,
+            permit.InstitutionOrDependency,
+            permit.PlaceOrStand,
+            permit.ValidFrom,
+            permit.ValidTo,
+            permit.Schedule,
+            permit.StatusCatalogEntryId,
+            permit.StatusCatalogEntry!.StatusCode,
+            permit.StatusCatalogEntry.StatusName,
+            permit.StatusCatalogEntry.IsClosed,
+            daysUntilExpiration,
+            alertState,
+            $"{permit.FinancialName} · {permit.InstitutionOrDependency} · {permit.PlaceOrStand}");
+    }
+
+    private static FinancialPermitRenewalDraftResponse BuildFinancialPermitRenewalDraftResponse(
+        FinancialPermit sourcePermit,
+        FinancialPermit renewalTargetPermit)
+    {
+        var latestKnownValidTo = sourcePermit.ValidTo > renewalTargetPermit.ValidTo
+            ? sourcePermit.ValidTo
+            : renewalTargetPermit.ValidTo;
+
+        return new FinancialPermitRenewalDraftResponse(
+            sourcePermit.Id,
+            renewalTargetPermit.Id,
+            GetCurrentRootPermitId(renewalTargetPermit),
+            sourcePermit.IsCurrentVersion,
+            sourcePermit.RenewalSequence,
+            renewalTargetPermit.RenewalSequence,
+            sourcePermit.FinancialName,
+            sourcePermit.InstitutionOrDependency,
+            sourcePermit.PlaceOrStand,
+            sourcePermit.Schedule,
+            sourcePermit.NegotiatedTerms,
+            sourcePermit.Notes,
+            sourcePermit.ValidFrom,
+            sourcePermit.ValidTo,
+            latestKnownValidTo.AddDays(1),
+            latestKnownValidTo.AddDays(31),
+            renewalTargetPermit.StatusCatalogEntryId,
+            renewalTargetPermit.StatusCatalogEntry!.StatusCode,
+            renewalTargetPermit.StatusCatalogEntry.StatusName,
+            renewalTargetPermit.StatusCatalogEntry.IsClosed,
+            RenewLastPermitSuggestionCode,
+            sourcePermit.Id == renewalTargetPermit.Id
+                ? "Renovacion preparada con los datos del permiso vigente seleccionado. Confirma nuevo periodo antes de crearla."
+                : "Renovacion preparada con el contexto del ultimo permiso aplicable; la operacion real se ejecutara sobre el permiso vigente de la cadena.",
+            [
+                "newStartDate",
+                "newEndDate",
+                "status"
+            ]);
+    }
+
+    private static string BuildPermitRouteHint(Guid permitId, bool includeChain)
+    {
+        return includeChain
+            ? $"/financials?permitId={permitId}&chain=1"
+            : $"/financials?permitId={permitId}";
     }
 
     private static FinancialPermitActiveConflictResponse BuildActivePermitConflictResponse(

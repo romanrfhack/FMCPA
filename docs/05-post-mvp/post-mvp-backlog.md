@@ -25,7 +25,7 @@
 | PMB-010 | P2 | Security | Seguridad de adjuntos | Alinear acceso a evidencias y archivos con futuras reglas de autenticacion y autorizacion | Entregado, pendiente de aprobacion |
 | PMB-011 | P2 | Analytics | Dashboard analitico | Definir indicadores posteriores al MVP sin rebasar aun la trazabilidad real disponible | Pendiente |
 | PMB-012 | P2 | Analytics | Exportaciones | Evaluar exportaciones simples y acotadas antes de abrir reporteria mas pesada | Pendiente |
-| PMB-013 | P3 | Evolution | Evolucion funcional posterior | Identificar y ejecutar mejoras funcionales posteriores acotadas, sin rehacer modulos ni abrir workflow complejo | Iniciado con subetapas acotadas de Financieras, pendiente de aprobacion |
+| PMB-013 | P3 | Evolution | Evolucion funcional posterior | Identificar y ejecutar mejoras funcionales posteriores acotadas, sin rehacer modulos ni abrir workflow complejo | Iniciado con subetapas acotadas de Financieras, sugerencias contextuales, renovacion contextual prellenada y alta contextual prellenada, pendiente de aprobacion |
 | PMB-014 | P1 | Hardening | Entorno local estable | Estandarizar SQL Server local en Docker, puertos, storage, migraciones, arranque y smoke checks para sesiones repetibles de desarrollo y validacion | Entregado, pendiente de aprobacion |
 | PMB-015 | P1 | Hardening | Tooling de doctor y reset | Incorporar preflight operativo para detectar prerequisitos y conflictos locales, y reset controlado de base local con confirmacion explicita o `--force` | Entregado, pendiente de aprobacion |
 | PMB-016 | P1 | Hardening | Wiring local frontend/API | Resolver el frontend de desarrollo contra el backend configurado via proxy local y `apiBaseUrl` relativo en desarrollo, sin editar codigo fuente cuando cambie el puerto del API | Entregado, pendiente de aprobacion |
@@ -48,6 +48,9 @@
 | PMB-033 | P3 | Evolution | Unicidad operativa de permiso vigente de Financieras | Bloquear alta y renovacion cuando exista otro permiso vigente/no terminal para la misma financiera, dependencia/institucion y stand/lugar normalizados, sin abrir catalogo maestro ni workflow | Entregado, pendiente de aprobacion |
 | PMB-034 | P3 | Evolution | Resolucion contextual de permiso vigente de Financieras | Resolver el permiso vigente/no terminal por financiera, dependencia/institucion y stand/lugar normalizados, con accion UI minima para navegar al vigente sin abrir catalogo maestro ni workflow | Entregado, pendiente de aprobacion |
 | PMB-035 | P3 | Evolution | Captura contextual de credito de Financieras | Iniciar captura de credito desde financiera, dependencia/institucion y stand/lugar, resolviendo el vigente y reutilizando el alta existente sin endpoint puente, catalogo maestro ni workflow complejo | Entregado, pendiente de aprobacion |
+| PMB-036 | P3 | Evolution | Sugerencias operativas de contexto de Financieras | Devolver siguiente accion en la resolucion contextual: usar vigente, revisar/renovar antecedente, revisar cadena terminal o crear oficio nuevo, sin automatizar renovaciones ni abrir workflow | Entregado, pendiente de aprobacion |
+| PMB-037 | P3 | Evolution | Renovacion contextual prellenada de Financieras | Preparar renovacion desde `RENEW_LAST_PERMIT` con datos del ultimo permiso aplicable, sin persistir draft, y confirmar con el endpoint real de renovacion existente | Entregado, pendiente de aprobacion |
+| PMB-038 | P3 | Evolution | Alta contextual prellenada de Financieras | Preparar alta desde `CREATE_NEW_PERMIT` con contexto operativo prellenado, reutilizando el endpoint actual de alta sin catalogo maestro ni workflow complejo | Entregado, pendiente de aprobacion |
 
 ## Corte sugerido para la primera aprobacion post-MVP
 - PMB-001

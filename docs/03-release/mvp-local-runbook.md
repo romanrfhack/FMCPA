@@ -575,14 +575,14 @@ curl -s http://127.0.0.1:5080/api/financials/${PERMIT_ID} -H "Authorization: Bea
 curl -s http://127.0.0.1:5080/api/financials/${PERMIT_ID}/renewal-chain -H "Authorization: Bearer ${ADMIN_TOKEN}"
 # La cadena debe mostrar `currentPermitId`, permisos ordenados por `renewalSequence`, creditos de toda la cadena y agregados de comisiones.
 curl -i "http://127.0.0.1:5080/api/financials/current-permit?financialName=Financiera%20Local&institutionOrDependency=Direccion%20local&placeOrStand=Stand%202" -H "Authorization: Bearer ${ADMIN_TOKEN}"
-# Debe responder 200 con `permitId`, `currentRootPermitId`, periodo, estatus, `renewalSequence` y resumen operativo del permiso vigente/no terminal.
+# Debe responder 200 con `suggestionCode=USE_CURRENT_PERMIT`, `currentPermit`, `currentRootPermitId`, periodo, estatus, `renewalSequence`, `suggestionMessage` y `routeHint`.
 curl -i "http://127.0.0.1:5080/api/financials/current-permit?financialName=Financiera%20Local&institutionOrDependency=Direccion%20local&placeOrStand=Stand%20inexistente" -H "Authorization: Bearer ${ADMIN_TOKEN}"
-# Debe responder 404 con `reasonCode=FINANCIAL_PERMIT_CURRENT_NOT_FOUND` cuando no exista vigente para ese contexto.
+# Debe responder 200 con `suggestionCode=CREATE_NEW_PERMIT` cuando no exista vigente ni antecedente para ese contexto.
 curl -i "http://127.0.0.1:5080/api/financials/current-permit?financialName=Financiera%20Local&institutionOrDependency=Direccion%20local&placeOrStand=Stand%202" -H "Authorization: Bearer ${ADMIN_TOKEN}"
 CONTEXT_CURRENT_PERMIT_ID="<permitId-devuelto-por-current-permit>"
 curl -i http://127.0.0.1:5080/api/financials/${CONTEXT_CURRENT_PERMIT_ID}/credits -H "Authorization: Bearer ${ADMIN_TOKEN}" -H 'Content-Type: application/json' -H 'X-FMCPA-Client: FMCPA-Web' -d '{"promoterName":"Promotor contexto","beneficiaryName":"Beneficiario contexto","authorizationDate":"2026-06-10","amount":1500}'
 # La captura contextual de UI usa este mismo patron: resuelve vigente por contexto y reutiliza el alta existente de credito sobre el permiso devuelto.
-# Si el contexto apunta a un permiso historico debe responder `409 FINANCIAL_PERMIT_NOT_CURRENT` con `currentPermitId`; si apunta a terminal debe responder `409 FINANCIAL_PERMIT_TERMINAL`.
+# Si el contexto apunta a un permiso historico debe responder `suggestionCode=RENEW_LAST_PERMIT` y `lastKnownPermit`; si apunta a terminal debe responder `suggestionCode=REVIEW_TERMINAL_CHAIN`. La ambiguedad de datos sigue respondiendo `409 FINANCIAL_PERMIT_CURRENT_AMBIGUOUS`.
 CURRENT_PERMIT_ID="<currentPermitId-devuelto-por-renewal-chain>"
 HISTORICAL_CREDIT_ID="<credit-id-del-permiso-historico-si-existe>"
 BASE_CONFLICT_PERMIT_ID="<permiso-vigente-base>"
@@ -619,8 +619,10 @@ curl -s http://127.0.0.1:4200/admin/users
 - Si una exportacion de `/operations` devuelve pocos registros, revisar primero la ventana temporal, el filtro de severidad/categoria y el rol usado; la seguridad no se exporta para roles sin `USERS_ADMIN`.
 - Si un permiso de Financieras renovado sigue apareciendo en alertas como vencido, confirmar que `IsCurrentVersion=false` en el permiso anterior y que la consulta se esta haciendo contra una base migrada con `Track5FinancialPermitRenewal`.
 - Si `GET /api/financials/{permitId}/renewal-chain` devuelve agregados en cero, confirmar que los creditos esten registrados en permisos de la misma `CurrentRootPermitId` y que las comisiones usen `CommissionType`/`RecipientCategory` existentes.
-- Si `GET /api/financials/current-permit` devuelve `404 FINANCIAL_PERMIT_CURRENT_NOT_FOUND`, confirmar que los tres campos operativos coincidan bajo la normalizacion basica: trim, espacios colapsados, case-insensitive y remocion de diacriticos; si el contexto es nuevo, registrar un permiso nuevo.
-- Si la captura contextual de credito no abre el formulario de alta, revisar primero la respuesta de `GET /api/financials/current-permit`: `FINANCIAL_PERMIT_CURRENT_NOT_FOUND` implica que no hay vigente para ese contexto, `FINANCIAL_PERMIT_NOT_CURRENT` apunta a un historico y `FINANCIAL_PERMIT_TERMINAL` a un permiso cerrado/no operable.
+- Si `GET /api/financials/current-permit` devuelve `suggestionCode=CREATE_NEW_PERMIT`, confirmar que los tres campos operativos coincidan bajo la normalizacion basica: trim, espacios colapsados, case-insensitive y remocion de diacriticos; si el contexto es nuevo, registrar un permiso nuevo.
+- Si la UI muestra `CREATE_NEW_PERMIT`, usar `Preparar alta de oficio` para copiar financiera, dependencia/institucion y lugar/stand al formulario actual de alta; completar vigencia, horario, terminos, observaciones y estatus. La creacion real sigue usando `POST /api/financials` y puede devolver `409 FINANCIAL_PERMIT_ACTIVE_CONFLICT` si otro usuario registro el vigente antes.
+- Si la captura contextual de credito no abre el formulario de alta, revisar primero la respuesta de `GET /api/financials/current-permit`: `RENEW_LAST_PERMIT` apunta a antecedente historico, `REVIEW_TERMINAL_CHAIN` a cadena terminal y `CREATE_NEW_PERMIT` a contexto sin antecedente. La consulta solo orienta; la captura real sigue pasando por el permiso vigente/no terminal.
+- Si `GET /api/financials/current-permit` devuelve `suggestionCode=RENEW_LAST_PERMIT`, usar `GET /api/financials/{lastKnownPermit.permitId}/renewal-draft` para preparar datos prellenados; la confirmacion real debe enviarse al `renewalTargetPermitId` con `POST /api/financials/{permitId}/renew`.
 - Si `GET /api/financials/current-permit` devuelve `409 FINANCIAL_PERMIT_CURRENT_AMBIGUOUS`, revisar datos heredados o cadenas duplicadas porque la unicidad operativa deberia impedir nuevos casos por API.
 - Si `POST /api/financials/{permitId}/credits` o `POST /api/financials/credits/{creditId}/commissions` devuelve `409 FINANCIAL_PERMIT_NOT_CURRENT`, cambiar la captura al `currentPermitId` devuelto por `/renewal-chain`.
 - Si esas altas devuelven `409 FINANCIAL_PERMIT_TERMINAL`, el permiso asociado ya esta cerrado/terminal y queda en modo consulta; no se debe reabrir captura sin una etapa de ajuste historico aprobada.
@@ -667,3 +669,5 @@ curl -s http://127.0.0.1:4200/admin/users
 - [Functional Track Financial Permit Active Conflict Implementation Note](../05-post-mvp/functional-track-financial-permit-active-conflict-implementation-note.md)
 - [Functional Track Financial Current Permit Resolution Implementation Note](../05-post-mvp/functional-track-financial-current-permit-resolution-implementation-note.md)
 - [Functional Track Financial Contextual Credit Capture Implementation Note](../05-post-mvp/functional-track-financial-contextual-credit-capture-implementation-note.md)
+- [Functional Track Financial Contextual Renewal Draft Implementation Note](../05-post-mvp/functional-track-financial-contextual-renewal-draft-implementation-note.md)
+- [Functional Track Financial Contextual Permit Create Implementation Note](../05-post-mvp/functional-track-financial-contextual-permit-create-implementation-note.md)

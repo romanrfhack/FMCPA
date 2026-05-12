@@ -11,10 +11,11 @@ import {
   FinancialCredit,
   FinancialPermitActiveConflict,
   FinancialPermitAlert,
-  FinancialPermitCurrentResolution,
+  FinancialPermitContextResolution,
   FinancialPermitDetail,
   FinancialPermitOperationBlocked,
   FinancialPermitRenewalChain,
+  FinancialPermitRenewalDraft,
   FinancialPermitSummary,
   RenewFinancialPermitRequest
 } from '../../core/models/financials.models';
@@ -98,9 +99,47 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               }
             }
 
-            @if (contextualCreditResolution(); as currentPermit) {
+            @if (contextualCreditResolution(); as resolution) {
               <div class="alert success conflict-action">
-                <span>{{ currentPermit.summary }} · Secuencia {{ currentPermit.renewalSequence }}</span>
+                @if (resolution.currentPermit; as currentPermit) {
+                  <button type="button" class="ghost" (click)="openCurrentPermit(currentPermit.permitId)">
+                    Ir al vigente
+                  </button>
+                  <span>
+                    {{ resolution.suggestionMessage }}
+                    · {{ currentPermit.summary }}
+                    · Secuencia {{ currentPermit.renewalSequence }}
+                  </span>
+                } @else if (resolution.lastKnownPermit; as lastKnownPermit) {
+                  <button type="button" class="ghost" (click)="openCurrentPermit(lastKnownPermit.permitId)">
+                    Abrir último permiso / cadena
+                  </button>
+                  @if (resolution.suggestionCode === 'RENEW_LAST_PERMIT') {
+                    <button
+                      type="button"
+                      class="ghost"
+                      (click)="prepareRenewalFromContextResolution(resolution)"
+                      [disabled]="isPreparingRenewalDraft() || !canWrite()">
+                      Preparar renovación
+                    </button>
+                  }
+                  <span>
+                    {{ resolution.suggestionMessage }}
+                    · Último estatus {{ lastKnownPermit.statusName }}
+                    · {{ lastKnownPermit.validFrom }} a {{ lastKnownPermit.validTo }}
+                  </span>
+                } @else {
+                  @if (resolution.suggestionCode === 'CREATE_NEW_PERMIT') {
+                    <button
+                      type="button"
+                      class="ghost"
+                      (click)="preparePermitFromContextResolution(resolution)"
+                      [disabled]="!canWrite()">
+                      Preparar alta de oficio
+                    </button>
+                  }
+                  <span>{{ resolution.suggestionMessage }}</span>
+                }
               </div>
             }
 
@@ -148,12 +187,47 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               </div>
             }
 
-            @if (currentPermitLookupResult(); as currentPermit) {
+            @if (currentPermitLookupResult(); as resolution) {
               <div class="alert success conflict-action">
-                <button type="button" class="ghost" (click)="openCurrentPermit(currentPermit.permitId)">
-                  Ir al permiso vigente
-                </button>
-                <span>{{ currentPermit.summary }} · Secuencia {{ currentPermit.renewalSequence }}</span>
+                @if (resolution.currentPermit; as currentPermit) {
+                  <button type="button" class="ghost" (click)="openCurrentPermit(currentPermit.permitId)">
+                    Ir al permiso vigente
+                  </button>
+                  <span>
+                    {{ resolution.suggestionMessage }}
+                    · {{ currentPermit.summary }}
+                    · Secuencia {{ currentPermit.renewalSequence }}
+                  </span>
+                } @else if (resolution.lastKnownPermit; as lastKnownPermit) {
+                  <button type="button" class="ghost" (click)="openCurrentPermit(lastKnownPermit.permitId)">
+                    Abrir último permiso / cadena
+                  </button>
+                  @if (resolution.suggestionCode === 'RENEW_LAST_PERMIT') {
+                    <button
+                      type="button"
+                      class="ghost"
+                      (click)="prepareRenewalFromContextResolution(resolution)"
+                      [disabled]="isPreparingRenewalDraft() || !canWrite()">
+                      Preparar renovación
+                    </button>
+                  }
+                  <span>
+                    {{ resolution.suggestionMessage }}
+                    · Último estatus {{ lastKnownPermit.statusName }}
+                    · {{ lastKnownPermit.validFrom }} a {{ lastKnownPermit.validTo }}
+                  </span>
+                } @else {
+                  @if (resolution.suggestionCode === 'CREATE_NEW_PERMIT') {
+                    <button
+                      type="button"
+                      class="ghost"
+                      (click)="preparePermitFromContextResolution(resolution)"
+                      [disabled]="!canWrite()">
+                      Preparar alta de oficio
+                    </button>
+                  }
+                  <span>{{ resolution.suggestionMessage }}</span>
+                }
               </div>
             } @else if (currentPermitLookupMessage()) {
               <p class="alert error">{{ currentPermitLookupMessage() }}</p>
@@ -161,6 +235,14 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
             @if (permitFormSuccess()) {
               <p class="alert success">{{ permitFormSuccess() }}</p>
+            }
+
+            @if (contextualPermitCreateResolution(); as createContext) {
+              <p class="inline-note">
+                Alta contextual preparada para {{ createContext.financialName }} · {{ createContext.institutionOrDependency }} · {{ createContext.placeOrStand }}.
+                No hay oficio vigente ni antecedente para este contexto; completa vigencia, horario, términos y estatus.
+                El alta real se validará al registrar el oficio.
+              </p>
             }
 
             <form class="form-grid" [formGroup]="permitForm" (ngSubmit)="submitPermit()">
@@ -517,7 +599,18 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   <p class="alert success">{{ renewalFormSuccess() }}</p>
                 }
 
-                @if (renewalTargetPermitId() === permitDetail.id) {
+                @if (renewalDraft(); as draft) {
+                  @if (shouldShowRenewalForm(permitDetail.id)) {
+                    <p class="inline-note">
+                      {{ draft.suggestionMessage }}
+                      Prellenado desde secuencia {{ draft.sourceRenewalSequence }}
+                      · renovación real sobre secuencia {{ draft.renewalTargetSequence }}
+                      · estatus {{ draft.statusName }}.
+                    </p>
+                  }
+                }
+
+                @if (shouldShowRenewalForm(permitDetail.id)) {
                   <form class="form-grid" [formGroup]="renewalForm" (ngSubmit)="submitRenewal()">
                     <label>
                       <span>Nuevo inicio</span>
@@ -621,10 +714,10 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     }
                   }
 
-                  @if (contextualCreditResolution(); as contextPermit) {
-                    @if (contextPermit.permitId === permitDetail.id) {
+                  @if (contextualCreditResolution(); as contextResolution) {
+                    @if (contextResolution.currentPermit?.permitId === permitDetail.id) {
                       <p class="inline-note">
-                        Captura iniciada desde contexto: {{ contextPermit.summary }}
+                        Captura iniciada desde contexto: {{ contextResolution.currentPermit?.summary }}
                       </p>
                     }
                   }
@@ -1242,10 +1335,6 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         gap: 0.65rem;
       }
 
-      .contextual-action {
-        margin-bottom: 0.75rem;
-      }
-
       @media (max-width: 1080px) {
         .page-grid,
         .detail-grid,
@@ -1290,19 +1379,22 @@ export class FinancialsPageComponent {
   protected readonly isSubmittingRenewal = signal(false);
   protected readonly isResolvingCurrentPermit = signal(false);
   protected readonly isPreparingContextualCredit = signal(false);
+  protected readonly isPreparingRenewalDraft = signal(false);
 
   protected readonly permitFormError = signal<string | null>(null);
   protected readonly permitFormSuccess = signal<string | null>(null);
   protected readonly permitFormConflict = signal<FinancialPermitActiveConflict | null>(null);
-  protected readonly currentPermitLookupResult = signal<FinancialPermitCurrentResolution | null>(null);
+  protected readonly currentPermitLookupResult = signal<FinancialPermitContextResolution | null>(null);
   protected readonly currentPermitLookupMessage = signal<string | null>(null);
-  protected readonly contextualCreditResolution = signal<FinancialPermitCurrentResolution | null>(null);
+  protected readonly contextualPermitCreateResolution = signal<FinancialPermitContextResolution | null>(null);
+  protected readonly contextualCreditResolution = signal<FinancialPermitContextResolution | null>(null);
   protected readonly contextualCreditBlocked = signal<FinancialPermitOperationBlocked | null>(null);
   protected readonly contextualCreditError = signal<string | null>(null);
   protected readonly renewalFormError = signal<string | null>(null);
   protected readonly renewalFormSuccess = signal<string | null>(null);
   protected readonly renewalFormConflict = signal<FinancialPermitActiveConflict | null>(null);
   protected readonly renewalTargetPermitId = signal<string | null>(null);
+  protected readonly renewalDraft = signal<FinancialPermitRenewalDraft | null>(null);
   protected readonly creditFormError = signal<string | null>(null);
   protected readonly creditFormSuccess = signal<string | null>(null);
   protected readonly creditFormBlocked = signal<FinancialPermitOperationBlocked | null>(null);
@@ -1441,6 +1533,9 @@ export class FinancialsPageComponent {
     this.contextualCreditResolution.set(null);
     this.contextualCreditBlocked.set(null);
     this.contextualCreditError.set(null);
+    this.contextualPermitCreateResolution.set(null);
+    this.renewalDraft.set(null);
+    this.renewalTargetPermitId.set(null);
     this.selectedPermitId.set(permitId);
     this.selectedCreditId.set(null);
     await this.loadPermitDetail(permitId);
@@ -1461,6 +1556,7 @@ export class FinancialsPageComponent {
   protected async resolveCurrentPermit(): Promise<void> {
     this.currentPermitLookupResult.set(null);
     this.currentPermitLookupMessage.set(null);
+    this.contextualPermitCreateResolution.set(null);
     this.permitFormConflict.set(null);
     this.pageError.set(null);
 
@@ -1479,8 +1575,8 @@ export class FinancialsPageComponent {
     this.isResolvingCurrentPermit.set(true);
 
     try {
-      const currentPermit = await firstValueFrom(this.financialsService.resolveCurrentPermit(request));
-      this.currentPermitLookupResult.set(currentPermit);
+      const resolution = await firstValueFrom(this.financialsService.resolveCurrentPermit(request));
+      this.currentPermitLookupResult.set(resolution);
     } catch (error) {
       const lookupMessage = this.extractCurrentPermitLookupMessage(error);
       this.currentPermitLookupMessage.set(lookupMessage ?? getApiErrorMessage(error, 'No fue posible buscar el permiso vigente.'));
@@ -1495,6 +1591,7 @@ export class FinancialsPageComponent {
     this.contextualCreditError.set(null);
     this.creditFormBlocked.set(null);
     this.creditFormError.set(null);
+    this.contextualPermitCreateResolution.set(null);
     this.pageError.set(null);
 
     if (this.contextualCreditForm.invalid) {
@@ -1513,9 +1610,14 @@ export class FinancialsPageComponent {
     this.isPreparingContextualCredit.set(true);
 
     try {
-      const currentPermit = await firstValueFrom(this.financialsService.resolveCurrentPermit(request));
-      await this.openPermitFromContext(currentPermit.permitId);
-      this.contextualCreditResolution.set(currentPermit);
+      const resolution = await firstValueFrom(this.financialsService.resolveCurrentPermit(request));
+      const currentPermit = resolution.currentPermit;
+
+      if (currentPermit) {
+        await this.openPermitFromContext(currentPermit.permitId);
+      }
+
+      this.contextualCreditResolution.set(resolution);
     } catch (error) {
       const blocked = this.extractFinancialPermitOperationBlocked(error);
       this.contextualCreditBlocked.set(blocked);
@@ -1539,6 +1641,52 @@ export class FinancialsPageComponent {
     });
   }
 
+  protected preparePermitFromContextResolution(resolution: FinancialPermitContextResolution): void {
+    if (
+      resolution.suggestionCode !== 'CREATE_NEW_PERMIT'
+      || resolution.currentPermit
+      || resolution.lastKnownPermit
+    ) {
+      this.pageError.set('La resolucion contextual no corresponde a un alta nueva de oficio.');
+      return;
+    }
+
+    this.permitForm.patchValue({
+      financialName: resolution.financialName,
+      institutionOrDependency: resolution.institutionOrDependency,
+      placeOrStand: resolution.placeOrStand
+    });
+    this.contextualPermitCreateResolution.set(resolution);
+    this.permitFormConflict.set(null);
+    this.permitFormError.set(null);
+    this.pageError.set(null);
+    this.permitFormSuccess.set('Alta contextual preparada. Completa vigencia, horario, términos y estatus antes de registrar.');
+  }
+
+  protected async prepareRenewalFromContextResolution(resolution: FinancialPermitContextResolution): Promise<void> {
+    const lastKnownPermit = resolution.lastKnownPermit;
+    if (resolution.suggestionCode !== 'RENEW_LAST_PERMIT' || !lastKnownPermit) {
+      this.pageError.set('La resolucion contextual no contiene un ultimo permiso renovable.');
+      return;
+    }
+
+    this.pageError.set(null);
+    this.renewalFormError.set(null);
+    this.renewalFormSuccess.set(null);
+    this.renewalFormConflict.set(null);
+    this.isPreparingRenewalDraft.set(true);
+
+    try {
+      const draft = await firstValueFrom(this.financialsService.getPermitRenewalDraft(lastKnownPermit.permitId));
+      await this.openPermitFromContext(draft.sourcePermitId);
+      this.applyRenewalDraft(draft);
+    } catch (error) {
+      this.pageError.set(getApiErrorMessage(error, 'No fue posible preparar la renovacion contextual.'));
+    } finally {
+      this.isPreparingRenewalDraft.set(false);
+    }
+  }
+
   private async openPermitFromContext(permitId: string): Promise<void> {
     this.filtersForm.setValue({
       statusCode: '',
@@ -1548,7 +1696,9 @@ export class FinancialsPageComponent {
     this.currentPermitLookupResult.set(null);
     this.currentPermitLookupMessage.set(null);
     this.renewalFormConflict.set(null);
+    this.contextualPermitCreateResolution.set(null);
     this.renewalTargetPermitId.set(null);
+    this.renewalDraft.set(null);
     this.contextualCreditBlocked.set(null);
     this.contextualCreditError.set(null);
     await this.reloadPermits(permitId);
@@ -1588,6 +1738,7 @@ export class FinancialsPageComponent {
     this.renewalFormError.set(null);
     this.renewalFormSuccess.set(null);
     this.renewalFormConflict.set(null);
+    this.renewalDraft.set(null);
     this.renewalTargetPermitId.set(permit.id);
     this.renewalForm.reset({
       validFrom: this.addDaysFromIso(permit.validTo, 1),
@@ -1601,9 +1752,18 @@ export class FinancialsPageComponent {
 
   protected cancelRenewal(): void {
     this.renewalTargetPermitId.set(null);
+    this.renewalDraft.set(null);
     this.renewalFormError.set(null);
     this.renewalFormSuccess.set(null);
     this.renewalFormConflict.set(null);
+  }
+
+  protected shouldShowRenewalForm(permitId: string): boolean {
+    const renewalTargetPermitId = this.renewalTargetPermitId();
+    const draft = this.renewalDraft();
+
+    return renewalTargetPermitId === permitId
+      || (!!draft && draft.sourcePermitId === permitId && draft.renewalTargetPermitId === renewalTargetPermitId);
   }
 
   protected async submitRenewal(): Promise<void> {
@@ -1641,6 +1801,7 @@ export class FinancialsPageComponent {
       const renewedPermit = await firstValueFrom(this.financialsService.renewPermit(renewalTargetPermitId, request));
       this.renewalFormSuccess.set('Oficio renovado.');
       this.renewalTargetPermitId.set(null);
+      this.renewalDraft.set(null);
       await this.reloadPermits(renewedPermit.id);
       await this.reloadAlerts();
     } catch (error) {
@@ -1650,6 +1811,19 @@ export class FinancialsPageComponent {
     } finally {
       this.isSubmittingRenewal.set(false);
     }
+  }
+
+  private applyRenewalDraft(draft: FinancialPermitRenewalDraft): void {
+    this.renewalDraft.set(draft);
+    this.renewalTargetPermitId.set(draft.renewalTargetPermitId);
+    this.renewalForm.reset({
+      validFrom: draft.newStartDate,
+      validTo: draft.newEndDate,
+      placeOrStand: draft.placeOrStand,
+      schedule: draft.schedule,
+      negotiatedTerms: draft.negotiatedTerms,
+      notes: draft.notes ?? ''
+    });
   }
 
   protected selectCredit(creditId: string): void {
@@ -1694,6 +1868,7 @@ export class FinancialsPageComponent {
 
       const permit = await firstValueFrom(this.financialsService.createPermit(request));
       this.permitFormSuccess.set('Oficio registrado.');
+      this.contextualPermitCreateResolution.set(null);
       this.resetPermitForm();
       await this.reloadPermits(permit.id);
       await this.reloadAlerts();
@@ -1867,6 +2042,7 @@ export class FinancialsPageComponent {
     this.permitFormConflict.set(null);
     this.currentPermitLookupResult.set(null);
     this.currentPermitLookupMessage.set(null);
+    this.contextualPermitCreateResolution.set(null);
     this.permitForm.reset({
       financialName: '',
       institutionOrDependency: '',
@@ -2107,10 +2283,7 @@ export class FinancialsPageComponent {
     }
 
     const response = error.error as Partial<{ message: string; reasonCode: string }> | undefined;
-    if (
-      response?.reasonCode === 'FINANCIAL_PERMIT_CURRENT_NOT_FOUND'
-      || response?.reasonCode === 'FINANCIAL_PERMIT_CURRENT_AMBIGUOUS'
-    ) {
+    if (response?.reasonCode === 'FINANCIAL_PERMIT_CURRENT_AMBIGUOUS') {
       return response.message ?? null;
     }
 

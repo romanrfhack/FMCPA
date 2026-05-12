@@ -133,6 +133,32 @@ export interface RenewFinancialPermitRequest {
   notes: string | null;
 }
 
+export interface FinancialPermitRenewalDraft {
+  sourcePermitId: string;
+  renewalTargetPermitId: string;
+  currentRootPermitId: string;
+  sourceIsCurrentVersion: boolean;
+  sourceRenewalSequence: number;
+  renewalTargetSequence: number;
+  financialName: string;
+  institutionOrDependency: string;
+  placeOrStand: string;
+  schedule: string;
+  negotiatedTerms: string;
+  notes: string | null;
+  previousValidFrom: string;
+  previousValidTo: string;
+  newStartDate: string;
+  newEndDate: string;
+  statusCatalogEntryId: number;
+  statusCode: string;
+  statusName: string;
+  statusIsClosed: boolean;
+  suggestionCode: FinancialPermitSuggestionCode;
+  suggestionMessage: string;
+  fieldsToConfirm: string[];
+}
+
 export interface FinancialPermitAlert {
   permitId: string;
   financialName: string;
@@ -157,9 +183,30 @@ export interface FinancialPermitActiveConflict {
   conflictingValidTo: string;
 }
 
-export interface FinancialPermitCurrentResolution {
+export type FinancialPermitSuggestionCode =
+  | 'USE_CURRENT_PERMIT'
+  | 'RENEW_LAST_PERMIT'
+  | 'CREATE_NEW_PERMIT'
+  | 'REVIEW_TERMINAL_CHAIN'
+  | string;
+
+export interface FinancialPermitContextResolution {
+  financialName: string;
+  institutionOrDependency: string;
+  placeOrStand: string;
+  currentPermit: FinancialPermitContextPermit | null;
+  currentRootPermitId: string | null;
+  lastKnownPermit: FinancialPermitContextPermit | null;
+  suggestionCode: FinancialPermitSuggestionCode;
+  suggestionMessage: string;
+  routeHint: string;
+}
+
+export interface FinancialPermitContextPermit {
   permitId: string;
   currentRootPermitId: string;
+  renewedFromPermitId: string | null;
+  isCurrentVersion: boolean;
   renewalSequence: number;
   financialName: string;
   institutionOrDependency: string;

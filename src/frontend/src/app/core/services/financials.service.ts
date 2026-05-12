@@ -12,10 +12,11 @@ import {
   CreateFinancialPermitRequest,
   FinancialCredit,
   FinancialCreditCommission,
+  FinancialPermitContextResolution,
   FinancialPermitAlert,
-  FinancialPermitCurrentResolution,
   FinancialPermitDetail,
   FinancialPermitRenewalChain,
+  FinancialPermitRenewalDraft,
   FinancialPermitSummary,
   RenewFinancialPermitRequest
 } from '../models/financials.models';
@@ -49,6 +50,10 @@ export class FinancialsService {
     return this.httpClient.get<FinancialPermitRenewalChain>(`${this.apiBaseUrl}/${permitId}/renewal-chain`);
   }
 
+  getPermitRenewalDraft(permitId: string) {
+    return this.httpClient.get<FinancialPermitRenewalDraft>(`${this.apiBaseUrl}/${permitId}/renewal-draft`);
+  }
+
   resolveCurrentPermit(request: {
     financialName: string;
     institutionOrDependency: string;
@@ -59,7 +64,7 @@ export class FinancialsService {
       .set('institutionOrDependency', request.institutionOrDependency)
       .set('placeOrStand', request.placeOrStand);
 
-    return this.httpClient.get<FinancialPermitCurrentResolution>(`${this.apiBaseUrl}/current-permit`, { params });
+    return this.httpClient.get<FinancialPermitContextResolution>(`${this.apiBaseUrl}/current-permit`, { params });
   }
 
   createPermit(request: CreateFinancialPermitRequest) {

@@ -126,12 +126,61 @@ public sealed record FinancialPermitCurrentResolutionResponse(
     string AlertState,
     string Summary);
 
-public sealed record FinancialPermitCurrentResolutionNotFoundResponse(
-    string Message,
-    string ReasonCode,
+public sealed record FinancialPermitContextResolutionResponse(
     string FinancialName,
     string InstitutionOrDependency,
-    string PlaceOrStand);
+    string PlaceOrStand,
+    FinancialPermitContextPermitResponse? CurrentPermit,
+    Guid? CurrentRootPermitId,
+    FinancialPermitContextPermitResponse? LastKnownPermit,
+    string SuggestionCode,
+    string SuggestionMessage,
+    string RouteHint);
+
+public sealed record FinancialPermitContextPermitResponse(
+    Guid PermitId,
+    Guid CurrentRootPermitId,
+    Guid? RenewedFromPermitId,
+    bool IsCurrentVersion,
+    int RenewalSequence,
+    string FinancialName,
+    string InstitutionOrDependency,
+    string PlaceOrStand,
+    DateOnly ValidFrom,
+    DateOnly ValidTo,
+    string Schedule,
+    int StatusCatalogEntryId,
+    string StatusCode,
+    string StatusName,
+    bool StatusIsClosed,
+    int DaysUntilExpiration,
+    string AlertState,
+    string Summary);
+
+public sealed record FinancialPermitRenewalDraftResponse(
+    Guid SourcePermitId,
+    Guid RenewalTargetPermitId,
+    Guid CurrentRootPermitId,
+    bool SourceIsCurrentVersion,
+    int SourceRenewalSequence,
+    int RenewalTargetSequence,
+    string FinancialName,
+    string InstitutionOrDependency,
+    string PlaceOrStand,
+    string Schedule,
+    string NegotiatedTerms,
+    string? Notes,
+    DateOnly PreviousValidFrom,
+    DateOnly PreviousValidTo,
+    DateOnly NewStartDate,
+    DateOnly NewEndDate,
+    int StatusCatalogEntryId,
+    string StatusCode,
+    string StatusName,
+    bool StatusIsClosed,
+    string SuggestionCode,
+    string SuggestionMessage,
+    IReadOnlyList<string> FieldsToConfirm);
 
 public sealed record FinancialPermitCurrentResolutionAmbiguousResponse(
     string Message,
