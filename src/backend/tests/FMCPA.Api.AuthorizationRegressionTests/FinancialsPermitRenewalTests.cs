@@ -721,6 +721,229 @@ public sealed class FinancialsPermitRenewalTests : IClassFixture<AuthorizationRe
     }
 
     [Fact]
+    public async Task Financial_context_card_consolidates_resolution_chain_credit_commissions_and_actions()
+    {
+        var statusId = await SeedFinancialPermitStatusAsync();
+        var commissionTypes = await SeedCommissionTypesAsync();
+        var adminToken = await LoginAsync(
+            AuthorizationRegressionWebApplicationFactory.AdminUserName,
+            AuthorizationRegressionWebApplicationFactory.AdminPassword);
+        var readOnlyToken = await LoginAsync(
+            AuthorizationRegressionWebApplicationFactory.ReadOnlyUserName,
+            AuthorizationRegressionWebApplicationFactory.ReadOnlyPassword);
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var financialName = $"Financiera Ficha {suffix}";
+        const string institutionOrDependency = "Dependencia Ficha";
+        const string originalStand = "Stand Ficha Origen";
+        const string renewedStand = "Stand Ficha Vigente";
+
+        using var createResponse = await SendPostAsync(
+            "/api/financials",
+            adminToken,
+            new
+            {
+                financialName,
+                institutionOrDependency,
+                placeOrStand = originalStand,
+                validFrom = today,
+                validTo = today.AddDays(30),
+                schedule = "09:00-14:00",
+                negotiatedTerms = "Terminos para ficha",
+                statusCatalogEntryId = statusId,
+                notes = "Permiso base de ficha"
+            });
+        var basePermit = await createResponse.Content.ReadFromJsonAsync<FinancialPermitSummaryTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        Assert.NotNull(basePermit);
+
+        using var currentCreditResponse = await SendPostAsync(
+            $"/api/financials/{basePermit!.Id}/credits",
+            adminToken,
+            new
+            {
+                promoterContactId = (Guid?)null,
+                promoterName = $"Promotor ficha {suffix}",
+                beneficiaryContactId = (Guid?)null,
+                beneficiaryName = $"Beneficiario ficha {suffix}",
+                phoneNumber = "5550404",
+                whatsAppPhone = "5550404",
+                authorizationDate = today,
+                amount = 1000m,
+                notes = "Credito para ficha vigente"
+            });
+        var currentCredit = await currentCreditResponse.Content.ReadFromJsonAsync<FinancialCreditTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Created, currentCreditResponse.StatusCode);
+        Assert.NotNull(currentCredit);
+
+        using var adminCommissionResponse = await SendPostAsync(
+            $"/api/financials/credits/{currentCredit!.Id}/commissions",
+            adminToken,
+            new
+            {
+                commissionTypeId = commissionTypes.AdministrationId,
+                recipientCategory = "COMPANY",
+                recipientContactId = (Guid?)null,
+                recipientName = "Administracion ficha",
+                baseAmount = 1000m,
+                commissionAmount = 100m,
+                notes = "Comision administrativa para ficha"
+            });
+
+        Assert.Equal(HttpStatusCode.Created, adminCommissionResponse.StatusCode);
+
+        using var currentCardResponse = await SendGetAsync(
+            BuildContextCardPath(financialName, institutionOrDependency, originalStand),
+            readOnlyToken);
+        var currentCard = await currentCardResponse.Content.ReadFromJsonAsync<FinancialContextCardTestResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, currentCardResponse.StatusCode);
+        Assert.NotNull(currentCard);
+        Assert.Equal("USE_CURRENT_PERMIT", currentCard!.Resolution.SuggestionCode);
+        Assert.NotNull(currentCard.Resolution.CurrentPermit);
+        Assert.Equal(basePermit.Id, currentCard.Resolution.CurrentPermit!.PermitId);
+        Assert.Contains("CAPTURE_CREDIT", currentCard.AvailableActions);
+        Assert.Contains("VIEW_CURRENT_PERMIT", currentCard.AvailableActions);
+        Assert.Contains("VIEW_CHAIN", currentCard.AvailableActions);
+        Assert.Equal(1, currentCard.RenewalChainSummary!.TotalPermitsCount);
+        Assert.Equal(0, currentCard.RenewalChainSummary.CurrentRenewalSequence);
+        Assert.Equal(today, currentCard.RenewalChainSummary.PeriodFrom);
+        Assert.Equal(today.AddDays(30), currentCard.RenewalChainSummary.PeriodTo);
+        Assert.Equal(1, currentCard.CreditSummary!.TotalCreditsCount);
+        Assert.Equal(1000m, currentCard.CreditSummary.TotalCreditsAmount);
+        Assert.Equal(1, currentCard.CommissionSummary!.TotalCommissionsCount);
+        Assert.Equal(100m, currentCard.CommissionSummary.TotalAdminCommission);
+
+        using var renewResponse = await SendPostAsync(
+            $"/api/financials/{basePermit.Id}/renew",
+            adminToken,
+            new
+            {
+                validFrom = today.AddDays(31),
+                validTo = today.AddDays(90),
+                placeOrStand = renewedStand,
+                schedule = "10:00-15:00",
+                negotiatedTerms = "Terminos renovados para ficha",
+                notes = "Renovacion para ficha"
+            });
+        var renewedPermit = await renewResponse.Content.ReadFromJsonAsync<FinancialPermitDetailTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Created, renewResponse.StatusCode);
+        Assert.NotNull(renewedPermit);
+
+        using var renewedCreditResponse = await SendPostAsync(
+            $"/api/financials/{renewedPermit!.Id}/credits",
+            adminToken,
+            new
+            {
+                promoterContactId = (Guid?)null,
+                promoterName = $"Promotor vigente {suffix}",
+                beneficiaryContactId = (Guid?)null,
+                beneficiaryName = $"Beneficiario vigente {suffix}",
+                phoneNumber = "5550505",
+                whatsAppPhone = "5550505",
+                authorizationDate = today.AddDays(40),
+                amount = 2000m,
+                notes = "Credito renovado para ficha"
+            });
+        var renewedCredit = await renewedCreditResponse.Content.ReadFromJsonAsync<FinancialCreditTestResponse>();
+
+        Assert.Equal(HttpStatusCode.Created, renewedCreditResponse.StatusCode);
+        Assert.NotNull(renewedCredit);
+
+        using var promoterCommissionResponse = await SendPostAsync(
+            $"/api/financials/credits/{renewedCredit!.Id}/commissions",
+            adminToken,
+            new
+            {
+                commissionTypeId = commissionTypes.PromoterId,
+                recipientCategory = "OTHER_PARTICIPANT",
+                recipientContactId = (Guid?)null,
+                recipientName = "Promotor ficha",
+                baseAmount = 2000m,
+                commissionAmount = 150m,
+                notes = "Comision promotor para ficha"
+            });
+        using var thirdPartyCommissionResponse = await SendPostAsync(
+            $"/api/financials/credits/{renewedCredit.Id}/commissions",
+            adminToken,
+            new
+            {
+                commissionTypeId = commissionTypes.IntermediationId,
+                recipientCategory = "THIRD_PARTY",
+                recipientContactId = (Guid?)null,
+                recipientName = "Tercero ficha",
+                baseAmount = 2000m,
+                commissionAmount = 75m,
+                notes = "Comision tercero para ficha"
+            });
+
+        Assert.Equal(HttpStatusCode.Created, promoterCommissionResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, thirdPartyCommissionResponse.StatusCode);
+
+        using var historicalCardResponse = await SendGetAsync(
+            BuildContextCardPath(financialName, institutionOrDependency, originalStand),
+            readOnlyToken);
+        var historicalCard = await historicalCardResponse.Content.ReadFromJsonAsync<FinancialContextCardTestResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, historicalCardResponse.StatusCode);
+        Assert.NotNull(historicalCard);
+        Assert.Equal("RENEW_LAST_PERMIT", historicalCard!.Resolution.SuggestionCode);
+        Assert.Null(historicalCard.Resolution.CurrentPermit);
+        Assert.Equal(basePermit.Id, historicalCard.Resolution.LastKnownPermit!.PermitId);
+        Assert.Contains("PREPARE_RENEWAL", historicalCard.AvailableActions);
+        Assert.Contains("VIEW_CHAIN", historicalCard.AvailableActions);
+        Assert.DoesNotContain("CAPTURE_CREDIT", historicalCard.AvailableActions);
+        Assert.Equal(2, historicalCard.RenewalChainSummary!.TotalPermitsCount);
+        Assert.Equal(1, historicalCard.RenewalChainSummary.CurrentRenewalSequence);
+        Assert.Equal(2, historicalCard.CreditSummary!.TotalCreditsCount);
+        Assert.Equal(3000m, historicalCard.CreditSummary.TotalCreditsAmount);
+        Assert.Equal(3, historicalCard.CommissionSummary!.TotalCommissionsCount);
+        Assert.Equal(150m, historicalCard.CommissionSummary.TotalPromoterCommission);
+        Assert.Equal(100m, historicalCard.CommissionSummary.TotalAdminCommission);
+        Assert.Equal(75m, historicalCard.CommissionSummary.TotalThirdPartyCommission);
+
+        using var missingCardResponse = await SendGetAsync(
+            BuildContextCardPath(financialName, institutionOrDependency, "Stand Ficha Nuevo"),
+            readOnlyToken);
+        var missingCard = await missingCardResponse.Content.ReadFromJsonAsync<FinancialContextCardTestResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, missingCardResponse.StatusCode);
+        Assert.NotNull(missingCard);
+        Assert.Equal("CREATE_NEW_PERMIT", missingCard!.Resolution.SuggestionCode);
+        Assert.Null(missingCard.RenewalChainSummary);
+        Assert.Null(missingCard.CreditSummary);
+        Assert.Null(missingCard.CommissionSummary);
+        Assert.Single(missingCard.AvailableActions);
+        Assert.Contains("CREATE_PERMIT", missingCard.AvailableActions);
+
+        using var closeRenewedResponse = await SendPostAsync(
+            $"/api/financials/{renewedPermit.Id}/close",
+            adminToken,
+            new
+            {
+                reason = "Cierre terminal para ficha contextual"
+            });
+
+        Assert.Equal(HttpStatusCode.OK, closeRenewedResponse.StatusCode);
+
+        using var terminalCardResponse = await SendGetAsync(
+            BuildContextCardPath(financialName, institutionOrDependency, renewedStand),
+            readOnlyToken);
+        var terminalCard = await terminalCardResponse.Content.ReadFromJsonAsync<FinancialContextCardTestResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, terminalCardResponse.StatusCode);
+        Assert.NotNull(terminalCard);
+        Assert.Equal("REVIEW_TERMINAL_CHAIN", terminalCard!.Resolution.SuggestionCode);
+        Assert.Contains("VIEW_CURRENT_PERMIT", terminalCard.AvailableActions);
+        Assert.Contains("VIEW_CHAIN", terminalCard.AvailableActions);
+        Assert.DoesNotContain("CAPTURE_CREDIT", terminalCard.AvailableActions);
+        Assert.DoesNotContain("PREPARE_RENEWAL", terminalCard.AvailableActions);
+    }
+
+    [Fact]
     public async Task Financial_current_permit_resolution_uses_operational_key_and_current_chain()
     {
         var statusId = await SeedFinancialPermitStatusAsync();
@@ -996,6 +1219,17 @@ public sealed class FinancialsPermitRenewalTests : IClassFixture<AuthorizationRe
             + $"&placeOrStand={Uri.EscapeDataString(placeOrStand)}";
     }
 
+    private static string BuildContextCardPath(
+        string financialName,
+        string institutionOrDependency,
+        string placeOrStand)
+    {
+        return "/api/financials/context-card"
+            + $"?financialName={Uri.EscapeDataString(financialName)}"
+            + $"&institutionOrDependency={Uri.EscapeDataString(institutionOrDependency)}"
+            + $"&placeOrStand={Uri.EscapeDataString(placeOrStand)}";
+    }
+
     private async Task<int> CountAuditEventsAsync(string entityType)
     {
         using var scope = _factory.Services.CreateScope();
@@ -1091,6 +1325,32 @@ public sealed class FinancialsPermitRenewalTests : IClassFixture<AuthorizationRe
         DateOnly ValidTo,
         string StatusCode,
         string Summary);
+
+    private sealed record FinancialContextCardTestResponse(
+        FinancialPermitContextResolutionTestResponse Resolution,
+        FinancialContextCardRenewalChainSummaryTestResponse? RenewalChainSummary,
+        FinancialContextCardCreditSummaryTestResponse? CreditSummary,
+        FinancialContextCardCommissionSummaryTestResponse? CommissionSummary,
+        List<string> AvailableActions);
+
+    private sealed record FinancialContextCardRenewalChainSummaryTestResponse(
+        Guid CurrentPermitId,
+        string CurrentPermitSummary,
+        int TotalPermitsCount,
+        int CurrentRenewalSequence,
+        DateOnly? PeriodFrom,
+        DateOnly? PeriodTo);
+
+    private sealed record FinancialContextCardCreditSummaryTestResponse(
+        int TotalCreditsCount,
+        decimal TotalCreditsAmount);
+
+    private sealed record FinancialContextCardCommissionSummaryTestResponse(
+        int TotalCommissionsCount,
+        decimal TotalCommissionsAmount,
+        decimal TotalPromoterCommission,
+        decimal TotalAdminCommission,
+        decimal TotalThirdPartyCommission);
 
     private sealed record FinancialPermitRenewalDraftTestResponse(
         Guid SourcePermitId,

@@ -137,6 +137,32 @@ public sealed record FinancialPermitContextResolutionResponse(
     string SuggestionMessage,
     string RouteHint);
 
+public sealed record FinancialContextCardResponse(
+    FinancialPermitContextResolutionResponse Resolution,
+    FinancialContextCardRenewalChainSummaryResponse? RenewalChainSummary,
+    FinancialContextCardCreditSummaryResponse? CreditSummary,
+    FinancialContextCardCommissionSummaryResponse? CommissionSummary,
+    IReadOnlyList<string> AvailableActions);
+
+public sealed record FinancialContextCardRenewalChainSummaryResponse(
+    Guid CurrentPermitId,
+    string CurrentPermitSummary,
+    int TotalPermitsCount,
+    int CurrentRenewalSequence,
+    DateOnly? PeriodFrom,
+    DateOnly? PeriodTo);
+
+public sealed record FinancialContextCardCreditSummaryResponse(
+    int TotalCreditsCount,
+    decimal TotalCreditsAmount);
+
+public sealed record FinancialContextCardCommissionSummaryResponse(
+    int TotalCommissionsCount,
+    decimal TotalCommissionsAmount,
+    decimal TotalPromoterCommission,
+    decimal TotalAdminCommission,
+    decimal TotalThirdPartyCommission);
+
 public sealed record FinancialPermitContextPermitResponse(
     Guid PermitId,
     Guid CurrentRootPermitId,

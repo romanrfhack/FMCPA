@@ -44,7 +44,7 @@ La suite falla si un endpoint real queda publico fuera del allowlist, si un endp
 | Donatarias lectura y documentos | `GET /api/donations`, `GET /api/donations/*`, downloads de evidencia | `DONATIONS_READ` | Si | Si | Si |
 | Donatarias escritura | `POST /api/donations`, aplicaciones, uploads de evidencia | `DONATIONS_WRITE` | No | Si | Si |
 | Donatarias cierre formal | `POST /api/donations/{donationId}/close` | `DONATIONS_WRITE` + `FORMAL_CLOSE_ADMIN` | No | No | Si |
-| Financieras lectura | `GET /api/financials`, `GET /api/financials/*` | `FINANCIALS_READ` | Si | Si | Si |
+| Financieras lectura | `GET /api/financials`, `GET /api/financials/*`, incluye resolucion contextual, ficha contextual, cadena y drafts de renovacion | `FINANCIALS_READ` | Si | Si | Si |
 | Financieras escritura | `POST /api/financials`, `POST /api/financials/{permitId}/renew`, creditos, comisiones | `FINANCIALS_WRITE` | No | Si | Si |
 | Financieras cierre formal | `POST /api/financials/{permitId}/close` | `FINANCIALS_WRITE` + `FORMAL_CLOSE_ADMIN` | No | No | Si |
 | Federacion lectura y documentos | `GET /api/federation/*`, downloads de evidencia | `FEDERATION_READ` | Si | Si | Si |

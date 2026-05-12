@@ -8,6 +8,7 @@ import {
   CreateFinancialCreditCommissionRequest,
   CreateFinancialCreditRequest,
   CreateFinancialPermitRequest,
+  FinancialContextCard,
   FinancialCredit,
   FinancialPermitActiveConflict,
   FinancialPermitAlert,
@@ -80,8 +81,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           <article class="form-card">
             <div class="card-header">
               <div>
-                <h3>Captura contextual de crédito</h3>
-                <p>Busca el oficio vigente por contexto operativo y abre la captura existente.</p>
+                <h3>Ficha operativa financiera</h3>
+                <p>Consulta el estado operativo por financiera, dependencia y stand.</p>
               </div>
             </div>
 
@@ -99,47 +100,117 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               }
             }
 
-            @if (contextualCreditResolution(); as resolution) {
-              <div class="alert success conflict-action">
-                @if (resolution.currentPermit; as currentPermit) {
-                  <button type="button" class="ghost" (click)="openCurrentPermit(currentPermit.permitId)">
-                    Ir al vigente
-                  </button>
-                  <span>
-                    {{ resolution.suggestionMessage }}
-                    · {{ currentPermit.summary }}
-                    · Secuencia {{ currentPermit.renewalSequence }}
+            @if (financialContextCard(); as contextCard) {
+              <div class="context-panel">
+                <div class="row-top">
+                  <div>
+                    <h4>{{ contextCard.resolution.financialName }}</h4>
+                    <p class="meta">
+                      {{ contextCard.resolution.institutionOrDependency }} · {{ contextCard.resolution.placeOrStand }}
+                    </p>
+                  </div>
+                  <span class="status-pill" [class]="suggestionClass(contextCard.resolution.suggestionCode)">
+                    {{ suggestionLabel(contextCard.resolution.suggestionCode) }}
                   </span>
-                } @else if (resolution.lastKnownPermit; as lastKnownPermit) {
-                  <button type="button" class="ghost" (click)="openCurrentPermit(lastKnownPermit.permitId)">
-                    Abrir último permiso / cadena
-                  </button>
-                  @if (resolution.suggestionCode === 'RENEW_LAST_PERMIT') {
+                </div>
+
+                <p class="inline-note">{{ contextCard.resolution.suggestionMessage }}</p>
+
+                @if (contextCard.resolution.currentPermit; as currentPermit) {
+                  <p class="meta">
+                    Vigente: {{ currentPermit.summary }} · Secuencia {{ currentPermit.renewalSequence }}
+                    · {{ currentPermit.validFrom }} a {{ currentPermit.validTo }}
+                  </p>
+                } @else if (contextCard.resolution.lastKnownPermit; as lastKnownPermit) {
+                  <p class="meta">
+                    Antecedente: {{ lastKnownPermit.summary }} · {{ lastKnownPermit.statusName }}
+                    · Secuencia {{ lastKnownPermit.renewalSequence }}
+                    · {{ lastKnownPermit.validFrom }} a {{ lastKnownPermit.validTo }}
+                  </p>
+                } @else {
+                  <p class="meta">Sin oficio vigente ni antecedente documentado para el contexto consultado.</p>
+                }
+
+                <div class="summary-grid context-summary-grid">
+                  <article>
+                    <h4>Cadena</h4>
+                    <p>{{ contextCard.renewalChainSummary?.totalPermitsCount ?? 0 }}</p>
+                  </article>
+                  <article>
+                    <h4>Secuencia</h4>
+                    <p>{{ contextCard.renewalChainSummary?.currentRenewalSequence ?? '-' }}</p>
+                  </article>
+                  <article>
+                    <h4>Periodo</h4>
+                    <p>
+                      {{ periodRangeLabel(contextCard.renewalChainSummary?.periodFrom ?? null, contextCard.renewalChainSummary?.periodTo ?? null) }}
+                    </p>
+                  </article>
+                  <article>
+                    <h4>Créditos</h4>
+                    <p>{{ contextCard.creditSummary?.totalCreditsCount ?? 0 }}</p>
+                  </article>
+                  <article>
+                    <h4>Monto créditos</h4>
+                    <p>{{ (contextCard.creditSummary?.totalCreditsAmount ?? 0) | number: '1.2-2' }}</p>
+                  </article>
+                  <article>
+                    <h4>Comisiones</h4>
+                    <p>{{ (contextCard.commissionSummary?.totalCommissionsAmount ?? 0) | number: '1.2-2' }}</p>
+                  </article>
+                  <article>
+                    <h4>Promotor</h4>
+                    <p>{{ (contextCard.commissionSummary?.totalPromoterCommission ?? 0) | number: '1.2-2' }}</p>
+                  </article>
+                  <article>
+                    <h4>Administración</h4>
+                    <p>{{ (contextCard.commissionSummary?.totalAdminCommission ?? 0) | number: '1.2-2' }}</p>
+                  </article>
+                  <article>
+                    <h4>Terceros</h4>
+                    <p>{{ (contextCard.commissionSummary?.totalThirdPartyCommission ?? 0) | number: '1.2-2' }}</p>
+                  </article>
+                </div>
+
+                <div class="form-actions context-actions">
+                  @if (contextActionAvailable(contextCard, 'CAPTURE_CREDIT')) {
                     <button
                       type="button"
                       class="ghost"
-                      (click)="prepareRenewalFromContextResolution(resolution)"
+                      (click)="captureCreditFromContextCard(contextCard)"
+                      [disabled]="!canWrite()">
+                      Capturar crédito
+                    </button>
+                  }
+                  @if (contextActionAvailable(contextCard, 'PREPARE_RENEWAL')) {
+                    <button
+                      type="button"
+                      class="ghost"
+                      (click)="prepareRenewalFromContextCard(contextCard)"
                       [disabled]="isPreparingRenewalDraft() || !canWrite()">
                       Preparar renovación
                     </button>
                   }
-                  <span>
-                    {{ resolution.suggestionMessage }}
-                    · Último estatus {{ lastKnownPermit.statusName }}
-                    · {{ lastKnownPermit.validFrom }} a {{ lastKnownPermit.validTo }}
-                  </span>
-                } @else {
-                  @if (resolution.suggestionCode === 'CREATE_NEW_PERMIT') {
+                  @if (contextActionAvailable(contextCard, 'CREATE_PERMIT')) {
                     <button
                       type="button"
                       class="ghost"
-                      (click)="preparePermitFromContextResolution(resolution)"
+                      (click)="preparePermitFromContextCard(contextCard)"
                       [disabled]="!canWrite()">
                       Preparar alta de oficio
                     </button>
                   }
-                  <span>{{ resolution.suggestionMessage }}</span>
-                }
+                  @if (contextActionAvailable(contextCard, 'VIEW_CURRENT_PERMIT')) {
+                    <button type="button" class="ghost" (click)="viewPermitFromContextCard(contextCard)">
+                      Ver permiso
+                    </button>
+                  }
+                  @if (contextActionAvailable(contextCard, 'VIEW_CHAIN')) {
+                    <button type="button" class="ghost" (click)="viewPermitFromContextCard(contextCard)">
+                      Ver cadena
+                    </button>
+                  }
+                </div>
               </div>
             }
 
@@ -160,7 +231,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               </label>
 
               <div class="form-actions full-width">
-                <button type="submit" [disabled]="isPreparingContextualCredit() || !canWrite()">Capturar crédito</button>
+                <button type="submit" [disabled]="isPreparingContextualCredit()">Consultar ficha</button>
                 <button type="button" class="ghost" (click)="resetContextualCreditForm()">Limpiar</button>
               </div>
             </form>
@@ -1387,6 +1458,7 @@ export class FinancialsPageComponent {
   protected readonly currentPermitLookupResult = signal<FinancialPermitContextResolution | null>(null);
   protected readonly currentPermitLookupMessage = signal<string | null>(null);
   protected readonly contextualPermitCreateResolution = signal<FinancialPermitContextResolution | null>(null);
+  protected readonly financialContextCard = signal<FinancialContextCard | null>(null);
   protected readonly contextualCreditResolution = signal<FinancialPermitContextResolution | null>(null);
   protected readonly contextualCreditBlocked = signal<FinancialPermitOperationBlocked | null>(null);
   protected readonly contextualCreditError = signal<string | null>(null);
@@ -1586,6 +1658,7 @@ export class FinancialsPageComponent {
   }
 
   protected async startContextualCreditCapture(): Promise<void> {
+    this.financialContextCard.set(null);
     this.contextualCreditResolution.set(null);
     this.contextualCreditBlocked.set(null);
     this.contextualCreditError.set(null);
@@ -1610,14 +1683,9 @@ export class FinancialsPageComponent {
     this.isPreparingContextualCredit.set(true);
 
     try {
-      const resolution = await firstValueFrom(this.financialsService.resolveCurrentPermit(request));
-      const currentPermit = resolution.currentPermit;
-
-      if (currentPermit) {
-        await this.openPermitFromContext(currentPermit.permitId);
-      }
-
-      this.contextualCreditResolution.set(resolution);
+      const contextCard = await firstValueFrom(this.financialsService.getContextCard(request));
+      this.financialContextCard.set(contextCard);
+      this.contextualCreditResolution.set(contextCard.resolution);
     } catch (error) {
       const blocked = this.extractFinancialPermitOperationBlocked(error);
       this.contextualCreditBlocked.set(blocked);
@@ -1631,6 +1699,7 @@ export class FinancialsPageComponent {
   }
 
   protected resetContextualCreditForm(): void {
+    this.financialContextCard.set(null);
     this.contextualCreditResolution.set(null);
     this.contextualCreditBlocked.set(null);
     this.contextualCreditError.set(null);
@@ -1685,6 +1754,37 @@ export class FinancialsPageComponent {
     } finally {
       this.isPreparingRenewalDraft.set(false);
     }
+  }
+
+  protected contextActionAvailable(contextCard: FinancialContextCard, action: string): boolean {
+    return contextCard.availableActions.includes(action);
+  }
+
+  protected async captureCreditFromContextCard(contextCard: FinancialContextCard): Promise<void> {
+    const currentPermitId = contextCard.resolution.currentPermit?.permitId;
+    if (!currentPermitId) {
+      this.contextualCreditError.set('La ficha no contiene un permiso vigente para capturar crédito.');
+      return;
+    }
+
+    this.contextualCreditResolution.set(contextCard.resolution);
+    await this.openPermitFromContext(currentPermitId);
+  }
+
+  protected preparePermitFromContextCard(contextCard: FinancialContextCard): void {
+    this.preparePermitFromContextResolution(contextCard.resolution);
+  }
+
+  protected async prepareRenewalFromContextCard(contextCard: FinancialContextCard): Promise<void> {
+    await this.prepareRenewalFromContextResolution(contextCard.resolution);
+  }
+
+  protected async viewPermitFromContextCard(contextCard: FinancialContextCard): Promise<void> {
+    const permitId = contextCard.resolution.currentPermit?.permitId
+      ?? contextCard.resolution.lastKnownPermit?.permitId
+      ?? null;
+
+    await this.openCurrentPermit(permitId);
   }
 
   private async openPermitFromContext(permitId: string): Promise<void> {
@@ -2095,6 +2195,34 @@ export class FinancialsPageComponent {
     }
   }
 
+  protected suggestionClass(suggestionCode: string): string {
+    switch (suggestionCode) {
+      case 'USE_CURRENT_PERMIT':
+        return 'permit-open';
+      case 'RENEW_LAST_PERMIT':
+        return 'permit-review';
+      case 'REVIEW_TERMINAL_CHAIN':
+        return 'permit-closed';
+      default:
+        return 'neutral';
+    }
+  }
+
+  protected suggestionLabel(suggestionCode: string): string {
+    switch (suggestionCode) {
+      case 'USE_CURRENT_PERMIT':
+        return 'Con vigente';
+      case 'RENEW_LAST_PERMIT':
+        return 'Renovable';
+      case 'CREATE_NEW_PERMIT':
+        return 'Sin antecedente';
+      case 'REVIEW_TERMINAL_CHAIN':
+        return 'Terminal';
+      default:
+        return suggestionCode;
+    }
+  }
+
   protected alertStateClass(alertState: string): string {
     switch (alertState) {
       case 'DUE_SOON':
@@ -2159,6 +2287,18 @@ export class FinancialsPageComponent {
     }
 
     return `${operationFrom} a ${operationTo}`;
+  }
+
+  protected periodRangeLabel(periodFrom: string | null, periodTo: string | null): string {
+    if (!periodFrom || !periodTo) {
+      return 'Sin periodo';
+    }
+
+    if (periodFrom === periodTo) {
+      return periodFrom;
+    }
+
+    return `${periodFrom} a ${periodTo}`;
   }
 
   protected chainPermitLabel(financialPermitId: string): string {

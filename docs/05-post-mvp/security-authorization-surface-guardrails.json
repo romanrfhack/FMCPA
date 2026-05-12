@@ -385,7 +385,7 @@
       "routePattern": "/api/financials*",
       "authorization": "policy",
       "requiredPolicies": ["Platform.Financials.Read"],
-      "reason": "Lectura de Financieras."
+      "reason": "Lectura de Financieras, incluyendo resolucion y ficha contextual."
     },
     {
       "method": "POST",

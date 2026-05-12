@@ -10,6 +10,7 @@ import {
   CreateFinancialCreditCommissionRequest,
   CreateFinancialCreditRequest,
   CreateFinancialPermitRequest,
+  FinancialContextCard,
   FinancialCredit,
   FinancialCreditCommission,
   FinancialPermitContextResolution,
@@ -65,6 +66,19 @@ export class FinancialsService {
       .set('placeOrStand', request.placeOrStand);
 
     return this.httpClient.get<FinancialPermitContextResolution>(`${this.apiBaseUrl}/current-permit`, { params });
+  }
+
+  getContextCard(request: {
+    financialName: string;
+    institutionOrDependency: string;
+    placeOrStand: string;
+  }) {
+    const params = new HttpParams()
+      .set('financialName', request.financialName)
+      .set('institutionOrDependency', request.institutionOrDependency)
+      .set('placeOrStand', request.placeOrStand);
+
+    return this.httpClient.get<FinancialContextCard>(`${this.apiBaseUrl}/context-card`, { params });
   }
 
   createPermit(request: CreateFinancialPermitRequest) {

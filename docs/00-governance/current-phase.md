@@ -1,14 +1,14 @@
 # Current Phase
 
 ## Fase actual
-**Track 5 post-MVP: Alta contextual prellenada en Financieras**
+**Track 5 post-MVP: Ficha operativa contextual de Financieras**
 
 ## Estado actual
 - Fecha de inicio documentada: 2026-05-08
-- Estado de la fase: Track 5 abierto con renovacion formal minima de `FinancialPermit`, continuidad operativa por cadena, captura nueva restringida al permiso vigente/no terminal, unicidad operativa minima, resolucion contextual, captura contextual minima de creditos, sugerencias operativas para contextos sin vigente, renovacion contextual prellenada por draft de lectura y alta contextual prellenada para `CREATE_NEW_PERMIT`; pendiente de aprobacion formal
+- Estado de la fase: Track 5 abierto con renovacion formal minima de `FinancialPermit`, continuidad operativa por cadena, captura nueva restringida al permiso vigente/no terminal, unicidad operativa minima, resolucion contextual, captura contextual minima de creditos, sugerencias operativas para contextos sin vigente, renovacion contextual prellenada por draft de lectura, alta contextual prellenada para `CREATE_NEW_PERMIT` y ficha operativa contextual consolidada; pendiente de aprobacion formal
 - Estado del MVP: **Cerrado con reservas**
 - Estado del track anterior: `Track 4` queda con centro operativo, ventanas temporales y exportacion CSV ligera entregados y pendientes de aprobacion formal
-- Enfoque: orientar y preparar la siguiente accion operativa sobre un contexto de Financieras sin abrir workflow complejo, aprobaciones multinivel, catalogo maestro, versionado contractual completo, entidad draft persistida ni refactor del modulo
+- Enfoque: orientar y preparar la siguiente accion operativa sobre un contexto de Financieras desde una ficha de lectura compuesta, sin abrir workflow complejo, aprobaciones multinivel, catalogo maestro, versionado contractual completo, entidad draft persistida, BI ni refactor del modulo
 
 ## Nota operativa
 - El MVP permanece cerrado con reservas; `Track 5` abre evolucion funcional acotada solo sobre Financieras.
@@ -39,7 +39,12 @@
 - La respuesta de resolucion contextual devuelve `currentPermit` si existe, `currentRootPermitId` cuando aplica, `lastKnownPermit` cuando no hay vigente pero existe antecedente, `suggestionCode`, `suggestionMessage` y `routeHint`.
 - La regla minima de sugerencia queda acotada a consulta: `USE_CURRENT_PERMIT` si hay vigente/no terminal; `RENEW_LAST_PERMIT` si no hay vigente pero existe antecedente historico no terminal; `REVIEW_TERMINAL_CHAIN` si el antecedente aplicable es terminal; `CREATE_NEW_PERMIT` si no hay antecedente. La respuesta orienta, no ejecuta renovaciones ni altas automaticas.
 - Si hubiera ambiguedad inesperada de permisos vigentes/no terminales para la misma combinacion, la ruta conserva `409 FINANCIAL_PERMIT_CURRENT_AMBIGUOUS` para obligar revision de datos antes de capturar.
-- La UI de Financieras muestra la sugerencia operativa en `Buscar vigente` y en `Captura contextual de credito`: con vigente permite abrirlo/capturar, con historico o terminal permite abrir el ultimo permiso/cadena, y sin antecedente permite preparar el alta de oficio con el contexto capturado.
+- `GET /api/financials/context-card` compone en lectura la resolucion contextual, la cadena de renovacion, agregados de creditos/comisiones y acciones disponibles para una combinacion `financialName` + `institutionOrDependency` + `placeOrStand`.
+- La ficha operativa no duplica reglas de vigente, historico, terminal ni conflicto: reutiliza la resolucion contextual existente y, cuando hay antecedente, la consulta de cadena `GET /api/financials/{permitId}/renewal-chain`.
+- Las acciones disponibles son orientativas y se derivan de `suggestionCode`: `USE_CURRENT_PERMIT` muestra `CAPTURE_CREDIT`, `VIEW_CURRENT_PERMIT` y `VIEW_CHAIN`; `RENEW_LAST_PERMIT` muestra `PREPARE_RENEWAL`, `VIEW_CURRENT_PERMIT` y `VIEW_CHAIN`; `CREATE_NEW_PERMIT` muestra `CREATE_PERMIT`; `REVIEW_TERMINAL_CHAIN` muestra `VIEW_CURRENT_PERMIT` y `VIEW_CHAIN`.
+- La ficha requiere `FINANCIALS_READ`; las acciones reales conservan sus endpoints y permisos actuales, principalmente `FINANCIALS_WRITE` para captura, alta y renovacion.
+- La UI de Financieras evoluciona el bloque contextual hacia una ficha compacta con estado, permiso vigente o antecedente, recomendacion operativa, resumen de cadena, creditos, comisiones y acciones claras sin graficas ni wizard.
+- La UI de Financieras muestra la sugerencia operativa en `Buscar vigente` y en la ficha operativa contextual: con vigente permite abrirlo/capturar, con historico o terminal permite abrir el ultimo permiso/cadena, y sin antecedente permite preparar el alta de oficio con el contexto capturado.
 - `GET /api/financials/{permitId}/renewal-draft` prepara una renovacion contextual en lectura, sin crear entidad draft, devolviendo datos operativos del ultimo permiso aplicable, fechas sugeridas y campos que el usuario debe confirmar.
 - Si el permiso sugerido por contexto ya es historico, el draft conserva los datos prellenados del permiso aplicable pero apunta `renewalTargetPermitId` al permiso vigente de la cadena para que la renovacion real siga pasando por `POST /api/financials/{permitId}/renew`.
 - La UI de Financieras muestra `Preparar renovacion` cuando `suggestionCode=RENEW_LAST_PERMIT`, carga el draft, prellena lugar/stand, horario, terminos y observaciones, y deja editable el nuevo periodo antes de confirmar la renovacion real.
@@ -51,6 +56,8 @@
 - La captura contextual reutiliza `GET /api/financials/current-permit` mas el `POST /api/financials/{permitId}/credits` existente; si el permiso cambia entre resolucion y alta, el POST conserva el bloqueo coherente de vigente/no terminal.
 - Cuando no puede capturar desde contexto, la UI muestra la sugerencia operativa devuelta por la consulta; el `POST /api/financials/{permitId}/credits` sigue siendo el control final que bloquea historicos o terminales si el estado cambia entre resolucion y alta.
 - En esta subetapa no se agrega migracion, auditoria de consultas, endpoint puente ni tabla de catalogo: la resolucion y captura reutilizan la cadena minima, `IsCurrentVersion=true`, estatus no terminal y normalizacion basica existente.
+- La ficha operativa contextual no agrega migracion, auditoria de consulta ni entidad persistida de contexto; `periodFrom`/`periodTo` del resumen de cadena representan el rango global de vigencias de permisos de la cadena, no fechas de creditos.
+- La validacion runtime de la ficha se cerro sobre SQL Server aislado `fmcpa-sql-context-card` en puerto `14347`, base `FMCPA_ContextCard`, backend local en `5098`, frontend local en `4207`, prueba HTTP real de `USE_CURRENT_PERMIT`, `RENEW_LAST_PERMIT`, `CREATE_NEW_PERMIT` y `REVIEW_TERMINAL_CHAIN`, y validacion UI Playwright de la ficha en Financieras. El primer intento de `dev-up.sh` uso `5097` y quedo bloqueado por un backend local preexistente, por lo que se valido con `run-backend.sh` en `5098`.
 - La validacion local de sugerencias contextuales se ejecuto sobre SQL Server aislado `fmcpa-sql-local` en puerto `14334`, base `FMCPA_ContextSuggestions_20260508`, backend en `5111`, frontend en `4215`, prueba HTTP real de `USE_CURRENT_PERMIT`, `RENEW_LAST_PERMIT`, `CREATE_NEW_PERMIT` y `REVIEW_TERMINAL_CHAIN`, y validacion UI headless del mensaje `CREATE_NEW_PERMIT` con copia de contexto al alta.
 - La validacion runtime de unicidad operativa se cerro sobre SQL Server local aislado `fmcpa-sql-hold-runtime` en puerto `14345`, base `FMCPA_Track5ActiveConflict_Runtime`, backend local en `5106`, frontend local en `4214`, pruebas HTTP reales de alta conflictiva/no conflictiva, renovacion conflictiva/valida y validacion UI Playwright del mensaje con navegacion al oficio vigente.
 - En esta subetapa no se agrega migracion nueva: se reutiliza la cadena minima ya persistida por `Track5FinancialPermitRenewal`.

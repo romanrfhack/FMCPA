@@ -25,7 +25,7 @@
 | PMB-010 | P2 | Security | Seguridad de adjuntos | Alinear acceso a evidencias y archivos con futuras reglas de autenticacion y autorizacion | Entregado, pendiente de aprobacion |
 | PMB-011 | P2 | Analytics | Dashboard analitico | Definir indicadores posteriores al MVP sin rebasar aun la trazabilidad real disponible | Pendiente |
 | PMB-012 | P2 | Analytics | Exportaciones | Evaluar exportaciones simples y acotadas antes de abrir reporteria mas pesada | Pendiente |
-| PMB-013 | P3 | Evolution | Evolucion funcional posterior | Identificar y ejecutar mejoras funcionales posteriores acotadas, sin rehacer modulos ni abrir workflow complejo | Iniciado con subetapas acotadas de Financieras, sugerencias contextuales, renovacion contextual prellenada y alta contextual prellenada, pendiente de aprobacion |
+| PMB-013 | P3 | Evolution | Evolucion funcional posterior | Identificar y ejecutar mejoras funcionales posteriores acotadas, sin rehacer modulos ni abrir workflow complejo | Iniciado con subetapas acotadas de Financieras, sugerencias contextuales, renovacion contextual prellenada, alta contextual prellenada y ficha operativa contextual, pendiente de aprobacion |
 | PMB-014 | P1 | Hardening | Entorno local estable | Estandarizar SQL Server local en Docker, puertos, storage, migraciones, arranque y smoke checks para sesiones repetibles de desarrollo y validacion | Entregado, pendiente de aprobacion |
 | PMB-015 | P1 | Hardening | Tooling de doctor y reset | Incorporar preflight operativo para detectar prerequisitos y conflictos locales, y reset controlado de base local con confirmacion explicita o `--force` | Entregado, pendiente de aprobacion |
 | PMB-016 | P1 | Hardening | Wiring local frontend/API | Resolver el frontend de desarrollo contra el backend configurado via proxy local y `apiBaseUrl` relativo en desarrollo, sin editar codigo fuente cuando cambie el puerto del API | Entregado, pendiente de aprobacion |
@@ -51,6 +51,7 @@
 | PMB-036 | P3 | Evolution | Sugerencias operativas de contexto de Financieras | Devolver siguiente accion en la resolucion contextual: usar vigente, revisar/renovar antecedente, revisar cadena terminal o crear oficio nuevo, sin automatizar renovaciones ni abrir workflow | Entregado, pendiente de aprobacion |
 | PMB-037 | P3 | Evolution | Renovacion contextual prellenada de Financieras | Preparar renovacion desde `RENEW_LAST_PERMIT` con datos del ultimo permiso aplicable, sin persistir draft, y confirmar con el endpoint real de renovacion existente | Entregado, pendiente de aprobacion |
 | PMB-038 | P3 | Evolution | Alta contextual prellenada de Financieras | Preparar alta desde `CREATE_NEW_PERMIT` con contexto operativo prellenado, reutilizando el endpoint actual de alta sin catalogo maestro ni workflow complejo | Entregado, pendiente de aprobacion |
+| PMB-039 | P3 | Evolution | Ficha operativa contextual de Financieras | Consultar `financialName` + `institutionOrDependency` + `placeOrStand` para ver en una sola respuesta estado, sugerencia, cadena, creditos, comisiones y acciones disponibles, sin abrir catalogo maestro, workflow ni BI | Entregado, pendiente de aprobacion |
 
 ## Corte sugerido para la primera aprobacion post-MVP
 - PMB-001

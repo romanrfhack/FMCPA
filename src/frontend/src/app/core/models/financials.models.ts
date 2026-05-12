@@ -202,6 +202,44 @@ export interface FinancialPermitContextResolution {
   routeHint: string;
 }
 
+export interface FinancialContextCard {
+  resolution: FinancialPermitContextResolution;
+  renewalChainSummary: FinancialContextCardRenewalChainSummary | null;
+  creditSummary: FinancialContextCardCreditSummary | null;
+  commissionSummary: FinancialContextCardCommissionSummary | null;
+  availableActions: FinancialContextCardAction[];
+}
+
+export interface FinancialContextCardRenewalChainSummary {
+  currentPermitId: string;
+  currentPermitSummary: string;
+  totalPermitsCount: number;
+  currentRenewalSequence: number;
+  periodFrom: string | null;
+  periodTo: string | null;
+}
+
+export interface FinancialContextCardCreditSummary {
+  totalCreditsCount: number;
+  totalCreditsAmount: number;
+}
+
+export interface FinancialContextCardCommissionSummary {
+  totalCommissionsCount: number;
+  totalCommissionsAmount: number;
+  totalPromoterCommission: number;
+  totalAdminCommission: number;
+  totalThirdPartyCommission: number;
+}
+
+export type FinancialContextCardAction =
+  | 'CAPTURE_CREDIT'
+  | 'PREPARE_RENEWAL'
+  | 'CREATE_PERMIT'
+  | 'VIEW_CHAIN'
+  | 'VIEW_CURRENT_PERMIT'
+  | string;
+
 export interface FinancialPermitContextPermit {
   permitId: string;
   currentRootPermitId: string;
