@@ -2,8 +2,8 @@
 
 ## Guía rápida de operación
 
-**Versión de guía:** Final 1.0  
-**Corte de contenido:** 12 de mayo de 2026  
+**Versión de guía:** Final 1.1
+**Corte de contenido:** 13 de mayo de 2026
 **Alcance del manual:** guía rápida para operación diaria del sistema, basada en las pantallas, rutas, permisos y documentación disponibles en el repositorio.
 
 Esta guía está redactada para usuarios operativos y administrativos de FMCPA Platform. Su objetivo es ayudar a ubicar módulos, entender qué permite hacer cada pantalla y reconocer qué funciones están disponibles, acotadas, en validación o previstas para una fase posterior.
@@ -134,21 +134,54 @@ El usuario puede:
 
 ## Donatarias
 
-[Disponible] La pantalla `/donatarias` administra donaciones maestras, aplicaciones y evidencias.
+[Disponible] La pantalla `/donatarias` administra la transparencia del recurso donado. El módulo está organizado en tabs para separar revisión ejecutiva, captura, distribución, evidencias y reporte.
+
+Tabs disponibles:
+
+- `Resumen`: indicadores principales, semáforos y estado documental agregado.
+- `Donaciones`: listado, filtros y registro de donaciones.
+- `Aplicaciones / distribución`: distribución financiera del recurso por aplicación.
+- `Evidencias`: evidencia agrupada por aplicación y documentos relacionados.
+- `Reporte de transparencia`: reporte operativo con vista imprimible.
+
+KPIs principales:
+
+- Total recibido.
+- Total aplicado.
+- Saldo pendiente.
+- Porcentaje aplicado.
+- Número de aplicaciones.
+- Evidencias registradas.
 
 El usuario puede:
 
 - Filtrar donaciones por estatus o alertas.
 - Registrar donaciones con donante, fecha, tipo, monto, referencia y observaciones.
-- Consultar monto base, aplicado, remanente y avance.
-- Registrar aplicaciones con beneficiario, responsable, monto, estatus y comprobación.
+- Consultar total recibido, total aplicado, saldo pendiente y porcentaje aplicado.
+- Revisar la distribución por aplicación, incluyendo beneficiario, fecha, responsable, monto aplicado, porcentaje del total recibido, saldo restante, estatus y detalle de comprobación.
+- Registrar aplicaciones con beneficiario, responsable, monto, estatus, comprobación y datos de cierre.
 - Cargar y descargar evidencias por aplicación.
 - Revisar alertas de donaciones no aplicadas o parcialmente aplicadas.
 - Consultar documentos relacionados.
+- Revisar semáforos financiero, documental y operativo.
+- Consultar el reporte de transparencia de una donación.
+- Usar la vista imprimible del reporte cuando exista una donación seleccionada.
+
+[Disponible] El reporte de transparencia muestra donante, referencia, fecha de donación, fecha de corte o generación, tipo de donación, totales financieros, estado financiero, estado documental, estado operativo, aplicaciones, evidencias, faltantes y notas de alcance.
+
+[Disponible] El readiness del reporte se presenta como:
+
+- `READY`: sin saldo pendiente y con evidencia mínima registrada.
+- `PARTIAL`: útil para revisión operativa, pero con pendientes financieros o documentales.
+- `NOT_READY`: falta información mínima, por ejemplo aplicaciones o evidencia suficiente para una presentación operativa.
+
+[Disponible] La vista imprimible oculta navegación, formularios y botones de captura. Conserva encabezado, KPIs, estados, aplicaciones, evidencias, faltantes y notas de alcance. No genera PDF oficial desde backend.
 
 [Solo ADMIN] El cierre formal de una donación requiere permisos administrativos.
 
-[Disponible con alcance acotado] La validación documental confirma presencia mínima de evidencia. No valida suficiencia legal, calidad del contenido ni cumplimiento avanzado.
+[Disponible con alcance acotado] La evidencia mínima registrada no sustituye revisión legal, fiscal o contable. El reporte es una vista operativa de transparencia, no un dictamen ni documento oficial.
+
+[Pendiente de fase posterior] Siguen fuera de esta versión: CSV específico de Donatarias, PDF oficial, folio, firma, versionamiento del reporte, validación legal/fiscal/contable, checklist documental avanzado y catálogo formal de donantes.
 
 ## Financieras
 
@@ -300,7 +333,7 @@ El usuario puede:
 | Dashboard | `/dashboard` | `[Disponible]` |
 | Centro operativo | `/operations` | `[En validación]` |
 | Mercados | `/markets` | `[Disponible]` |
-| Donatarias | `/donatarias` | `[Disponible]` |
+| Donatarias | `/donatarias` | `[Disponible]` con reporte de transparencia y vista imprimible |
 | Financieras | `/financials` | `[Disponible]` con funciones en validación |
 | Federación | `/federation` | `[Disponible]` |
 | Contactos | `/contacts` | `[Disponible]` con alcance acotado |
@@ -322,6 +355,7 @@ El usuario puede:
 - Robustecimiento de bitácora, histórico y marca formal de cierre.
 - Política documental avanzada: respaldo formal, retención formal, limpieza segura, legal hold formal, OCR, almacenamiento externo y cumplimiento especializado.
 - Reportes avanzados, inteligencia de negocio, exportaciones masivas y reportes históricos formales.
+- Donatarias: CSV específico, PDF oficial, folio, firma, versionamiento del reporte, checklist documental avanzado y validación legal/fiscal/contable.
 - Seguridad avanzada: autenticación multifactor, proveedor externo de identidad, recuperación avanzada de contraseña, monitoreo especializado y sesiones avanzadas.
 - Catálogo maestro y normalización fuerte para financieras, instituciones, dependencias y stands.
 - Notificaciones externas por correo, WhatsApp u otros canales.
@@ -339,6 +373,7 @@ El usuario puede:
 - Cargar evidencias desde el registro correcto: locatario, aplicación de donación o aplicación de Federación.
 - Revisar `/documents/work-queue` para atender pendientes de completitud, integridad o retención.
 - No asumir que la presencia de un archivo equivale a suficiencia legal o documental.
+- En Donatarias, revisar el semáforo documental y el readiness antes de compartir visualmente el reporte.
 - Tratar la retención vencida como señal de revisión, no como autorización automática de borrado.
 - Reservar acciones de metadata, hold, archivado y restauración a usuarios `ADMIN`.
 

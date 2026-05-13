@@ -1,14 +1,14 @@
 # Current Phase
 
 ## Fase actual
-**Track funcional post-MVP: Donatarias Transparencia - Fase 4 reporte de transparencia por donacion**
+**Track funcional post-MVP: Donatarias Transparencia - Fase 5A vista imprimible no oficial**
 
 ## Estado actual
-- Fecha de inicio documentada: 2026-05-12
-- Estado de la fase: Fase 4 de Donatarias Transparencia implementada con endpoint calculado `GET /api/donations/{donationId}/transparency-report`, reporte presentable en `/donatarias`, readiness operativo preliminar `READY/PARTIAL/NOT_READY`, aplicaciones/evidencias consolidadas y notas de alcance visibles; pendiente de aprobacion formal
+- Fecha de inicio documentada: 2026-05-13
+- Estado de la fase: Fase 5A de Donatarias Transparencia implementada en frontend con accion `Imprimir reporte`, CSS print acotado, ocultamiento de navegacion/formularios/controles, reporte imprimible con KPIs, estados, readiness, aplicaciones, evidencias, faltantes y notas de alcance visibles; pendiente de aprobacion formal
 - Estado del MVP: **Cerrado con reservas**
 - Estado del track anterior: `Track 5` de Financieras queda con ficha operativa contextual consolidada entregada y pendiente de aprobacion formal
-- Enfoque: consolidar transparencia financiera, documental y operativa por donacion reutilizando `DocumentRuleRegistry`, `StoredDocument`, evidencias y endpoints seguros existentes, sin schema nuevo, migracion, permisos nuevos, folio/version oficial, firma, checklist legal avanzado, aprobacion documental humana, PDF/CSV ni validacion legal/contable
+- Enfoque: permitir compartir visualmente la vista operativa de transparencia por donacion usando el endpoint existente `GET /api/donations/{donationId}/transparency-report`, sin schema nuevo, migracion, permisos nuevos, endpoint nuevo, PDF server-side, CSV, folio/version oficial, firma, checklist legal avanzado, aprobacion documental humana ni validacion legal/fiscal/contable
 
 ## Nota operativa
 - El MVP permanece cerrado con reservas; despues de la ficha contextual de Financieras, se abre una evolucion funcional acotada sobre Donatarias orientada a transparencia ante donantes.
@@ -21,6 +21,12 @@
 - El readiness de Fase 4 es criterio operativo preliminar: `READY` requiere saldo en cero, aplicaciones registradas y `MINIMUM_EVIDENCE_COMPLETE`; `PARTIAL` cubre donaciones con aplicaciones pero saldo o evidencia pendiente; `NOT_READY` cubre donaciones sin aplicaciones.
 - La vista `Reporte de transparencia` ya no es placeholder: consume `GET /api/donations/{donationId}/transparency-report` y muestra evidencia descargable por endpoint protegido, sin exponer `StoredRelativePath` ni rutas fisicas internas.
 - Fase 4 mantiene visible: "La evidencia minima registrada acredita presencia documental en el sistema. No sustituye revision legal, fiscal o contable."
+- Donatarias Transparencia Fase 5A agrega impresion desde el tab `Reporte de transparencia` con `window.print()`, usando los datos ya cargados del endpoint de Fase 4 y sin generar archivos desde backend.
+- La vista imprimible conserva encabezado, donante, referencia, fecha de donacion, fecha de corte/generacion, tipo, recibido, aplicado, saldo, porcentaje, estados financiero/documental/operativo, readiness `READY/PARTIAL/NOT_READY`, aplicaciones, evidencias, faltantes y notas de alcance.
+- Al imprimir desde la accion de Fase 5A se ocultan shell/header/nav, tabs, formularios, botones de captura, descargas y controles tecnicos; la impresion se acota a `body.donatarias-print-active` para no alterar la pantalla normal.
+- Fase 5A mantiene visible: "Este reporte es una vista operativa de transparencia basada en la información registrada en el sistema. La evidencia mínima registrada no sustituye revisión legal, fiscal o contable."
+- Si no hay donacion seleccionada, el tab de reporte muestra un mensaje claro y el boton `Imprimir reporte` queda deshabilitado para evitar impresiones vacias.
+- La validacion local de Fase 5A se cerro con `npm run build` exitoso con advertencia existente de presupuesto CSS de Donatarias, `npm test -- --watch=false` `22/22`, `dotnet build src/backend/FMCPA.Backend.sln --no-restore` sin warnings/errores, Playwright mockeado para donacion sin aplicaciones, parcial con evidencia pendiente, completa con evidencia y modo print, y sin migracion nueva.
 - La validacion local de Fase 4 se cerro con `dotnet restore`, `dotnet build`, suite backend de autorizacion/regresion `267/267`, `npm run build`, frontend tests `22/22`, Playwright con API mockeada para tres escenarios UI y `git diff --check`; no hubo migracion.
 - La validacion local de Fase 3 se cerro con stack aislado `FMCPA_DonatariasPhase3Validation`, API `5109`, frontend `4221`, donaciones de prueba sin aplicaciones, evidencia parcial y evidencia completa, pruebas backend del endpoint, build/test frontend, build backend, Playwright sobre `/donatarias` y `git diff --check`; no hubo migracion.
 - La validacion local de Fase 2 se cerro con stack aislado `FMCPA_DonatariasPhase2Validation`, API `5108`, frontend `4220`, tres donaciones de prueba y Playwright sobre `/donatarias` validando KPIs, tabs, query params, distribucion, reporte preliminar y estatus aplicada vs cerrada.

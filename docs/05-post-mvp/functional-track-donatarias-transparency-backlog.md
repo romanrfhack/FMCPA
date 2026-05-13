@@ -184,6 +184,8 @@ Criterios de aceptacion:
 
 ### Fase 5: Exportacion o vista imprimible
 
+Estado 2026-05-13: Fase 5A entregada como vista imprimible frontend no oficial. Se agrego accion `Imprimir reporte` dentro del tab `Reporte de transparencia`, usando los datos actuales de `GET /api/donations/{donationId}/transparency-report`; la impresion oculta navegacion principal, tabs, formularios, botones de captura/descarga y controles tecnicos, y conserva encabezado, KPIs, estados, readiness, aplicaciones, evidencias, faltantes y notas de alcance. No se agrego endpoint, PDF backend, CSV, folio, firma, snapshot/versionamiento, aprobacion documental, permisos, schema ni migracion.
+
 Objetivo:
 
 Permitir compartir el reporte sin dar acceso directo al sistema.
@@ -244,7 +246,7 @@ Criterios de aceptacion:
 | DON-TR-015 | 4 | P0 | Vista de reporte de transparencia | Frontend | Opcional | No | Entregado como tab real basado en `transparency-report`, con KPIs, aplicaciones, evidencias, faltantes y notas. |
 | DON-TR-016 | 4 | P1 | Endpoint `transparency-report` | API | Si | No | Entregado; devuelve reporte calculado sin rutas internas. |
 | DON-TR-017 | 4 | P1 | Timeline funcional de donacion | API/Frontend | Si | No | Alta, aplicaciones, evidencias y cierre se ven en secuencia. |
-| DON-TR-018 | 5 | P0 | Vista imprimible | Frontend | No | No | Impresion oculta navegacion y formularios. |
+| DON-TR-018 | 5 | P0 | Vista imprimible | Frontend | No | No | Entregado en Fase 5A; impresion oculta navegacion, formularios y controles, sin PDF/CSV oficial. |
 | DON-TR-019 | 5 | P1 | Exportacion CSV ligera | API/Frontend | Si | No | Archivo respeta permisos y no expone storage. |
 | DON-TR-020 | 5 | P2 | Exportacion PDF oficial | API/Frontend | Si | No | PDF generado con plantilla aprobada. |
 
@@ -288,6 +290,24 @@ Criterios de aceptacion:
 | `DON-TR-015` | Entregado con el tab `Reporte de transparencia` consumiendo el endpoint nuevo; muestra encabezado, corte, donante, KPIs financieros, estado documental, readiness, aplicaciones, evidencias y notas de alcance. |
 | `DON-TR-016` | Entregado con `GET /api/donations/{donationId}/transparency-report`, protegido por `DONATIONS_READ`, calculado en lectura y sin exponer `StoredRelativePath` ni rutas fisicas. |
 | `DON-TR-017` | Pendiente; timeline funcional unificado queda fuera de Fase 4 para no abrir auditoria/reporting adicional. |
+
+## Estado de Fase 5A
+
+| Item | Resultado |
+| --- | --- |
+| `DON-TR-018` | Entregado como vista imprimible frontend con `window.print()`, boton deshabilitado cuando no hay donacion seleccionada, CSS print acotado y nota de alcance visible en pantalla e impresion. |
+| `DON-TR-019` | Pendiente; CSV ligero queda fuera de Fase 5A. |
+| `DON-TR-020` | Pendiente; PDF oficial/backend queda fuera de Fase 5A. |
+
+## Validacion demo integral 2026-05-13
+
+- Datos usados: `Asociación Donante Demo`, referencia `DON-DEMO-TRANSP-2026-001`, total recibido 100000, tres aplicaciones por 35000, 25000 y 15000, dos evidencias PDF registradas y una aplicacion sin evidencia.
+- Resultado funcional: `/donatarias` carga, tabs visibles, KPIs correctos, distribucion financiera visible, evidencias agrupadas y descargables, semaforo documental pendiente, reporte de transparencia con readiness `PARTIAL`, faltantes y notas de alcance.
+- Resultado print: el boton `Imprimir reporte` invoca `window.print()`, el CSS print oculta navegacion, tabs, formularios y botones, conserva encabezado, KPIs, estados, aplicaciones, evidencias, faltantes y notas.
+- Query params: `/donatarias?donationId=...` carga la donacion; `/donatarias?donationId=...&applicationId=...` abre el contexto de evidencias de la aplicacion seleccionada y permite ir al reporte.
+- Cierre formal: el panel advierte saldo pendiente 25000, una aplicacion con evidencia minima pendiente y que la evidencia no sustituye revision legal o contable.
+- Validacion tecnica: `npm run build`, `npm test -- --watch=false`, `dotnet build src/backend/FMCPA.Backend.sln --no-restore`, Playwright real `1/1` y `git diff --check` pasaron; no hubo cambios backend ni migracion.
+- Estado: lista para demo controlada, explicando que el caso demo esta parcialmente listo por saldo y evidencia pendiente.
 
 ### Puede hacerse solo con frontend y DTOs actuales
 

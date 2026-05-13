@@ -40,12 +40,16 @@
     html {
       scroll-behavior: smooth;
       font-size: 16px;
+      max-width: 100%;
+      overflow-x: hidden;
     }
 
     body {
       margin: 0;
       font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
       color: var(--ink);
+      max-width: 100%;
+      overflow-x: hidden;
       background:
         radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 30rem),
         linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 54%, var(--bg-warm) 100%);
@@ -72,20 +76,22 @@
 
     .page {
       display: grid;
-      grid-template-columns: 17.5rem minmax(0, 1fr);
-      gap: 1.5rem;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1rem;
       min-height: 100vh;
-      padding: 1.5rem;
+      width: 100%;
+      max-width: 100%;
+      padding: 0.85rem;
     }
 
     .nav {
-      position: sticky;
-      top: 1rem;
+      position: static;
       align-self: start;
-      display: grid;
-      gap: 0.35rem;
-      max-height: calc(100vh - 2rem);
-      overflow: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.42rem;
+      max-height: none;
+      overflow: visible;
       padding: 1rem;
       border: 1px solid var(--border);
       border-radius: 1rem;
@@ -95,18 +101,22 @@
 
     .nav strong {
       display: block;
+      width: 100%;
       margin-bottom: 0.45rem;
       color: var(--teal-dark);
       font-size: 0.98rem;
     }
 
     .nav a {
-      display: block;
+      display: inline-flex;
+      align-items: center;
+      min-height: 2.75rem;
       padding: 0.68rem 0.78rem;
       border-radius: 0.75rem;
       color: var(--ink-soft);
       font-size: 0.93rem;
       font-weight: 750;
+      overflow-wrap: anywhere;
     }
 
     .nav a:hover {
@@ -116,8 +126,12 @@
 
     .content {
       display: grid;
+      grid-template-columns: minmax(0, 1fr);
       gap: 1.1rem;
+      width: 100%;
+      max-width: 100%;
       min-width: 0;
+      overflow: hidden;
     }
 
     .hero,
@@ -125,6 +139,9 @@
     .highlight,
     .matrix-panel,
     .phase-panel {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
       border: 1px solid var(--border);
       border-radius: 1rem;
       background: var(--surface);
@@ -134,8 +151,8 @@
     .hero {
       display: grid;
       gap: 1.1rem;
-      min-height: 22rem;
-      padding: 2.2rem;
+      min-height: auto;
+      padding: 1.25rem;
       color: var(--cream);
       background:
         linear-gradient(135deg, rgba(18, 63, 59, 0.98), rgba(15, 118, 110, 0.9)),
@@ -229,7 +246,7 @@
     .highlight,
     .matrix-panel,
     .phase-panel {
-      padding: 1.4rem;
+      padding: 1.05rem;
     }
 
     .section h2,
@@ -259,22 +276,20 @@
 
     .grid-2,
     .grid-3,
-    .grid-4 {
+    .grid-4,
+    .metric-grid,
+    .tab-list {
       display: grid;
       gap: 0.9rem;
       margin-top: 1rem;
     }
 
-    .grid-2 {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .grid-3 {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .grid-4 {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+    .grid-2,
+    .grid-3,
+    .grid-4,
+    .metric-grid,
+    .tab-list {
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .card {
@@ -295,6 +310,52 @@
     .card p {
       margin: 0.62rem 0 0;
       font-size: 0.94rem;
+    }
+
+    .metric-card strong {
+      display: block;
+      color: var(--teal-dark);
+      font-size: 1.28rem;
+      line-height: 1.1;
+    }
+
+    .metric-card span {
+      display: block;
+      margin-top: 0.35rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.35;
+    }
+
+    .tab-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .tab-list li {
+      min-width: 0;
+      padding: 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      background: var(--surface-strong);
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+
+    .tab-list strong {
+      display: block;
+      margin-bottom: 0.25rem;
+      color: var(--teal-dark);
+    }
+
+    .scope-note {
+      margin-top: 1rem;
+      padding: 1rem;
+      border: 1px solid rgba(146, 64, 14, 0.22);
+      border-radius: 0.75rem;
+      color: var(--warning);
+      background: var(--warning-bg);
+      line-height: 1.6;
     }
 
     .highlight {
@@ -323,6 +384,7 @@
       display: inline-flex;
       align-items: center;
       min-height: 2rem;
+      max-width: 100%;
       padding: 0.38rem 0.62rem;
       border: 1px solid var(--border);
       border-radius: 0.62rem;
@@ -331,6 +393,8 @@
       font-family: "Segoe UI Mono", Consolas, monospace;
       font-size: 0.86rem;
       font-weight: 750;
+      overflow-wrap: anywhere;
+      white-space: normal;
     }
 
     .table-wrap {
@@ -383,34 +447,83 @@
       line-height: 1.55;
     }
 
-    @media (max-width: 1080px) {
+    @media (min-width: 721px) {
       .page {
-        grid-template-columns: 1fr;
+        padding: 1.15rem;
       }
 
-      .nav {
-        position: static;
-        display: flex;
-        flex-wrap: wrap;
-        max-height: none;
+      .hero {
+        padding: 1.7rem;
       }
 
-      .nav strong {
-        width: 100%;
+      .section,
+      .highlight,
+      .matrix-panel,
+      .phase-panel {
+        padding: 1.25rem;
       }
 
       .grid-4,
       .grid-3,
-      .grid-2 {
+      .grid-2,
+      .metric-grid,
+      .tab-list {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
-    @media (max-width: 720px) {
+    @media (min-width: 1081px) {
       .page {
-        padding: 0.85rem;
+        grid-template-columns: 17.5rem minmax(0, 1fr);
+        gap: 1.5rem;
+        padding: 1.5rem;
       }
 
+      .nav {
+        position: sticky;
+        top: 1rem;
+        display: grid;
+        gap: 0.35rem;
+        max-height: calc(100vh - 2rem);
+        overflow: auto;
+      }
+
+      .nav strong {
+        width: auto;
+      }
+
+      .nav a {
+        display: flex;
+      }
+
+      .hero {
+        min-height: 22rem;
+        padding: 2.2rem;
+      }
+
+      .section,
+      .highlight,
+      .matrix-panel,
+      .phase-panel {
+        padding: 1.4rem;
+      }
+
+      .grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid-3,
+      .tab-list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .grid-4,
+      .metric-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 768px) {
       .hero,
       .section,
       .highlight,
@@ -420,20 +533,14 @@
         padding: 1.05rem;
       }
 
-      .hero {
-        min-height: auto;
-      }
-
-      .grid-4,
-      .grid-3,
-      .grid-2 {
-        grid-template-columns: 1fr;
-      }
-
       .hero-meta span,
       .badge {
         white-space: normal;
         line-height: 1.2;
+      }
+
+      .table-wrap {
+        -webkit-overflow-scrolling: touch;
       }
     }
 
@@ -528,6 +635,7 @@
       <a href="#navegacion">Navegación</a>
       <a href="#operations">Centro operativo</a>
       <a href="#modulos">Módulos</a>
+      <a href="#donatarias">Donatarias</a>
       <a href="#documentos">Documentos</a>
       <a href="#seguimiento">Seguimiento</a>
       <a href="#seguridad">Seguridad</a>
@@ -545,9 +653,9 @@
           reconocer funciones con alcance acotado y ubicar capacidades previstas para una fase posterior.
         </p>
         <div class="hero-meta">
-          <span>Corte de contenido: 12 de mayo de 2026</span>
+          <span>Corte de contenido: 13 de mayo de 2026</span>
           <span>Alcance: operación diaria</span>
-          <span>Versión de guía: Final 1.0</span>
+          <span>Versión de guía: Final 1.1</span>
           <span>Fuente: repositorio del sistema</span>
         </div>
       </header>
@@ -683,8 +791,8 @@
           <article class="card">
             <h3>Donatarias</h3>
             <span class="badge available">Disponible</span>
-            <p>Donaciones maestras, aplicaciones, evidencias, progreso aplicado y alertas de aplicación.</p>
-            <p><span class="badge scoped">Disponible con alcance acotado</span> Evidencia mínima no equivale a suficiencia legal.</p>
+            <p>Transparencia del recurso donado con KPIs, distribución por aplicación, evidencias, semáforos, reporte y vista imprimible.</p>
+            <p><span class="badge scoped">Disponible con alcance acotado</span> Evidencia mínima no equivale a revisión legal, fiscal o contable.</p>
           </article>
           <article class="card">
             <h3>Financieras</h3>
@@ -703,6 +811,103 @@
             <span class="badge available">Disponible</span>
             <p>Contactos compartidos y catálogos administrativos de comisión, evidencia y estatus.</p>
             <p><span class="badge admin">Solo ADMIN</span> Catálogos administrativos.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="donatarias">
+        <p class="kicker">Donatarias</p>
+        <h2>Transparencia del recurso donado</h2>
+        <p class="lead">
+          <span class="badge available">Disponible</span>
+          <code>/donatarias</code> concentra la consulta operativa de donaciones, aplicaciones, evidencias y reporte de transparencia.
+          El módulo está preparado para revisar cómo se recibió y aplicó el recurso, qué evidencia existe y qué pendientes quedan visibles.
+        </p>
+
+        <h3>Tabs de trabajo</h3>
+        <ul class="tab-list">
+          <li><strong>Resumen</strong> KPIs, semáforos y estado documental agregado.</li>
+          <li><strong>Donaciones</strong> Listado, filtros y captura de donaciones.</li>
+          <li><strong>Aplicaciones / distribución</strong> Beneficiarios, montos, porcentajes y saldo restante.</li>
+          <li><strong>Evidencias</strong> Archivos agrupados por aplicación y documentos relacionados.</li>
+          <li><strong>Reporte de transparencia</strong> Vista consolidada con readiness y faltantes.</li>
+        </ul>
+
+        <h3>KPIs principales</h3>
+        <div class="metric-grid">
+          <article class="card metric-card">
+            <strong>Total recibido</strong>
+            <span>Monto o valor base de la donación registrada.</span>
+          </article>
+          <article class="card metric-card">
+            <strong>Total aplicado</strong>
+            <span>Suma aplicada en beneficiarios o destinos.</span>
+          </article>
+          <article class="card metric-card">
+            <strong>Saldo pendiente</strong>
+            <span>Recurso todavía no aplicado en el sistema.</span>
+          </article>
+          <article class="card metric-card">
+            <strong>% aplicado</strong>
+            <span>Avance financiero frente al total recibido.</span>
+          </article>
+          <article class="card metric-card">
+            <strong>Aplicaciones</strong>
+            <span>Número de registros de distribución del recurso.</span>
+          </article>
+          <article class="card metric-card">
+            <strong>Evidencias</strong>
+            <span>Archivos cargados por aplicación.</span>
+          </article>
+        </div>
+
+        <div class="grid-3">
+          <article class="card">
+            <h3>Semáforos</h3>
+            <p><span class="badge available">Disponible</span> Financiero, documental y operativo se muestran por separado para no mezclar saldo, evidencia y cierre.</p>
+          </article>
+          <article class="card">
+            <h3>Readiness</h3>
+            <p><span class="badge scoped">Disponible con alcance acotado</span> <code>READY</code>, <code>PARTIAL</code> y <code>NOT_READY</code> indican preparación operativa preliminar, no aprobación oficial.</p>
+          </article>
+          <article class="card">
+            <h3>Cierre formal</h3>
+            <p><span class="badge admin">Solo ADMIN</span> El cierre formal advierte saldo y evidencia pendiente antes de confirmar.</p>
+          </article>
+        </div>
+
+        <div class="grid-2">
+          <article class="card">
+            <h3>Reporte de transparencia</h3>
+            <p>
+              Muestra donante, referencia, fecha de donación, fecha de corte/generación, tipo, total recibido,
+              total aplicado, saldo pendiente, porcentaje aplicado, estados financiero/documental/operativo,
+              aplicaciones, evidencias, faltantes y notas de alcance.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Vista imprimible</h3>
+            <p>
+              Permite imprimir visualmente el reporte con <code>window.print()</code>.
+              En impresión se ocultan navegación, formularios, botones y controles técnicos; se conservan encabezado,
+              KPIs, estados, aplicaciones, evidencias, faltantes y notas.
+            </p>
+          </article>
+        </div>
+
+        <p class="scope-note">
+          La evidencia mínima registrada no sustituye revisión legal, fiscal o contable.
+          El reporte de transparencia es una vista operativa del sistema y no debe presentarse como documento oficial.
+        </p>
+
+        <div class="grid-2">
+          <article class="card">
+            <h3>Disponible ahora</h3>
+            <p>Tabs de transparencia, KPIs, distribución financiera, semáforo documental agregado, reporte de transparencia y vista imprimible.</p>
+          </article>
+          <article class="card">
+            <h3>Pendiente de fase posterior</h3>
+            <p>CSV específico, PDF oficial, folio, firma, versionamiento, validación legal/fiscal/contable, checklist documental avanzado y catálogo formal de donantes.</p>
           </article>
         </div>
       </section>
@@ -809,7 +1014,13 @@
                 <td>Donatarias</td>
                 <td><code>/donatarias</code></td>
                 <td><span class="badge available">Disponible</span> <span class="badge scoped">Alcance acotado</span></td>
-                <td>Operación disponible; suficiencia documental/legal no incluida.</td>
+                <td>Tabs, KPIs, distribución, semáforos, reporte de transparencia y vista imprimible disponibles; revisión legal/fiscal/contable no incluida.</td>
+              </tr>
+              <tr>
+                <td>Donatarias</td>
+                <td>CSV específico / PDF oficial / folio / firma</td>
+                <td><span class="badge later">Pendiente de fase posterior</span></td>
+                <td>Exportación formal, folio, firma, versionamiento, checklist documental avanzado y validación legal/fiscal/contable quedan fuera de esta versión.</td>
               </tr>
               <tr>
                 <td>Financieras</td>
@@ -877,6 +1088,10 @@
             <p>No se incluyen reportes avanzados, inteligencia de negocio, exportaciones masivas ni reportes históricos formales.</p>
           </article>
           <article class="card">
+            <h3>Donatarias formal</h3>
+            <p>No se incluyen CSV específico, PDF oficial, folio, firma, versionamiento, checklist avanzado ni validación legal/fiscal/contable.</p>
+          </article>
+          <article class="card">
             <h3>Seguridad avanzada</h3>
             <p>No se incluyen autenticación multifactor, proveedor externo de identidad, sesiones avanzadas ni monitoreo especializado.</p>
           </article>
@@ -905,6 +1120,14 @@
               <li>Cargar evidencias en el registro correcto.</li>
               <li>Revisar <code>/documents/work-queue</code>.</li>
               <li>No asumir suficiencia legal por presencia de archivo.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Donatarias</h3>
+            <ul>
+              <li>Revisar saldo y semáforos antes de compartir el reporte.</li>
+              <li>Usar la vista imprimible solo como apoyo visual operativo.</li>
+              <li>Explicar pendientes cuando el readiness sea <code>PARTIAL</code> o <code>NOT_READY</code>.</li>
             </ul>
           </article>
           <article class="card">

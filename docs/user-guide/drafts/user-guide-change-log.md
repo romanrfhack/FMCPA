@@ -1,5 +1,22 @@
 # Change log de guía rápida FMCPA
 
+## Versión final 1.1
+
+**Fecha de ajuste:** 13 de mayo de 2026
+**Archivos base revisados:** `user-guide-source.md`, `feature-status-matrix.md`, `user-guide-outline.md`, `user-guide-final-source.md`, `user-guide.html`, `user-guide-final.html` y notas de Donatarias Transparencia Fases 1 a 5A.
+
+## Qué se ajustó en esta versión
+
+- Se actualizó Donatarias para presentarlo como módulo de transparencia del recurso donado, no solo como captura de donaciones, aplicaciones y evidencias.
+- Se incorporaron los tabs reales de `/donatarias`: `Resumen`, `Donaciones`, `Aplicaciones / distribución`, `Evidencias` y `Reporte de transparencia`.
+- Se agregaron KPIs visibles: total recibido, total aplicado, saldo pendiente, porcentaje aplicado, número de aplicaciones y evidencias registradas.
+- Se documentaron distribución financiera por aplicación, evidencias por aplicación, semáforos financiero/documental/operativo y readiness `READY`/`PARTIAL`/`NOT_READY`.
+- Se agregó el reporte de transparencia y su vista imprimible como capacidades disponibles.
+- Se reforzó la advertencia: la evidencia mínima registrada no sustituye revisión legal, fiscal o contable.
+- Se mantuvieron visibles los pendientes de fase posterior: CSV específico de Donatarias, PDF oficial, folio, firma, versionamiento de reporte, validación legal/fiscal/contable, checklist documental avanzado y catálogo formal de donantes.
+- Se mejoró la versión HTML final para móviles, tablets y escritorio con navegación interna usable, tarjetas apilables, tablas con scroll controlado, protección contra overflow horizontal y reglas de impresión.
+- No se tocó código funcional, backend, frontend de aplicación, permisos, schema ni migraciones.
+
 ## Versión final 1.0
 
 **Fecha de ajuste:** 12 de mayo de 2026  

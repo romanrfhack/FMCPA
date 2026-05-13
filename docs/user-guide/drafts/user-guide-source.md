@@ -2,7 +2,7 @@
 
 ## Guía rápida de operación
 
-Contenido base preparado para revisión y conversión posterior a PDF/DOCX. Esta guía se basa en el estado real del repositorio al 2026-05-12.
+Contenido base preparado para revisión y conversión posterior a PDF/DOCX. Esta guía se basa en el estado real del repositorio al 2026-05-13.
 
 ## Convención de estados
 
@@ -107,22 +107,61 @@ El usuario puede:
 
 ## Donatarias
 
-[Disponible] La pantalla `/donatarias` administra donaciones maestras, aplicaciones y evidencias.
+[Disponible] La pantalla `/donatarias` administra la transparencia del recurso donado. La vista está organizada en tabs para separar consulta, captura, evidencias y reporte.
+
+Tabs principales:
+
+- `Resumen`: KPIs, semáforos, estado documental agregado y criterio operativo de presentación.
+- `Donaciones`: listado, filtros y captura de donaciones.
+- `Aplicaciones / distribución`: distribución financiera por beneficiario o destino.
+- `Evidencias`: evidencias agrupadas por aplicación y documentos relacionados.
+- `Reporte de transparencia`: vista consolidada para consulta e impresión.
+
+KPIs visibles de la donación seleccionada:
+
+- Total recibido.
+- Total aplicado.
+- Saldo pendiente.
+- Porcentaje aplicado.
+- Número de aplicaciones.
+- Evidencias registradas.
 
 El usuario puede:
 
 - Filtrar donaciones por estatus o alertas activas.
 - Registrar una donación con donante, fecha, tipo, monto base, referencia, estatus y observaciones.
-- Ver monto base, monto aplicado, remanente, porcentaje, aplicaciones y evidencias.
+- Consultar total recibido, total aplicado, saldo pendiente, porcentaje aplicado, aplicaciones y evidencias.
+- Revisar la distribución por aplicación con beneficiario, fecha, responsable, monto, porcentaje del total recibido, saldo restante, estatus y detalle de comprobación.
 - Registrar aplicaciones con beneficiario, fecha, responsable, monto aplicado, estatus, comprobación y datos de cierre.
 - Cargar evidencia por aplicación.
 - Descargar evidencia existente.
 - Revisar alertas de donaciones no aplicadas o parcialmente aplicadas.
 - Consultar documentos relacionados de la aplicación.
+- Revisar semáforos financiero, documental y operativo.
+- Consultar el reporte de transparencia calculado por donación.
+- Usar la vista imprimible del reporte desde el tab `Reporte de transparencia`.
+
+[Disponible] Los semáforos ayudan a separar tres lecturas:
+
+- Financiero: muestra si el recurso está sin aplicar, parcialmente aplicado o aplicado.
+- Documental: muestra si hay evidencia mínima pendiente o completa.
+- Operativo: muestra si la donación está abierta o cerrada operativamente.
+
+[Disponible] El reporte de transparencia muestra donante, referencia, fecha de donación, fecha de corte/generación, tipo de donación, totales financieros, estado financiero, estado documental, estado operativo, aplicaciones, evidencias, faltantes y notas de alcance.
+
+[Disponible] El criterio de readiness del reporte puede mostrarse como:
+
+- `READY`: sin saldo pendiente y con evidencia mínima registrada.
+- `PARTIAL`: existe información útil para presentar, pero quedan pendientes financieros o documentales.
+- `NOT_READY`: no hay aplicaciones o falta información mínima para una presentación operativa.
+
+[Disponible] La vista imprimible usa los datos actuales del reporte de transparencia y oculta navegación, formularios y botones de captura para facilitar una revisión visual limpia. No genera PDF oficial desde backend.
 
 [Solo ADMIN] El cierre formal de una donación requiere permiso administrativo.
 
-[Disponible con alcance acotado] La completitud documental valida presencia mínima de evidencia, pero no valida calidad legal, contenido suficiente ni cumplimiento avanzado.
+[Disponible con alcance acotado] La evidencia mínima registrada no sustituye revisión legal, fiscal o contable. El reporte de transparencia es una vista operativa y no debe presentarse como documento oficial legal, fiscal o contable.
+
+[Pendiente de fase posterior] Quedan fuera de esta versión: CSV específico de Donatarias, PDF oficial, folio, firma, versionamiento del reporte, validación legal/fiscal/contable, checklist documental avanzado y catálogo formal de donantes.
 
 ## Financieras
 

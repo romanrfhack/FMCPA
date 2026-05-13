@@ -67,12 +67,18 @@ Agregar una nota breve: la guía rápida no sustituye capacitación completa y a
 ## 9. Donatarias
 
 - Ruta `/donatarias`
-- Donación maestra
-- Aplicaciones
-- Evidencias por aplicación
-- Progreso aplicado/remanente
+- Transparencia del recurso donado
+- Tabs: Resumen, Donaciones, Aplicaciones / distribución, Evidencias, Reporte de transparencia
+- KPIs de recibido, aplicado, saldo, porcentaje, aplicaciones y evidencias
+- Distribución de aplicaciones
+- Evidencia documental por aplicación
+- Semáforos financiero, documental y operativo
+- Readiness `READY`, `PARTIAL`, `NOT_READY`
+- Reporte de transparencia
+- Vista imprimible
 - Cierre formal solo ADMIN
-- Documentos relacionados
+- Alcance y límites: evidencia mínima no sustituye revisión legal, fiscal o contable
+- Pendientes: CSV específico, PDF oficial, folio/firma/versionamiento, checklist avanzado y catálogo formal de donantes
 
 ## 10. Financieras
 

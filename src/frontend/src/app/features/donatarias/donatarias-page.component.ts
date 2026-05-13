@@ -1,4 +1,4 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -736,20 +736,28 @@ interface PresentationReadiness {
 
       @if (activeTab() === 'report') {
         @if (selectedTransparencyReport(); as report) {
-          <section class="tab-panel">
-            <article class="detail-card report-preview">
-              <div class="card-header">
+          <section class="tab-panel report-tab-panel">
+            <article class="detail-card report-preview printable-report" aria-label="Reporte de transparencia de donacion">
+              <div class="card-header report-header">
                 <div>
                   <p class="page-kicker">Reporte de transparencia</p>
-                  <h3>{{ report.donorEntityName }}</h3>
+                  <h3>Reporte de transparencia de donación</h3>
+                  <p class="report-subtitle">{{ report.donorEntityName }}</p>
                   <p>
-                    Vista de consulta en pantalla con informacion financiera, documental y operativa registrada.
+                    Vista operativa de consulta con informacion financiera, documental y operativa registrada.
                   </p>
                 </div>
-                <span class="status-pill neutral">
-                  Corte {{ report.reportGeneratedUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}
-                </span>
+                <div class="detail-badges report-actions">
+                  <span class="status-pill neutral">
+                    Corte {{ report.reportGeneratedUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}
+                  </span>
+                  <button type="button" class="ghost print-hidden" (click)="printTransparencyReport()">
+                    Imprimir reporte
+                  </button>
+                </div>
               </div>
+
+              <p class="inline-note report-scope-note">{{ transparencyScopeNote }}</p>
 
               <div class="summary-grid">
                 <article>
@@ -769,7 +777,11 @@ interface PresentationReadiness {
                   <p>{{ report.reference }}</p>
                 </article>
                 <article>
-                  <h4>Estatus operativo</h4>
+                  <h4>Fecha de corte / generación</h4>
+                  <p>{{ report.reportGeneratedUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</p>
+                </article>
+                <article>
+                  <h4>Estado operativo</h4>
                   <p>{{ report.operationalStatus.donationStatusName }}</p>
                 </article>
                 <article>
@@ -822,16 +834,18 @@ interface PresentationReadiness {
 
               <article class="readiness-card {{ reportReadinessClass(report.presentationReadiness.readinessCode) }}">
                 <p class="page-kicker">Criterio operativo preliminar</p>
-                <h4>{{ report.presentationReadiness.readinessLabel }}</h4>
+                <h4>
+                  Readiness {{ report.presentationReadiness.readinessCode }} ·
+                  {{ report.presentationReadiness.readinessLabel }}
+                </h4>
+                <p class="meta">{{ reportReadinessDescription(report.presentationReadiness.readinessCode) }}</p>
                 @for (reason of report.presentationReadiness.reasons; track reason) {
                   <p class="meta">{{ reason }}</p>
                 }
               </article>
 
               <div class="warning-list">
-                <p class="inline-note">
-                  La evidencia mínima registrada acredita presencia documental en el sistema. No sustituye revisión legal, fiscal o contable.
-                </p>
+                <p class="inline-note">{{ transparencyScopeNote }}</p>
                 @if (report.financialSummary.remainingAmount > 0) {
                   <p class="inline-note">Aún existe recurso pendiente de aplicar.</p>
                 }
@@ -963,7 +977,7 @@ interface PresentationReadiness {
                                 }
 
                                 <div class="row-actions">
-                                  <button type="button" class="ghost" (click)="downloadTransparencyEvidence(evidence)">
+                                  <button type="button" class="ghost print-hidden" (click)="downloadTransparencyEvidence(evidence)">
                                     Descargar evidencia
                                   </button>
                                 </div>
@@ -990,6 +1004,7 @@ interface PresentationReadiness {
 
               <div class="report-section">
                 <h4>Notas de alcance</h4>
+                <p class="inline-note">{{ transparencyScopeNote }}</p>
                 @for (note of report.scopeNotes; track note) {
                   <p class="inline-note">{{ note }}</p>
                 }
@@ -997,7 +1012,19 @@ interface PresentationReadiness {
             </article>
           </section>
         } @else {
-          <p class="empty-state">Selecciona una donacion para ver el reporte de transparencia.</p>
+          <article class="empty-card report-empty-state">
+            <h3>Selecciona una donacion</h3>
+            <p class="empty-state">El reporte imprimible solo esta disponible cuando hay una donacion seleccionada.</p>
+            <div class="form-actions">
+              <button
+                type="button"
+                class="ghost"
+                disabled
+                title="Selecciona una donacion antes de imprimir el reporte.">
+                Imprimir reporte
+              </button>
+            </div>
+          </article>
         }
       }
 
@@ -1704,6 +1731,26 @@ interface PresentationReadiness {
         gap: 1.2rem;
       }
 
+      .report-subtitle {
+        margin-top: 0.35rem;
+        color: #203734;
+        font-size: 1.15rem;
+        font-weight: 800;
+      }
+
+      .report-actions {
+        justify-content: flex-end;
+      }
+
+      .report-scope-note {
+        border-left: 4px solid #0f766e;
+        padding: 0.85rem 1rem;
+        border-radius: 0.85rem;
+        background: rgba(15, 118, 110, 0.08);
+        color: #17423d;
+        font-weight: 700;
+      }
+
       .readiness-card {
         padding: 1rem;
         border-radius: 1rem;
@@ -2014,9 +2061,11 @@ interface PresentationReadiness {
 export class DonatariasPageComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
+  private readonly document = inject(DOCUMENT);
   private readonly authService = inject(AuthService);
   private readonly donationsService = inject(DonationsService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
+  private readonly printBodyClassName = 'donatarias-print-active';
   private readonly initialDonationId = this.route.snapshot.queryParamMap.get('donationId');
   private readonly initialApplicationId = this.route.snapshot.queryParamMap.get('applicationId');
   private hasAppliedInitialQuerySelection = false;
@@ -2056,6 +2105,8 @@ export class DonatariasPageComponent {
   protected readonly selectedEvidenceFile = signal<File | null>(null);
   protected readonly selectedEvidenceFileName = signal<string | null>(null);
   protected readonly closeReason = signal('');
+  protected readonly transparencyScopeNote =
+    'Este reporte es una vista operativa de transparencia basada en la información registrada en el sistema. La evidencia mínima registrada no sustituye revisión legal, fiscal o contable.';
 
   protected readonly creatableDonationStatuses = computed(() =>
     this.donationStatuses().filter((status) => status.statusCode === 'NOT_APPLIED' || status.statusCode === 'CLOSED'));
@@ -2300,6 +2351,23 @@ export class DonatariasPageComponent {
 
   protected setActiveTab(tab: DonatariasTab): void {
     this.activeTab.set(tab);
+  }
+
+  protected printTransparencyReport(): void {
+    if (!this.selectedTransparencyReport()) {
+      this.pageError.set('Selecciona una donación antes de imprimir el reporte de transparencia.');
+      return;
+    }
+
+    this.pageError.set(null);
+    this.activeTab.set('report');
+    this.document.body.classList.add(this.printBodyClassName);
+
+    window.addEventListener(
+      'afterprint',
+      () => this.document.body.classList.remove(this.printBodyClassName),
+      { once: true });
+    window.print();
   }
 
   protected async applyFilters(): Promise<void> {
@@ -2806,6 +2874,19 @@ export class DonatariasPageComponent {
         return 'signal-partial';
       default:
         return 'signal-warning';
+    }
+  }
+
+  protected reportReadinessDescription(readinessCode: string): string {
+    switch (readinessCode) {
+      case 'READY':
+        return 'Listo operativamente para presentarse como vista de transparencia.';
+      case 'PARTIAL':
+        return 'Presenta avance operativo, pero conserva saldo pendiente o evidencia minima pendiente.';
+      case 'NOT_READY':
+        return 'No esta listo para presentarse porque faltan aplicaciones registradas.';
+      default:
+        return 'Criterio operativo preliminar calculado con los datos registrados.';
     }
   }
 
