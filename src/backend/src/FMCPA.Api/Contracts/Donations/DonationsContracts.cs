@@ -84,6 +84,73 @@ public sealed record DonationApplicationDocumentaryStatusResponse(
     IReadOnlyList<string> RequiredDocumentClassCodes,
     string? RouteHint);
 
+public sealed record DonationTransparencyReportResponse(
+    Guid DonationId,
+    string DonorEntityName,
+    DateOnly DonationDate,
+    string DonationType,
+    string Reference,
+    string? Notes,
+    DateTimeOffset ReportGeneratedUtc,
+    DonationTransparencyFinancialSummaryResponse FinancialSummary,
+    DonationTransparencyOperationalStatusResponse OperationalStatus,
+    DonationTransparencyDocumentarySummaryResponse DocumentarySummary,
+    IReadOnlyList<DonationTransparencyApplicationResponse> Applications,
+    DonationTransparencyReadinessResponse PresentationReadiness,
+    IReadOnlyList<string> ScopeNotes);
+
+public sealed record DonationTransparencyFinancialSummaryResponse(
+    decimal BaseAmount,
+    decimal AppliedAmountTotal,
+    decimal RemainingAmount,
+    decimal AppliedPercentage,
+    int ApplicationCount);
+
+public sealed record DonationTransparencyOperationalStatusResponse(
+    string DonationStatusCode,
+    string DonationStatusName,
+    bool StatusIsClosed,
+    string FinancialStatusLabel,
+    string OperationalStatusLabel);
+
+public sealed record DonationTransparencyDocumentarySummaryResponse(
+    string DocumentaryStatusCode,
+    string DocumentaryStatusLabel,
+    int TotalApplications,
+    int ApplicationsWithEvidence,
+    int ApplicationsMissingEvidence,
+    bool IsMinimumEvidenceComplete);
+
+public sealed record DonationTransparencyApplicationResponse(
+    Guid ApplicationId,
+    string BeneficiaryName,
+    DateOnly ApplicationDate,
+    string ResponsibleName,
+    decimal AppliedAmount,
+    decimal PercentageOfDonation,
+    string StatusCode,
+    string StatusName,
+    string? VerificationDetails,
+    string? ClosingDetails,
+    int EvidenceCount,
+    int ActiveDocumentCount,
+    string RequirementStatus,
+    string? MissingReasonCode,
+    IReadOnlyList<DonationTransparencyEvidenceResponse> Evidences);
+
+public sealed record DonationTransparencyEvidenceResponse(
+    Guid EvidenceId,
+    string EvidenceTypeName,
+    string OriginalFileName,
+    string? Description,
+    DateTimeOffset UploadedUtc,
+    string DownloadUrl);
+
+public sealed record DonationTransparencyReadinessResponse(
+    string ReadinessCode,
+    string ReadinessLabel,
+    IReadOnlyList<string> Reasons);
+
 public sealed record CreateDonationApplicationRequest(
     string BeneficiaryName,
     Guid? ResponsibleContactId,

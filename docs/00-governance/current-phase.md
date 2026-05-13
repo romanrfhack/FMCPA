@@ -1,14 +1,14 @@
 # Current Phase
 
 ## Fase actual
-**Track funcional post-MVP: Donatarias Transparencia - Fase 3 semaforo documental agregado**
+**Track funcional post-MVP: Donatarias Transparencia - Fase 4 reporte de transparencia por donacion**
 
 ## Estado actual
 - Fecha de inicio documentada: 2026-05-12
-- Estado de la fase: Fase 3 de Donatarias Transparencia implementada y validada con endpoint calculado `GET /api/donations/{donationId}/documentary-status`, semaforo documental agregado por donacion, conteo de aplicaciones completas/pendientes, faltantes documentales por aplicacion e integracion en Resumen, Aplicaciones, Evidencias, Reporte preliminar y cierre formal; pendiente de aprobacion formal
+- Estado de la fase: Fase 4 de Donatarias Transparencia implementada con endpoint calculado `GET /api/donations/{donationId}/transparency-report`, reporte presentable en `/donatarias`, readiness operativo preliminar `READY/PARTIAL/NOT_READY`, aplicaciones/evidencias consolidadas y notas de alcance visibles; pendiente de aprobacion formal
 - Estado del MVP: **Cerrado con reservas**
 - Estado del track anterior: `Track 5` de Financieras queda con ficha operativa contextual consolidada entregada y pendiente de aprobacion formal
-- Enfoque: reforzar transparencia documental de Donatarias reutilizando `DocumentRuleRegistry` y `StoredDocument` activos/no reemplazados, sin schema nuevo, migracion, permisos nuevos, checklist legal avanzado, aprobacion documental humana, exportacion formal ni validacion legal/contable
+- Enfoque: consolidar transparencia financiera, documental y operativa por donacion reutilizando `DocumentRuleRegistry`, `StoredDocument`, evidencias y endpoints seguros existentes, sin schema nuevo, migracion, permisos nuevos, folio/version oficial, firma, checklist legal avanzado, aprobacion documental humana, PDF/CSV ni validacion legal/contable
 
 ## Nota operativa
 - El MVP permanece cerrado con reservas; despues de la ficha contextual de Financieras, se abre una evolucion funcional acotada sobre Donatarias orientada a transparencia ante donantes.
@@ -17,9 +17,14 @@
 - El saldo restante por aplicacion se calcula sobre el orden visual seleccionado en frontend; sirve para lectura operativa de distribucion, no como asiento contable persistido.
 - Donatarias Transparencia Fase 3 agrega un agregado documental server-side por donacion; cuenta evidencia minima con documentos activos de `StoredDocument` asociados a evidencias de aplicacion y conforme a `DocumentRuleRegistry`, no solo con `evidenceCount`.
 - El semaforo documental de Fase 3 distingue `NO_APPLICATIONS`, `EVIDENCE_PENDING` y `MINIMUM_EVIDENCE_COMPLETE`; esto representa presencia documental minima registrada, no cumplimiento legal ni suficiencia contable.
+- Donatarias Transparencia Fase 4 agrega un reporte calculado en lectura por donacion; consolida donante, fecha, tipo, referencia, notas, resumen financiero, estado operativo, estado documental, aplicaciones, evidencias, faltantes y notas de alcance.
+- El readiness de Fase 4 es criterio operativo preliminar: `READY` requiere saldo en cero, aplicaciones registradas y `MINIMUM_EVIDENCE_COMPLETE`; `PARTIAL` cubre donaciones con aplicaciones pero saldo o evidencia pendiente; `NOT_READY` cubre donaciones sin aplicaciones.
+- La vista `Reporte de transparencia` ya no es placeholder: consume `GET /api/donations/{donationId}/transparency-report` y muestra evidencia descargable por endpoint protegido, sin exponer `StoredRelativePath` ni rutas fisicas internas.
+- Fase 4 mantiene visible: "La evidencia minima registrada acredita presencia documental en el sistema. No sustituye revision legal, fiscal o contable."
+- La validacion local de Fase 4 se cerro con `dotnet restore`, `dotnet build`, suite backend de autorizacion/regresion `267/267`, `npm run build`, frontend tests `22/22`, Playwright con API mockeada para tres escenarios UI y `git diff --check`; no hubo migracion.
 - La validacion local de Fase 3 se cerro con stack aislado `FMCPA_DonatariasPhase3Validation`, API `5109`, frontend `4221`, donaciones de prueba sin aplicaciones, evidencia parcial y evidencia completa, pruebas backend del endpoint, build/test frontend, build backend, Playwright sobre `/donatarias` y `git diff --check`; no hubo migracion.
 - La validacion local de Fase 2 se cerro con stack aislado `FMCPA_DonatariasPhase2Validation`, API `5108`, frontend `4220`, tres donaciones de prueba y Playwright sobre `/donatarias` validando KPIs, tabs, query params, distribucion, reporte preliminar y estatus aplicada vs cerrada.
-- La vista de reporte de transparencia queda como preliminar y sin exportacion; el reporte formal, endpoint agregado, PDF/CSV y comprobacion documental avanzada permanecen fuera de esta fase.
+- El reporte sigue siendo vista en pantalla sin exportacion formal; PDF/CSV, folio/versionamiento, firma, reporte oficial, aprobacion documental humana y validacion legal avanzada permanecen fuera de esta fase.
 - No se modifica schema, migraciones, permisos ni significado de estatus.
 - La validacion visual/operativa de Fase 1 se cerro con stack local aislado `FMCPA_DonatariasValidation`, API `5098`, frontend `4218` y una donacion parcial de prueba con dos aplicaciones, una evidencia PDF descargable y una aplicacion sin evidencia; solo se corrigieron labels/copy mínimos en UI.
 - `FinancialPermit` incorpora trazabilidad minima de renovacion: `RenewedFromPermitId`, `CurrentRootPermitId`, `IsCurrentVersion` y `RenewalSequence`.
@@ -473,6 +478,7 @@
 - La documentacion de etapa, riesgos, decisiones y runbook local queda actualizada.
 
 ## Siguiente decision esperada
+- Revisar y aceptar o rechazar Donatarias Transparencia Fase 4 como reporte presentable en pantalla, manteniendo fuera PDF/CSV, folio, firma, aprobacion documental y validacion legal avanzada.
 - Revisar y aceptar o rechazar `Track 4` con centro operativo transversal accionable, ventanas temporales operativas y exportacion ligera.
 - Revisar y aceptar o rechazar el ciclo de vida documental minimo `ACTIVE`/`ARCHIVED`.
 - Revisar y aceptar o rechazar la clasificacion documental minima transversal.
@@ -518,6 +524,10 @@
 - [Document Management Track Document Replacement Traceability Implementation Note](../05-post-mvp/document-management-track-document-replacement-traceability-implementation-note.md)
 - [Document Management Track Document Hold Implementation Note](../05-post-mvp/document-management-track-document-hold-implementation-note.md)
 - [Document Management Track Document Operational Status Implementation Note](../05-post-mvp/document-management-track-document-operational-status-implementation-note.md)
+- [Donatarias Transparency Phase 1 Implementation Note](../05-post-mvp/functional-track-donatarias-transparency-phase-1-implementation-note.md)
+- [Donatarias Transparency Phase 2 Implementation Note](../05-post-mvp/functional-track-donatarias-transparency-phase-2-implementation-note.md)
+- [Donatarias Transparency Phase 3 Implementation Note](../05-post-mvp/functional-track-donatarias-transparency-phase-3-implementation-note.md)
+- [Donatarias Transparency Phase 4 Implementation Note](../05-post-mvp/functional-track-donatarias-transparency-phase-4-implementation-note.md)
 - [MVP Local Runbook](../03-release/mvp-local-runbook.md)
 - [Backlog](./backlog.md)
 - [Historial de aceptacion](./acceptance-history.md)

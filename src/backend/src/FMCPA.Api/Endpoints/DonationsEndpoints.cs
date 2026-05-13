@@ -250,6 +250,29 @@ public static class DonationsEndpoints
                 return Results.Ok(documentaryStatus);
             });
 
+        readGroup.MapGet(
+            "/{donationId:guid}/transparency-report",
+            async (Guid donationId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
+            {
+                var donation = await dbContext.Donations
+                    .AsNoTracking()
+                    .Include(item => item.StatusCatalogEntry)
+                    .SingleOrDefaultAsync(item => item.Id == donationId, cancellationToken);
+
+                if (donation is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var report = await BuildDonationTransparencyReportAsync(
+                    dbContext,
+                    donation,
+                    DateTimeOffset.UtcNow,
+                    cancellationToken);
+
+                return Results.Ok(report);
+            });
+
         adminGroup.MapPost(
             "/{donationId:guid}/close",
             async (Guid donationId, CloseRecordRequest request, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
@@ -901,6 +924,210 @@ public static class DonationsEndpoints
                 : "Evidencia pendiente",
             isMinimumEvidenceComplete,
             applicationStatuses);
+    }
+
+    private static async Task<DonationTransparencyReportResponse> BuildDonationTransparencyReportAsync(
+        PlatformDbContext dbContext,
+        Donation donation,
+        DateTimeOffset reportGeneratedUtc,
+        CancellationToken cancellationToken)
+    {
+        var applications = await dbContext.DonationApplications
+            .AsNoTracking()
+            .Where(item => item.DonationId == donation.Id)
+            .Include(item => item.StatusCatalogEntry)
+            .OrderBy(item => item.ApplicationDate)
+            .ThenBy(item => item.CreatedUtc)
+            .ToListAsync(cancellationToken);
+
+        var evidenceLookup = await BuildEvidenceLookupAsync(dbContext, applications, cancellationToken);
+        var documentaryStatus = await BuildDonationDocumentaryStatusAsync(
+            dbContext,
+            donation.Id,
+            cancellationToken);
+        var documentaryApplicationLookup = documentaryStatus.ApplicationStatuses
+            .ToDictionary(item => item.ApplicationId);
+        var metrics = CalculateProgress(donation.BaseAmount, applications);
+
+        return new DonationTransparencyReportResponse(
+            donation.Id,
+            donation.DonorEntityName,
+            donation.DonationDate,
+            donation.DonationType,
+            donation.Reference,
+            donation.Notes,
+            reportGeneratedUtc,
+            new DonationTransparencyFinancialSummaryResponse(
+                donation.BaseAmount,
+                metrics.AppliedAmountTotal,
+                metrics.RemainingAmount,
+                metrics.AppliedPercentage,
+                applications.Count),
+            new DonationTransparencyOperationalStatusResponse(
+                donation.StatusCatalogEntry!.StatusCode,
+                donation.StatusCatalogEntry.StatusName,
+                donation.StatusCatalogEntry.IsClosed,
+                BuildFinancialStatusLabel(metrics.AppliedAmountTotal, donation.BaseAmount),
+                BuildOperationalStatusLabel(donation.StatusCatalogEntry, metrics.RemainingAmount)),
+            new DonationTransparencyDocumentarySummaryResponse(
+                documentaryStatus.DocumentaryStatusCode,
+                documentaryStatus.DocumentaryStatusLabel,
+                documentaryStatus.TotalApplications,
+                documentaryStatus.ApplicationsWithEvidence,
+                documentaryStatus.ApplicationsMissingEvidence,
+                documentaryStatus.IsMinimumEvidenceComplete),
+            applications
+                .Select(application => MapDonationTransparencyApplicationResponse(
+                    donation.BaseAmount,
+                    application,
+                    evidenceLookup.GetValueOrDefault(application.Id) ?? [],
+                    documentaryApplicationLookup.GetValueOrDefault(application.Id)))
+                .ToList(),
+            BuildPresentationReadiness(
+                documentaryStatus,
+                metrics,
+                donation.StatusCatalogEntry),
+            BuildTransparencyScopeNotes());
+    }
+
+    private static DonationTransparencyApplicationResponse MapDonationTransparencyApplicationResponse(
+        decimal donationBaseAmount,
+        DonationApplication application,
+        IReadOnlyList<DonationApplicationEvidence> evidences,
+        DonationApplicationDocumentaryStatusResponse? documentaryStatus)
+    {
+        var evidenceCount = documentaryStatus?.EvidenceCount ?? evidences.Count;
+        var activeDocumentCount = documentaryStatus?.ActiveDocumentCount ?? 0;
+        var hasMinimumEvidence = documentaryStatus?.RequirementStatus == MinimumEvidenceRegisteredRequirementStatusCode
+                                 || activeDocumentCount > 0;
+
+        return new DonationTransparencyApplicationResponse(
+            application.Id,
+            application.BeneficiaryName,
+            application.ApplicationDate,
+            application.ResponsibleName,
+            application.AppliedAmount,
+            donationBaseAmount <= 0
+                ? 0
+                : decimal.Round((application.AppliedAmount / donationBaseAmount) * 100m, 2, MidpointRounding.AwayFromZero),
+            application.StatusCatalogEntry!.StatusCode,
+            application.StatusCatalogEntry.StatusName,
+            application.VerificationDetails,
+            application.ClosingDetails,
+            evidenceCount,
+            activeDocumentCount,
+            documentaryStatus?.RequirementStatus
+                ?? (hasMinimumEvidence ? MinimumEvidenceRegisteredRequirementStatusCode : EvidencePendingDocumentaryStatusCode),
+            documentaryStatus?.MissingReasonCode
+                ?? (hasMinimumEvidence ? null : "MISSING_EVIDENCE"),
+            evidences.Select(MapDonationTransparencyEvidenceResponse).ToList());
+    }
+
+    private static DonationTransparencyEvidenceResponse MapDonationTransparencyEvidenceResponse(
+        DonationApplicationEvidence evidence)
+    {
+        return new DonationTransparencyEvidenceResponse(
+            evidence.Id,
+            evidence.EvidenceType!.Name,
+            evidence.OriginalFileName,
+            evidence.Description,
+            evidence.UploadedUtc,
+            $"/api/donations/applications/evidences/{evidence.Id}/download");
+    }
+
+    private static DonationTransparencyReadinessResponse BuildPresentationReadiness(
+        DonationDocumentaryStatusResponse documentaryStatus,
+        DonationProgressMetrics metrics,
+        ModuleStatusCatalogEntry donationStatus)
+    {
+        var reasons = new List<string>();
+
+        if (documentaryStatus.TotalApplications == 0)
+        {
+            reasons.Add("No hay aplicaciones registradas.");
+        }
+
+        if (metrics.RemainingAmount > 0)
+        {
+            reasons.Add("Aún existe recurso pendiente de aplicar.");
+        }
+
+        if (documentaryStatus.ApplicationsMissingEvidence > 0)
+        {
+            reasons.Add("Existen aplicaciones con evidencia pendiente.");
+        }
+
+        if (donationStatus.IsClosed && metrics.RemainingAmount > 0)
+        {
+            reasons.Add("La donación fue cerrada operativamente con saldo pendiente.");
+        }
+
+        if (metrics.RemainingAmount == 0
+            && documentaryStatus.TotalApplications > 0
+            && documentaryStatus.DocumentaryStatusCode == MinimumEvidenceCompleteDocumentaryStatusCode)
+        {
+            reasons.Add("El recurso registrado está aplicado financieramente al 100% y cada aplicación tiene evidencia mínima activa.");
+            return new DonationTransparencyReadinessResponse(
+                "READY",
+                "Lista para presentar (criterio operativo preliminar)",
+                reasons);
+        }
+
+        if (documentaryStatus.TotalApplications > 0)
+        {
+            return new DonationTransparencyReadinessResponse(
+                "PARTIAL",
+                "Parcial: requiere completar saldo o evidencia",
+                reasons.Count == 0 ? ["Existe avance operativo parcial."] : reasons);
+        }
+
+        return new DonationTransparencyReadinessResponse(
+            "NOT_READY",
+            "No lista para presentar",
+            reasons.Count == 0 ? ["Faltan aplicaciones registradas o evidencia mínima suficiente."] : reasons);
+    }
+
+    private static IReadOnlyList<string> BuildTransparencyScopeNotes()
+    {
+        return
+        [
+            "La evidencia mínima registrada acredita presencia documental en el sistema. No sustituye revisión legal, fiscal o contable.",
+            "El criterio de lista para presentar es operativo preliminar; no constituye aprobación legal, fiscal o contable.",
+            "Reporte calculado en lectura con datos actuales de Donatarias; no genera folio, firma, versión oficial ni exportación PDF/CSV.",
+            "Las evidencias se consultan mediante endpoints protegidos; el reporte no expone rutas físicas internas."
+        ];
+    }
+
+    private static string BuildFinancialStatusLabel(decimal appliedAmountTotal, decimal baseAmount)
+    {
+        if (appliedAmountTotal <= 0)
+        {
+            return "Sin aplicar";
+        }
+
+        if (appliedAmountTotal < baseAmount)
+        {
+            return "Parcialmente aplicada";
+        }
+
+        return "Aplicada financieramente";
+    }
+
+    private static string BuildOperationalStatusLabel(
+        ModuleStatusCatalogEntry donationStatus,
+        decimal remainingAmount)
+    {
+        if (donationStatus.IsClosed && remainingAmount > 0)
+        {
+            return "Cerrada operativamente con saldo pendiente";
+        }
+
+        if (donationStatus.IsClosed)
+        {
+            return "Cerrada operativamente";
+        }
+
+        return "Abierta";
     }
 
     private static DonationApplicationResponse MapDonationApplicationResponse(

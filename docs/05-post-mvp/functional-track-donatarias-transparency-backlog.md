@@ -140,6 +140,8 @@ Criterios de aceptacion:
 
 ### Fase 4: Reporte de transparencia para donante
 
+Estado 2026-05-12: Entregada a nivel aplicacion con `GET /api/donations/{donationId}/transparency-report` protegido por `DONATIONS_READ` y tab `Reporte de transparencia` consumiendo ese endpoint. El reporte consolida resumen financiero, estado operativo, estado documental de Fase 3, aplicaciones, evidencias descargables, faltantes, readiness operativo preliminar y notas de alcance; no crea migracion, schema, permisos nuevos, PDF/CSV, folio, firma ni aprobacion documental.
+
 Objetivo:
 
 Consolidar la historia de la donacion en una vista presentable.
@@ -239,8 +241,8 @@ Criterios de aceptacion:
 | DON-TR-012 | 3 | P0 | Agregado de evidencias pendientes por donacion | API/Frontend | Si | No | Entregado con `GET /api/donations/{donationId}/documentary-status`. |
 | DON-TR-013 | 3 | P1 | Unificar lista propia de evidencias y panel documental | UX/UI | No | No | Entregado como lectura agregada y copy que distingue evidencia operativa y catalogo documental relacionado. |
 | DON-TR-014 | 3 | P2 | Checklist documental avanzado | Modelo | Si | Si probable | Reglas por tipo de evidencia o aprobacion quedan persistidas. |
-| DON-TR-015 | 4 | P0 | Vista de reporte de transparencia | Frontend | Opcional | No | Reporte legible por donacion con KPIs, aplicaciones y evidencias. |
-| DON-TR-016 | 4 | P1 | Endpoint `transparency-report` | API | Si | No | Devuelve snapshot calculado sin rutas internas. |
+| DON-TR-015 | 4 | P0 | Vista de reporte de transparencia | Frontend | Opcional | No | Entregado como tab real basado en `transparency-report`, con KPIs, aplicaciones, evidencias, faltantes y notas. |
+| DON-TR-016 | 4 | P1 | Endpoint `transparency-report` | API | Si | No | Entregado; devuelve reporte calculado sin rutas internas. |
 | DON-TR-017 | 4 | P1 | Timeline funcional de donacion | API/Frontend | Si | No | Alta, aplicaciones, evidencias y cierre se ven en secuencia. |
 | DON-TR-018 | 5 | P0 | Vista imprimible | Frontend | No | No | Impresion oculta navegacion y formularios. |
 | DON-TR-019 | 5 | P1 | Exportacion CSV ligera | API/Frontend | Si | No | Archivo respeta permisos y no expone storage. |
@@ -278,6 +280,14 @@ Criterios de aceptacion:
 | `DON-TR-012` | Entregado con endpoint calculado `GET /api/donations/{donationId}/documentary-status`, protegido por `DONATIONS_READ`, sin schema ni migracion. |
 | `DON-TR-013` | Entregado con evidencia agrupada por aplicacion, panel documental relacionado y copy de alcance para evitar dos fuentes contradictorias. |
 | `DON-TR-014` | Pendiente; checklist legal/documental avanzado, aprobacion humana y criterios por tipo de evidencia siguen fuera de alcance. |
+
+## Estado de Fase 4
+
+| Item | Resultado |
+| --- | --- |
+| `DON-TR-015` | Entregado con el tab `Reporte de transparencia` consumiendo el endpoint nuevo; muestra encabezado, corte, donante, KPIs financieros, estado documental, readiness, aplicaciones, evidencias y notas de alcance. |
+| `DON-TR-016` | Entregado con `GET /api/donations/{donationId}/transparency-report`, protegido por `DONATIONS_READ`, calculado en lectura y sin exponer `StoredRelativePath` ni rutas fisicas. |
+| `DON-TR-017` | Pendiente; timeline funcional unificado queda fuera de Fase 4 para no abrir auditoria/reporting adicional. |
 
 ### Puede hacerse solo con frontend y DTOs actuales
 

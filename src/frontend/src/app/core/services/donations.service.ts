@@ -16,7 +16,8 @@ import {
   DonationDetail,
   DonationDocumentaryStatus,
   DonationProgress,
-  DonationSummary
+  DonationSummary,
+  DonationTransparencyReport
 } from '../models/donations.models';
 import { ProtectedDownloadService } from './protected-download.service';
 
@@ -60,6 +61,10 @@ export class DonationsService {
 
   getDonationDocumentaryStatus(donationId: string) {
     return this.httpClient.get<DonationDocumentaryStatus>(`${this.apiBaseUrl}/${donationId}/documentary-status`);
+  }
+
+  getDonationTransparencyReport(donationId: string) {
+    return this.httpClient.get<DonationTransparencyReport>(`${this.apiBaseUrl}/${donationId}/transparency-report`);
   }
 
   getDonationApplications(donationId: string) {

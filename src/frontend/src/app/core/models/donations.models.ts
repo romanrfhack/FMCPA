@@ -86,6 +86,80 @@ export interface DonationApplicationDocumentaryStatus {
   routeHint: string | null;
 }
 
+export interface DonationTransparencyReport {
+  donationId: string;
+  donorEntityName: string;
+  donationDate: string;
+  donationType: string;
+  reference: string;
+  notes: string | null;
+  reportGeneratedUtc: string;
+  financialSummary: DonationTransparencyFinancialSummary;
+  operationalStatus: DonationTransparencyOperationalStatus;
+  documentarySummary: DonationTransparencyDocumentarySummary;
+  applications: DonationTransparencyApplication[];
+  presentationReadiness: DonationTransparencyReadiness;
+  scopeNotes: string[];
+}
+
+export interface DonationTransparencyFinancialSummary {
+  baseAmount: number;
+  appliedAmountTotal: number;
+  remainingAmount: number;
+  appliedPercentage: number;
+  applicationCount: number;
+}
+
+export interface DonationTransparencyOperationalStatus {
+  donationStatusCode: string;
+  donationStatusName: string;
+  statusIsClosed: boolean;
+  financialStatusLabel: string;
+  operationalStatusLabel: string;
+}
+
+export interface DonationTransparencyDocumentarySummary {
+  documentaryStatusCode: string;
+  documentaryStatusLabel: string;
+  totalApplications: number;
+  applicationsWithEvidence: number;
+  applicationsMissingEvidence: number;
+  isMinimumEvidenceComplete: boolean;
+}
+
+export interface DonationTransparencyApplication {
+  applicationId: string;
+  beneficiaryName: string;
+  applicationDate: string;
+  responsibleName: string;
+  appliedAmount: number;
+  percentageOfDonation: number;
+  statusCode: string;
+  statusName: string;
+  verificationDetails: string | null;
+  closingDetails: string | null;
+  evidenceCount: number;
+  activeDocumentCount: number;
+  requirementStatus: string;
+  missingReasonCode: string | null;
+  evidences: DonationTransparencyEvidence[];
+}
+
+export interface DonationTransparencyEvidence {
+  evidenceId: string;
+  evidenceTypeName: string;
+  originalFileName: string;
+  description: string | null;
+  uploadedUtc: string;
+  downloadUrl: string;
+}
+
+export interface DonationTransparencyReadiness {
+  readinessCode: 'READY' | 'PARTIAL' | 'NOT_READY' | string;
+  readinessLabel: string;
+  reasons: string[];
+}
+
 export interface CreateDonationApplicationRequest {
   beneficiaryName: string;
   responsibleContactId: string | null;
