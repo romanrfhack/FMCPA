@@ -1,14 +1,14 @@
 # Current Phase
 
 ## Fase actual
-**Track funcional post-MVP: Donatarias Transparencia - Fase 5A vista imprimible no oficial**
+**Track funcional post-MVP: Donatarias Transparencia - UX registrar aplicacion en modal**
 
 ## Estado actual
 - Fecha de inicio documentada: 2026-05-13
-- Estado de la fase: Fase 5A de Donatarias Transparencia implementada en frontend con accion `Imprimir reporte`, CSS print acotado, ocultamiento de navegacion/formularios/controles, reporte imprimible con KPIs, estados, readiness, aplicaciones, evidencias, faltantes y notas de alcance visibles; pendiente de aprobacion formal
+- Estado de la fase: mejora UX frontend de Donatarias implementada moviendo `Registrar donacion` y `Registrar aplicacion` desde formularios inline a modales responsive, con botones contextuales, reutilizacion de formularios/servicios/validaciones actuales y sin cambios backend; pendiente de aprobacion formal
 - Estado del MVP: **Cerrado con reservas**
 - Estado del track anterior: `Track 5` de Financieras queda con ficha operativa contextual consolidada entregada y pendiente de aprobacion formal
-- Enfoque: permitir compartir visualmente la vista operativa de transparencia por donacion usando el endpoint existente `GET /api/donations/{donationId}/transparency-report`, sin schema nuevo, migracion, permisos nuevos, endpoint nuevo, PDF server-side, CSV, folio/version oficial, firma, checklist legal avanzado, aprobacion documental humana ni validacion legal/fiscal/contable
+- Enfoque: reducir scroll y separar captura de lectura en `/donatarias`, manteniendo la pantalla principal y el tab de aplicaciones orientados a consulta, transparencia, distribucion del recurso y estado documental, sin schema nuevo, migracion, permisos nuevos, endpoint nuevo ni cambios de reglas de negocio
 
 ## Nota operativa
 - El MVP permanece cerrado con reservas; despues de la ficha contextual de Financieras, se abre una evolucion funcional acotada sobre Donatarias orientada a transparencia ante donantes.
@@ -26,6 +26,14 @@
 - Al imprimir desde la accion de Fase 5A se ocultan shell/header/nav, tabs, formularios, botones de captura, descargas y controles tecnicos; la impresion se acota a `body.donatarias-print-active` para no alterar la pantalla normal.
 - Fase 5A mantiene visible: "Este reporte es una vista operativa de transparencia basada en la información registrada en el sistema. La evidencia mínima registrada no sustituye revisión legal, fiscal o contable."
 - Si no hay donacion seleccionada, el tab de reporte muestra un mensaje claro y el boton `Imprimir reporte` queda deshabilitado para evitar impresiones vacias.
+- La subetapa UX posterior a Fase 5A mueve `Registrar donacion` a una ventana modal abierta desde la cabecera de `/donatarias`; el formulario inline deja de ocupar espacio permanente en la pagina principal.
+- El modal de alta reutiliza `donationForm`, validaciones y `DonationsService.createDonation`; tras crear conserva la recarga y seleccion de la donacion creada, cierra el modal y muestra confirmacion global.
+- Esta subetapa no cambia backend, contratos API, permisos, schema, migraciones, flujo de `Registrar aplicacion`, carga de evidencia, produccion ni CI/CD.
+- La validacion local de esta subetapa se cerro con `npm run build` exitoso con advertencia blanda de presupuesto CSS de Donatarias, `npm test -- --watch=false` `22/22`, `dotnet build src/backend/FMCPA.Backend.sln --no-restore` sin warnings/errores, Playwright mockeado en 1366/768/390, `git diff -- src/backend` sin cambios y `git diff --check`.
+- La subetapa UX siguiente mueve `Registrar aplicacion` a una ventana modal abierta desde el contexto de la donacion seleccionada; el formulario inline deja de ocupar espacio permanente en el tab `Aplicaciones / distribucion` y en el detalle heredado.
+- El modal de aplicacion reutiliza `applicationForm`, validaciones y `DonationsService.createDonationApplication`; tras crear conserva la recarga de lista/detalle/alertas, actualiza KPIs, semaforos y reporte, selecciona la aplicacion creada, cierra el modal y muestra confirmacion global.
+- Esta subetapa no cambia backend, contratos API, permisos, schema, migraciones, flujo de `Cargar evidencia`, produccion ni CI/CD.
+- La validacion local de la subetapa de aplicacion se cerro con `npm run build` exitoso con advertencia blanda de presupuesto CSS de Donatarias, `npm test -- --watch=false` `22/22`, `dotnet build src/backend/FMCPA.Backend.sln --no-restore` sin warnings/errores, Playwright mockeado en 1366/768/390 para abrir/cancelar/reabrir/guardar aplicacion, actualizar aplicado/saldo y ocultar el boton en donacion cerrada, `git diff -- src/backend` sin cambios y `git diff --check`.
 - La validacion local de Fase 5A se cerro con `npm run build` exitoso con advertencia existente de presupuesto CSS de Donatarias, `npm test -- --watch=false` `22/22`, `dotnet build src/backend/FMCPA.Backend.sln --no-restore` sin warnings/errores, Playwright mockeado para donacion sin aplicaciones, parcial con evidencia pendiente, completa con evidencia y modo print, y sin migracion nueva.
 - La validacion local de Fase 4 se cerro con `dotnet restore`, `dotnet build`, suite backend de autorizacion/regresion `267/267`, `npm run build`, frontend tests `22/22`, Playwright con API mockeada para tres escenarios UI y `git diff --check`; no hubo migracion.
 - La validacion local de Fase 3 se cerro con stack aislado `FMCPA_DonatariasPhase3Validation`, API `5109`, frontend `4221`, donaciones de prueba sin aplicaciones, evidencia parcial y evidencia completa, pruebas backend del endpoint, build/test frontend, build backend, Playwright sobre `/donatarias` y `git diff --check`; no hubo migracion.

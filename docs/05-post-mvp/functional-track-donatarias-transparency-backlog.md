@@ -223,6 +223,67 @@ Criterios de aceptacion:
 - Los usuarios sin `DONATIONS_READ` no pueden acceder.
 - El archivo respeta la misma informacion visible en el reporte.
 
+### Mejora UX posterior: alta de donacion en modal
+
+Estado 2026-05-13: Entregada y validada en frontend. Se movio el formulario maestro `Registrar donacion` desde el flujo inline de la pagina principal a un modal responsive abierto desde la cabecera de `/donatarias`. Se conserva `donationForm`, validaciones, `DonationsService.createDonation`, payload, endpoint, recarga de lista y seleccion de la donacion creada. En esa subetapa no se movieron `Registrar aplicacion` ni `Cargar evidencia`; `Registrar aplicacion` se atendio despues en una subetapa propia.
+
+Objetivo:
+
+Reducir scroll y mantener `/donatarias` enfocada en consulta, transparencia y operacion contextual.
+
+Alcance:
+
+- Boton `Registrar donación` visible en la cabecera para usuarios con `DONATIONS_WRITE`.
+- Modal con donante, fecha, tipo, total recibido, referencia, estatus inicial y notas.
+- Cierre por boton `Cerrar`, `Cancelar`, Escape o click en overlay.
+- Scroll interno del modal en viewport pequeno.
+
+Requiere backend:
+
+- No.
+
+Requiere migracion:
+
+- No.
+
+Criterios de aceptacion:
+
+- El formulario de alta ya no aparece inline.
+- El modal abre, cancela, cierra y guarda usando el comportamiento existente.
+- `/donatarias` conserva filtros, lista, tabs, aplicaciones, evidencias y reporte sin cambios de contrato.
+
+### Mejora UX posterior: alta de aplicacion en modal
+
+Estado 2026-05-13: Entregada y validada en frontend. Se movio el formulario `Registrar aplicacion` desde el flujo inline del tab `Aplicaciones / distribucion` y del detalle heredado a un modal responsive abierto desde el contexto de la donacion seleccionada. Se conserva `applicationForm`, validaciones, `DonationsService.createDonationApplication`, payload, endpoint, recarga de lista/detalle/alertas, seleccion de la aplicacion creada y actualizacion de KPIs/semaforos/reporte. No se movio `Cargar evidencia`.
+
+Objetivo:
+
+Reducir scroll y mantener el tab de aplicaciones enfocado en distribucion del recurso, saldo restante, evidencia pendiente y estado documental.
+
+Alcance:
+
+- Boton `Registrar aplicación` visible solo con donacion seleccionada, abierta/no terminal y permiso `DONATIONS_WRITE`.
+- Modal con beneficiario, fecha de aplicacion, contacto responsable, responsable, monto aplicado, estatus, detalle de comprobacion y nota de cierre.
+- Contexto financiero dentro del modal: total recibido, total aplicado actual, saldo pendiente antes de capturar y nota de no exceder saldo.
+- Cierre por boton `Cerrar`, `Cancelar`, Escape o click en overlay.
+- Scroll interno del modal en viewport pequeno.
+
+Requiere backend:
+
+- No.
+
+Requiere migracion:
+
+- No.
+
+Criterios de aceptacion:
+
+- El formulario de aplicacion ya no aparece inline.
+- El modal abre, cancela, cierra y guarda usando el comportamiento existente.
+- Tras guardar se actualizan lista, detalle, KPIs, semaforos y reporte calculado.
+- Las donaciones cerradas no muestran el boton de registro de aplicacion.
+- `/donatarias` conserva filtros, lista, tabs, evidencias y reporte sin cambios de contrato.
+
 ## Backlog propuesto
 
 | ID | Fase | Prioridad | Item | Tipo | Backend | Migracion | Criterio resumido |
@@ -230,7 +291,7 @@ Criterios de aceptacion:
 | DON-TR-001 | 1 | P0 | Reorganizar pantalla en tabs | UX/UI | No | No | Tabs visibles y acciones actuales preservadas. |
 | DON-TR-002 | 1 | P0 | Renombrar labels a lenguaje de transparencia | UX/UI | No | No | Total recibido, aplicado, saldo pendiente y evidencia son claros. |
 | DON-TR-003 | 1 | P0 | KPIs arriba del detalle | UX/UI | No | No | KPIs visibles sin desplazamiento largo. |
-| DON-TR-004 | 1 | P1 | Formularios en modal/panel contextual | UX/UI | No | No | Captura no bloquea la lectura del resumen. |
+| DON-TR-004 | 1 | P1 | Formularios en modal/panel contextual | UX/UI | No | No | Entregado para `Registrar donacion` y `Registrar aplicacion`; evidencia queda fuera de esta subetapa. |
 | DON-TR-005 | 1 | P1 | Soportar query params de seleccion | Frontend | No | No | `donationId` y `applicationId` abren el contexto solicitado. |
 | DON-TR-006 | 1 | P1 | Reemplazar `prompt` de cierre formal | UX/UI | No | No | Cierre usa modal con motivo y advertencias. |
 | DON-TR-007 | 2 | P0 | Tabla de aplicaciones con porcentaje del total | Frontend | No | No | Cada aplicacion muestra monto y porcentaje de la donacion. |

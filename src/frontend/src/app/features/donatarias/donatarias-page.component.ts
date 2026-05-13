@@ -52,11 +52,18 @@ interface PresentationReadiness {
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">Transparencia de donaciones</p>
-        <h2>Donatarias</h2>
-        <p>
-          Seguimiento del recurso recibido, su distribucion, saldo pendiente y evidencia minima por aplicacion.
-        </p>
+        <div class="detail-header">
+          <div>
+            <p class="page-kicker">Transparencia de donaciones</p>
+            <h2>Donatarias</h2>
+            <p>
+              Seguimiento del recurso recibido, su distribucion, saldo pendiente y evidencia minima por aplicacion.
+            </p>
+          </div>
+          @if (canWrite()) {
+            <button type="button" (click)="openDonationModal()">Registrar donación</button>
+          }
+        </div>
       </article>
 
       @if (pageError()) {
@@ -65,6 +72,181 @@ interface PresentationReadiness {
 
       @if (pageSuccess()) {
         <p class="alert success">{{ pageSuccess() }}</p>
+      }
+
+      @if (isDonationModalOpen()) {
+        <div class="modal" (click)="closeDonationModal()" (document:keydown.escape)="closeDonationModal()">
+          <article
+            class="form-card"
+            style="width: min(44rem, 100%); max-height: 90vh; overflow: auto;"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="register-donation-title"
+            (click)="$event.stopPropagation()">
+            <div class="card-header">
+              <div>
+                <h3 id="register-donation-title">Registrar donación</h3>
+                <p>Captura el recurso recibido para dar seguimiento a su aplicación y evidencia.</p>
+              </div>
+              <button type="button" class="ghost" (click)="closeDonationModal()">
+                Cerrar
+              </button>
+            </div>
+
+            @if (donationFormError()) {
+              <p class="alert error">{{ donationFormError() }}</p>
+            }
+
+            <form class="form-grid" [formGroup]="donationForm" (ngSubmit)="submitDonation()">
+              <label class="full-width">
+                <span>Donante</span>
+                <input type="text" formControlName="donorEntityName" placeholder="Empresa o entidad donante" />
+              </label>
+
+              <label>
+                <span>Fecha</span>
+                <input type="date" formControlName="donationDate" />
+              </label>
+
+              <label>
+                <span>Tipo de donación</span>
+                <input type="text" formControlName="donationType" placeholder="Efectivo, especie u otro" />
+              </label>
+
+              <label>
+                <span>Total recibido / valor recibido</span>
+                <input type="number" min="0.01" step="0.01" formControlName="baseAmount" />
+              </label>
+
+              <label>
+                <span>Referencia</span>
+                <input type="text" formControlName="reference" placeholder="Referencia interna o documental" />
+              </label>
+
+              <label>
+                <span>Estatus inicial</span>
+                <select formControlName="statusCatalogEntryId">
+                  <option [value]="0">Selecciona un estatus</option>
+                  @for (status of creatableDonationStatuses(); track status.id) {
+                    <option [value]="status.id">{{ status.statusName }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="full-width">
+                <span>Observaciones</span>
+                <textarea formControlName="notes" rows="4" placeholder="Observaciones de la donación"></textarea>
+              </label>
+
+              <div class="form-actions full-width">
+                <button type="submit" [disabled]="isSubmittingDonation() || !canWrite()">Guardar donación</button>
+                <button type="button" class="ghost" (click)="resetDonationForm()" [disabled]="isSubmittingDonation()">
+                  Limpiar
+                </button>
+                <button type="button" class="ghost" (click)="closeDonationModal()" [disabled]="isSubmittingDonation()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </article>
+        </div>
+      }
+
+      @if (isApplicationModalOpen()) {
+        <div class="modal" (click)="closeApplicationModal()" (document:keydown.escape)="closeApplicationModal()">
+          @if (selectedDonation(); as donationDetail) {
+            <article
+              class="form-card"
+              style="width: min(44rem, 100%); max-height: 90vh; overflow: auto;"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="register-application-title"
+              (click)="$event.stopPropagation()">
+              <div class="card-header">
+                <div>
+                  <h3 id="register-application-title">Registrar aplicación</h3>
+                  <p>Captura cómo se asignó parte del recurso recibido.</p>
+                </div>
+                <button type="button" class="ghost" (click)="closeApplicationModal()">
+                  Cerrar
+                </button>
+              </div>
+
+              <p class="inline-note">
+                Total recibido {{ donationDetail.baseAmount | number: '1.2-2' }}
+                · Total aplicado actual {{ donationDetail.appliedAmountTotal | number: '1.2-2' }}
+                · Saldo pendiente antes de esta aplicación {{ donationDetail.remainingAmount | number: '1.2-2' }}.
+              </p>
+              <p class="inline-note">El monto aplicado no debe exceder el saldo pendiente.</p>
+
+              @if (applicationFormError()) {
+                <p class="alert error">{{ applicationFormError() }}</p>
+              }
+
+              <form class="form-grid" [formGroup]="applicationForm" (ngSubmit)="submitApplication()">
+                <label>
+                  <span>Beneficiario</span>
+                  <input type="text" formControlName="beneficiaryName" placeholder="Beneficiario" />
+                </label>
+
+                <label>
+                  <span>Fecha de aplicación</span>
+                  <input type="date" formControlName="applicationDate" />
+                </label>
+
+                <label>
+                  <span>Contacto responsable</span>
+                  <select formControlName="responsibleContactId" (change)="syncResponsibleFromContact()">
+                    <option value="">Sin vincular</option>
+                    @for (contact of contacts(); track contact.id) {
+                      <option [value]="contact.id">{{ contact.name }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label>
+                  <span>Responsable o creador</span>
+                  <input type="text" formControlName="responsibleName" placeholder="Nombre del responsable" />
+                </label>
+
+                <label>
+                  <span>Monto aplicado</span>
+                  <input type="number" min="0.01" step="0.01" formControlName="appliedAmount" />
+                </label>
+
+                <label>
+                  <span>Estatus de aplicación</span>
+                  <select formControlName="statusCatalogEntryId">
+                    <option [value]="0">Selecciona un estatus</option>
+                    @for (status of applicationStatuses(); track status.id) {
+                      <option [value]="status.id">{{ status.statusName }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="full-width">
+                  <span>Detalle de comprobación</span>
+                  <textarea formControlName="verificationDetails" rows="4" placeholder="Detalle de comprobación"></textarea>
+                </label>
+
+                <label class="full-width">
+                  <span>Nota de cierre de la aplicación</span>
+                  <textarea formControlName="closingDetails" rows="3" placeholder="Si aplica"></textarea>
+                </label>
+
+                <div class="form-actions full-width">
+                  <button type="submit" [disabled]="isSubmittingApplication() || !canRegisterApplication()">Guardar aplicación</button>
+                  <button type="button" class="ghost" (click)="resetApplicationForm()" [disabled]="isSubmittingApplication()">
+                    Limpiar
+                  </button>
+                  <button type="button" class="ghost" (click)="closeApplicationModal()" [disabled]="isSubmittingApplication()">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </article>
+          }
+        </div>
       }
 
       @if (selectedDonation(); as donationDetail) {
@@ -89,6 +271,9 @@ interface PresentationReadiness {
               <span class="status-pill" [class]="operativeSignal().className">
                 Operativo: {{ operativeSignal().label }}
               </span>
+              @if (canRegisterApplication()) {
+                <button type="button" class="ghost" (click)="openApplicationModal()">Registrar aplicación</button>
+              }
               <button
                 type="button"
                 class="ghost"
@@ -401,6 +586,15 @@ interface PresentationReadiness {
                   <h3>Aplicaciones / distribucion</h3>
                   <p>Distribucion del recurso recibido y evidencia minima por aplicacion.</p>
                 </div>
+                <div class="form-actions">
+                  <button
+                    type="button"
+                    class="ghost"
+                    [disabled]="!selectedApplication()"
+                    (click)="selectedApplication() && setActiveTab('evidences')">
+                    Cargar evidencia
+                  </button>
+                </div>
               </div>
 
               <div class="sort-toolbar">
@@ -438,6 +632,9 @@ interface PresentationReadiness {
               <p class="inline-note">
                 El saldo restante despues de cada aplicacion se calcula sobre este orden visual con datos actuales.
               </p>
+              @if (applicationRegistrationUnavailableMessage(); as registrationMessage) {
+                <p class="inline-note">{{ registrationMessage }}</p>
+              }
 
               @if (donationDetail.applications.length === 0) {
                 <p class="empty-state">Aun no hay aplicaciones registradas.</p>
@@ -483,87 +680,6 @@ interface PresentationReadiness {
                   }
                 </div>
               }
-            </article>
-
-            <article class="form-card">
-              <div class="card-header">
-                <div>
-                  <h3>Registrar aplicacion</h3>
-                  <p>Beneficiario, responsable, monto aplicado y detalle de comprobacion.</p>
-                </div>
-              </div>
-
-              @if (applicationFormError()) {
-                <p class="alert error">{{ applicationFormError() }}</p>
-              }
-
-              @if (applicationFormSuccess()) {
-                <p class="alert success">{{ applicationFormSuccess() }}</p>
-              }
-
-              <form class="form-grid" [formGroup]="applicationForm" (ngSubmit)="submitApplication()">
-                <label>
-                  <span>Beneficiario</span>
-                  <input type="text" formControlName="beneficiaryName" placeholder="Beneficiario" />
-                </label>
-
-                <label>
-                  <span>Fecha de aplicacion</span>
-                  <input type="date" formControlName="applicationDate" />
-                </label>
-
-                <label>
-                  <span>Contacto responsable</span>
-                  <select formControlName="responsibleContactId" (change)="syncResponsibleFromContact()">
-                    <option value="">Sin vincular</option>
-                    @for (contact of contacts(); track contact.id) {
-                      <option [value]="contact.id">{{ contact.name }}</option>
-                    }
-                  </select>
-                </label>
-
-                <label>
-                  <span>Responsable o creador</span>
-                  <input type="text" formControlName="responsibleName" placeholder="Nombre del responsable" />
-                </label>
-
-                <label>
-                  <span>Monto aplicado</span>
-                  <input type="number" min="0.01" step="0.01" formControlName="appliedAmount" />
-                </label>
-
-                <label>
-                  <span>Estatus de aplicacion</span>
-                  <select formControlName="statusCatalogEntryId">
-                    <option [value]="0">Selecciona un estatus</option>
-                    @for (status of applicationStatuses(); track status.id) {
-                      <option [value]="status.id">{{ status.statusName }}</option>
-                    }
-                  </select>
-                </label>
-
-                <label class="full-width">
-                  <span>Detalle de comprobacion</span>
-                  <textarea formControlName="verificationDetails" rows="4" placeholder="Detalle de comprobacion"></textarea>
-                </label>
-
-                <label class="full-width">
-                  <span>Nota de cierre de la aplicacion</span>
-                  <textarea formControlName="closingDetails" rows="3" placeholder="Si aplica"></textarea>
-                </label>
-
-                <div class="form-actions full-width">
-                  <button type="submit" [disabled]="isSubmittingApplication() || !canWrite()">Registrar aplicacion</button>
-                  <button type="button" class="ghost" (click)="resetApplicationForm()">Limpiar</button>
-                  <button
-                    type="button"
-                    class="ghost"
-                    [disabled]="!selectedApplication()"
-                    (click)="selectedApplication() && setActiveTab('evidences')">
-                    Cargar evidencia
-                  </button>
-                </div>
-              </form>
             </article>
           </section>
         } @else {
@@ -1061,70 +1177,6 @@ interface PresentationReadiness {
             </form>
           </article>
 
-          <article class="form-card">
-            <div class="card-header">
-              <div>
-                <h3>Registrar donacion</h3>
-                <p>Registro maestro con referencia y estatus inicial controlado.</p>
-              </div>
-            </div>
-
-            @if (donationFormError()) {
-              <p class="alert error">{{ donationFormError() }}</p>
-            }
-
-            @if (donationFormSuccess()) {
-              <p class="alert success">{{ donationFormSuccess() }}</p>
-            }
-
-            <form class="form-grid" [formGroup]="donationForm" (ngSubmit)="submitDonation()">
-              <label class="full-width">
-                <span>Donante</span>
-                <input type="text" formControlName="donorEntityName" placeholder="Empresa o entidad donante" />
-              </label>
-
-              <label>
-                <span>Fecha</span>
-                <input type="date" formControlName="donationDate" />
-              </label>
-
-              <label>
-                <span>Tipo de donación</span>
-                <input type="text" formControlName="donationType" placeholder="Efectivo, especie u otro" />
-              </label>
-
-              <label>
-                <span>Total recibido / valor recibido</span>
-                <input type="number" min="0.01" step="0.01" formControlName="baseAmount" />
-              </label>
-
-              <label>
-                <span>Referencia</span>
-                <input type="text" formControlName="reference" placeholder="Referencia interna o documental" />
-              </label>
-
-              <label>
-                <span>Estatus inicial</span>
-                <select formControlName="statusCatalogEntryId">
-                  <option [value]="0">Selecciona un estatus</option>
-                  @for (status of creatableDonationStatuses(); track status.id) {
-                    <option [value]="status.id">{{ status.statusName }}</option>
-                  }
-                </select>
-              </label>
-
-              <label class="full-width">
-                <span>Observaciones</span>
-                <textarea formControlName="notes" rows="4" placeholder="Observaciones de la donación"></textarea>
-              </label>
-
-              <div class="form-actions full-width">
-                <button type="submit" [disabled]="isSubmittingDonation() || !canWrite()">Registrar donación</button>
-                <button type="button" class="ghost" (click)="resetDonationForm()">Limpiar</button>
-              </div>
-            </form>
-          </article>
-
           <article class="list-card">
             <div class="card-header">
               <div>
@@ -1270,86 +1322,15 @@ interface PresentationReadiness {
             </article>
 
             <div class="detail-grid">
-              <article class="form-card">
-                <div class="card-header">
-                  <div>
-                    <h3>Registrar aplicacion</h3>
-                    <p>Beneficiario, responsable, monto aplicado y detalle de comprobación.</p>
-                  </div>
-                </div>
-
-                @if (applicationFormError()) {
-                  <p class="alert error">{{ applicationFormError() }}</p>
-                }
-
-                @if (applicationFormSuccess()) {
-                  <p class="alert success">{{ applicationFormSuccess() }}</p>
-                }
-
-                <form class="form-grid" [formGroup]="applicationForm" (ngSubmit)="submitApplication()">
-                  <label>
-                    <span>Beneficiario</span>
-                    <input type="text" formControlName="beneficiaryName" placeholder="Beneficiario" />
-                  </label>
-
-                  <label>
-                    <span>Fecha de aplicación</span>
-                    <input type="date" formControlName="applicationDate" />
-                  </label>
-
-                  <label>
-                    <span>Contacto responsable</span>
-                    <select formControlName="responsibleContactId" (change)="syncResponsibleFromContact()">
-                      <option value="">Sin vincular</option>
-                      @for (contact of contacts(); track contact.id) {
-                        <option [value]="contact.id">{{ contact.name }}</option>
-                      }
-                    </select>
-                  </label>
-
-                  <label>
-                    <span>Responsable o creador</span>
-                    <input type="text" formControlName="responsibleName" placeholder="Nombre del responsable" />
-                  </label>
-
-                  <label>
-                    <span>Monto aplicado</span>
-                    <input type="number" min="0.01" step="0.01" formControlName="appliedAmount" />
-                  </label>
-
-                  <label>
-                    <span>Estatus de aplicación</span>
-                    <select formControlName="statusCatalogEntryId">
-                      <option [value]="0">Selecciona un estatus</option>
-                      @for (status of applicationStatuses(); track status.id) {
-                        <option [value]="status.id">{{ status.statusName }}</option>
-                      }
-                    </select>
-                  </label>
-
-                  <label class="full-width">
-                    <span>Detalle de comprobacion</span>
-                    <textarea formControlName="verificationDetails" rows="4" placeholder="Detalle de comprobacion"></textarea>
-                  </label>
-
-                  <label class="full-width">
-                    <span>Nota de cierre de la aplicacion</span>
-                    <textarea formControlName="closingDetails" rows="3" placeholder="Si aplica"></textarea>
-                  </label>
-
-                  <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingApplication() || !canWrite()">Registrar aplicación</button>
-                    <button type="button" class="ghost" (click)="resetApplicationForm()">Limpiar</button>
-                  </div>
-                </form>
-              </article>
-
-              <article class="list-card">
+              <article class="list-card wide-card">
                 <div class="card-header">
                   <div>
                     <h3>Aplicaciones de la donación</h3>
                     <p>Cada aplicación conserva su evidencia propia.</p>
                   </div>
+                  @if (canRegisterApplication()) {
+                    <button type="button" class="ghost" (click)="openApplicationModal()">Registrar aplicación</button>
+                  }
                 </div>
 
                 @if (donationDetail.applications.length === 0) {
@@ -1736,6 +1717,16 @@ interface PresentationReadiness {
       .readiness-card {
         padding: 1rem;
         border-radius: 1rem;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        background: #1d2d2a6b;
       }
 
       .hero-card,
@@ -2175,6 +2166,8 @@ export class DonatariasPageComponent {
   protected readonly isSubmittingEvidence = signal(false);
   protected readonly isClosingDonation = signal(false);
   protected readonly isClosePanelOpen = signal(false);
+  protected readonly isDonationModalOpen = signal(false);
+  protected readonly isApplicationModalOpen = signal(false);
 
   protected readonly donationFormError = signal<string | null>(null);
   protected readonly donationFormSuccess = signal<string | null>(null);
@@ -2200,6 +2193,29 @@ export class DonatariasPageComponent {
     }
 
     return selectedDonation.applications.find((application) => application.id === selectedApplicationId) ?? null;
+  });
+
+  protected readonly canRegisterApplication = computed(() => {
+    const donation = this.selectedDonation();
+    return this.canWrite() && !!donation && !donation.statusIsClosed;
+  });
+
+  protected readonly applicationRegistrationUnavailableMessage = computed(() => {
+    const donation = this.selectedDonation();
+
+    if (!donation) {
+      return 'Selecciona una donación abierta para registrar aplicaciones.';
+    }
+
+    if (!this.canWrite()) {
+      return 'No tienes permiso de escritura para registrar aplicaciones.';
+    }
+
+    if (donation.statusIsClosed) {
+      return 'La donación ya se encuentra en estado terminal y no admite nuevas aplicaciones.';
+    }
+
+    return null;
   });
 
   protected readonly sortedApplications = computed<DonationApplication[]>(() => {
@@ -2468,6 +2484,55 @@ export class DonatariasPageComponent {
     await this.bootstrap();
   }
 
+  protected openDonationModal(): void {
+    if (!this.canWrite()) {
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.donationFormError.set(null);
+    this.donationFormSuccess.set(null);
+    this.isDonationModalOpen.set(true);
+  }
+
+  protected closeDonationModal(): void {
+    if (this.isSubmittingDonation()) {
+      return;
+    }
+
+    this.isDonationModalOpen.set(false);
+    this.donationFormError.set(null);
+    this.donationFormSuccess.set(null);
+    this.resetDonationForm();
+  }
+
+  protected openApplicationModal(): void {
+    const unavailableMessage = this.applicationRegistrationUnavailableMessage();
+
+    if (unavailableMessage) {
+      this.pageError.set(unavailableMessage);
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.applicationFormError.set(null);
+    this.applicationFormSuccess.set(null);
+    this.isApplicationModalOpen.set(true);
+  }
+
+  protected closeApplicationModal(): void {
+    if (this.isSubmittingApplication()) {
+      return;
+    }
+
+    this.isApplicationModalOpen.set(false);
+    this.applicationFormError.set(null);
+    this.applicationFormSuccess.set(null);
+    this.resetApplicationForm();
+  }
+
   protected async selectDonation(donationId: string): Promise<void> {
     this.pageSuccess.set(null);
     this.selectedDonationId.set(donationId);
@@ -2696,8 +2761,9 @@ export class DonatariasPageComponent {
       };
 
       const donation = await firstValueFrom(this.donationsService.createDonation(request));
-      this.donationFormSuccess.set('Donación registrada.');
       this.resetDonationForm();
+      this.isDonationModalOpen.set(false);
+      this.pageSuccess.set('Donación registrada.');
       await this.reloadDonations(donation.id);
       await this.reloadAlerts();
       this.activeTab.set('summary');
@@ -2710,6 +2776,7 @@ export class DonatariasPageComponent {
 
   protected async submitApplication(): Promise<void> {
     const selectedDonationId = this.selectedDonationId();
+    const selectedDonation = this.selectedDonation();
 
     this.applicationFormError.set(null);
     this.applicationFormSuccess.set(null);
@@ -2718,6 +2785,16 @@ export class DonatariasPageComponent {
 
     if (!selectedDonationId) {
       this.applicationFormError.set('Selecciona una donación antes de registrar una aplicación.');
+      return;
+    }
+
+    if (!this.canWrite()) {
+      this.applicationFormError.set('No tienes permiso de escritura para registrar aplicaciones.');
+      return;
+    }
+
+    if (selectedDonation?.statusIsClosed) {
+      this.applicationFormError.set('La donación ya se encuentra en estado terminal y no admite nuevas aplicaciones.');
       return;
     }
 
@@ -2745,8 +2822,9 @@ export class DonatariasPageComponent {
       const application = await firstValueFrom(
         this.donationsService.createDonationApplication(selectedDonationId, request));
 
-      this.applicationFormSuccess.set('Aplicación registrada.');
       this.resetApplicationForm();
+      this.isApplicationModalOpen.set(false);
+      this.pageSuccess.set('Aplicación registrada.');
       await this.reloadDonations(selectedDonationId);
       await this.loadDonationDetail(selectedDonationId, application.id);
       await this.reloadAlerts();
