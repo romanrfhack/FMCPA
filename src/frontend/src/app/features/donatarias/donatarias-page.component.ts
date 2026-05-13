@@ -1035,11 +1035,10 @@ interface PresentationReadiness {
             <div class="card-header">
               <div>
                 <h3>Filtro</h3>
-                <p>Reduce la lista por estatus o por alertas activas.</p>
               </div>
             </div>
 
-            <form class="form-grid" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+            <form class="filter-form" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
               <label>
                 <span>Estatus</span>
                 <select formControlName="statusCode">
@@ -1050,12 +1049,12 @@ interface PresentationReadiness {
                 </select>
               </label>
 
-              <label class="toggle">
+              <label class="toggle filter-toggle">
                 <input type="checkbox" formControlName="alertsOnly" />
                 <span>Solo con alertas activas</span>
               </label>
 
-              <div class="form-actions full-width">
+              <div class="form-actions filter-actions">
                 <button type="submit">Aplicar filtro</button>
                 <button type="button" class="ghost" (click)="clearFilters()">Limpiar</button>
               </div>
@@ -1242,7 +1241,7 @@ interface PresentationReadiness {
                 <p class="detail-notes">{{ donationDetail.notes }}</p>
               }
 
-              <div class="summary-grid">
+              <div class="summary-grid selected-donation-metrics">
                 <article>
                   <h4>Total recibido / valor recibido</h4>
                   <p>{{ donationDetail.baseAmount | number: '1.2-2' }}</p>
@@ -1529,21 +1528,16 @@ interface PresentationReadiness {
       .donation-list,
       .alert-list {
         display: grid;
-        gap: 1.25rem;
+        gap: 1rem;
       }
 
-      .page-grid {
+      .donations-tab {
         display: grid;
-        grid-template-columns: minmax(22rem, 25rem) minmax(0, 1fr);
-        gap: 1.25rem;
+        gap: 1rem;
         align-items: start;
       }
 
-      .page-grid.donations-tab {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .page-grid.donations-tab .detail-column {
+      .donations-tab .detail-column {
         display: none;
       }
 
@@ -1560,7 +1554,7 @@ interface PresentationReadiness {
       .readiness-card,
       .compact-list {
         display: grid;
-        gap: 1rem;
+        gap: 0.8rem;
       }
 
       .tab-nav {
@@ -1585,19 +1579,7 @@ interface PresentationReadiness {
 
       .transparency-header {
         display: grid;
-        gap: 1rem;
-      }
-
-      .header-metrics {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-
-      .kpi-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-
-      .list-kpi-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.75rem;
       }
 
       .signal-grid {
@@ -1605,8 +1587,8 @@ interface PresentationReadiness {
       }
 
       .signal-card {
-        padding: 1rem;
-        border-radius: 1rem;
+        padding: 0.85rem;
+        border-radius: 0.8rem;
         border: 1px solid rgba(29, 45, 42, 0.08);
         background: #fbfbf8;
       }
@@ -1632,13 +1614,13 @@ interface PresentationReadiness {
       }
 
       .compact-card {
-        padding: 1rem;
+        padding: 0.85rem;
       }
 
       .balance-callout {
-        margin-top: 1rem;
-        padding: 0.85rem 1rem;
-        border-radius: 1rem;
+        margin-top: 0.65rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 0.75rem;
         background: rgba(22, 101, 52, 0.1);
         color: #166534;
         font-weight: 800;
@@ -1762,16 +1744,22 @@ interface PresentationReadiness {
       .list-card,
       .detail-card,
       .empty-card {
-        padding: 1.5rem;
-        border-radius: 1.35rem;
+        min-width: 0;
+        padding: 1.15rem;
+        border-radius: 0.9rem;
         background: rgba(255, 255, 255, 0.82);
         border: 1px solid rgba(29, 45, 42, 0.08);
-        box-shadow: 0 16px 30px rgba(32, 44, 41, 0.06);
+        box-shadow: 0 12px 24px rgba(32, 44, 41, 0.05);
+      }
+
+      .transparency-header,
+      .list-summary-card {
+        padding: 1rem;
       }
 
       .page-kicker {
-        margin: 0 0 0.5rem;
-        letter-spacing: 0.12em;
+        margin: 0 0 0.35rem;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         font-size: 0.78rem;
         font-weight: 700;
@@ -1791,8 +1779,8 @@ interface PresentationReadiness {
       .detail-notes,
       .empty-state,
       .inline-note {
-        margin-top: 0.75rem;
-        line-height: 1.6;
+        margin-top: 0.55rem;
+        line-height: 1.5;
         color: #4d615c;
       }
 
@@ -1805,8 +1793,14 @@ interface PresentationReadiness {
         align-items: flex-start;
       }
 
+      .card-header > div,
+      .row-top > div,
+      .detail-header > div {
+        min-width: 0;
+      }
+
       .card-header {
-        margin-bottom: 1rem;
+        margin-bottom: 0.7rem;
       }
 
       .detail-badges,
@@ -1817,43 +1811,63 @@ interface PresentationReadiness {
         gap: 0.55rem;
       }
 
+      .detail-badges {
+        justify-content: flex-end;
+      }
+
       .summary-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.75rem;
-        margin-top: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+        gap: 0.55rem;
+        margin-top: 0.65rem;
       }
 
       .summary-grid article {
-        padding: 0.9rem;
-        border-radius: 1rem;
+        min-width: 0;
+        padding: 0.62rem 0.7rem;
+        border-radius: 0.7rem;
         background: #f6f5ef;
       }
 
       .summary-grid h4 {
-        font-size: 0.82rem;
-        letter-spacing: 0.06em;
+        overflow-wrap: anywhere;
+        font-size: 0.72rem;
+        letter-spacing: 0.03em;
+        line-height: 1.25;
         text-transform: uppercase;
         color: #5b6b68;
       }
 
       .summary-grid p {
-        margin-top: 0.4rem;
-        font-size: 1.05rem;
+        overflow-wrap: anywhere;
+        margin-top: 0.3rem;
+        font-size: 0.98rem;
+        line-height: 1.2;
         font-weight: 700;
         color: #203734;
+      }
+
+      .summary-grid.header-metrics,
+      .summary-grid.kpi-grid,
+      .summary-grid.selected-donation-metrics {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+      }
+
+      .summary-grid.list-kpi-grid {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
       }
 
       .form-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.9rem;
+        gap: 0.75rem;
       }
 
       label {
         display: grid;
-        gap: 0.4rem;
-        font-size: 0.92rem;
+        min-width: 0;
+        gap: 0.35rem;
+        font-size: 0.9rem;
         font-weight: 600;
         color: #29403b;
       }
@@ -1862,8 +1876,8 @@ interface PresentationReadiness {
       select,
       textarea {
         width: 100%;
-        padding: 0.8rem 0.9rem;
-        border-radius: 0.9rem;
+        padding: 0.68rem 0.78rem;
+        border-radius: 0.7rem;
         border: 1px solid rgba(29, 45, 42, 0.14);
         background: #fbfbf8;
         color: #1d2d2a;
@@ -1877,9 +1891,9 @@ interface PresentationReadiness {
       .toggle {
         grid-template-columns: auto 1fr;
         align-items: center;
-        gap: 0.7rem;
-        padding: 0.8rem 0.9rem;
-        border-radius: 0.9rem;
+        gap: 0.55rem;
+        padding: 0.68rem 0.78rem;
+        border-radius: 0.7rem;
         background: #f6f5ef;
       }
 
@@ -1895,15 +1909,40 @@ interface PresentationReadiness {
       .form-actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.75rem;
+        gap: 0.55rem;
+      }
+
+      .filter-card {
+        padding: 0.7rem 0.85rem;
+      }
+
+      .filter-card .card-header {
+        margin-bottom: 0.5rem;
+        align-items: center;
+      }
+
+      .filter-form {
+        display: grid;
+        grid-template-columns: minmax(12rem, 18rem) minmax(13rem, 1fr) auto;
+        gap: 0.6rem;
+        align-items: end;
+      }
+
+      .filter-actions {
+        justify-content: flex-end;
+        flex-wrap: nowrap;
+      }
+
+      .filter-actions button {
+        white-space: nowrap;
       }
 
       button,
       .donation-card,
       .entity-button {
         border: none;
-        border-radius: 0.9rem;
-        padding: 0.8rem 1rem;
+        border-radius: 0.7rem;
+        padding: 0.68rem 0.88rem;
         font: inherit;
       }
 
@@ -1929,9 +1968,10 @@ interface PresentationReadiness {
       .entity-button,
       .alert-row {
         display: grid;
-        gap: 0.7rem;
-        padding: 1rem;
-        border-radius: 1rem;
+        min-width: 0;
+        gap: 0.55rem;
+        padding: 0.8rem;
+        border-radius: 0.75rem;
         background: #f6f5ef;
       }
 
@@ -1949,24 +1989,29 @@ interface PresentationReadiness {
       .donation-stats span,
       .row-actions span,
       .row-actions a {
-        padding: 0.45rem 0.65rem;
+        padding: 0.35rem 0.55rem;
         border-radius: 999px;
         background: rgba(15, 118, 110, 0.08);
         color: #17423d;
         font-size: 0.82rem;
         text-decoration: none;
+        overflow-wrap: anywhere;
       }
 
       .status-pill {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 0.5rem 0.72rem;
+        max-width: 100%;
+        padding: 0.36rem 0.58rem;
         border-radius: 999px;
         font-size: 0.82rem;
+        line-height: 1.2;
         font-weight: 700;
         background: rgba(15, 118, 110, 0.08);
         color: #17423d;
+        overflow-wrap: anywhere;
+        text-align: center;
       }
 
       .status-pill.donation-open,
@@ -2044,15 +2089,50 @@ interface PresentationReadiness {
       }
 
       @media (max-width: 1080px) {
-        .page-grid,
         .detail-grid,
-        .summary-grid,
-        .header-metrics,
-        .kpi-grid,
-        .list-kpi-grid,
-        .signal-grid,
         .form-grid {
           grid-template-columns: 1fr;
+        }
+
+        .signal-grid {
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+        }
+      }
+
+      @media (max-width: 900px) {
+        .filter-form {
+          grid-template-columns: minmax(0, 1fr) minmax(14rem, 1fr);
+        }
+
+        .filter-actions {
+          grid-column: 1 / -1;
+          justify-content: flex-start;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .card-header,
+        .row-top,
+        .detail-header {
+          flex-direction: column;
+          gap: 0.65rem;
+        }
+
+        .detail-badges {
+          justify-content: flex-start;
+        }
+
+        .filter-form {
+          grid-template-columns: 1fr;
+        }
+
+        .filter-actions {
+          grid-column: auto;
+          flex-wrap: wrap;
+        }
+
+        .filter-actions button {
+          flex: 1 1 9rem;
         }
       }
     `
