@@ -1,9 +1,11 @@
 using FMCPA.Api.Auth;
 using FMCPA.Api.Contracts.Closeout;
 using FMCPA.Api.Contracts.Donations;
+using FMCPA.Api.DocumentRules;
 using FMCPA.Api.Extensions;
 using FMCPA.Application.Abstractions.Storage;
 using FMCPA.Domain.Entities.Donations;
+using FMCPA.Domain.Entities.Documents;
 using FMCPA.Domain.Entities.Shared;
 using FMCPA.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +28,10 @@ public static class DonationsEndpoints
     private const string AppliedStatusCode = "APPLIED";
     private const string ClosedStatusCode = "CLOSED";
     private const string NoAlertState = "NONE";
+    private const string NoApplicationsDocumentaryStatusCode = "NO_APPLICATIONS";
+    private const string EvidencePendingDocumentaryStatusCode = "EVIDENCE_PENDING";
+    private const string MinimumEvidenceCompleteDocumentaryStatusCode = "MINIMUM_EVIDENCE_COMPLETE";
+    private const string MinimumEvidenceRegisteredRequirementStatusCode = "MINIMUM_EVIDENCE_REGISTERED";
 
     public static IEndpointRouteBuilder MapDonationsEndpoints(this IEndpointRouteBuilder app)
     {
@@ -221,6 +227,27 @@ public static class DonationsEndpoints
                         metrics.RemainingAmount,
                         metrics.AppliedPercentage,
                         applications.Count));
+            });
+
+        readGroup.MapGet(
+            "/{donationId:guid}/documentary-status",
+            async (Guid donationId, PlatformDbContext dbContext, CancellationToken cancellationToken) =>
+            {
+                var donationExists = await dbContext.Donations
+                    .AsNoTracking()
+                    .AnyAsync(item => item.Id == donationId, cancellationToken);
+
+                if (!donationExists)
+                {
+                    return Results.NotFound();
+                }
+
+                var documentaryStatus = await BuildDonationDocumentaryStatusAsync(
+                    dbContext,
+                    donationId,
+                    cancellationToken);
+
+                return Results.Ok(documentaryStatus);
             });
 
         adminGroup.MapPost(
@@ -794,6 +821,88 @@ public static class DonationsEndpoints
             .ToList();
     }
 
+    private static async Task<DonationDocumentaryStatusResponse> BuildDonationDocumentaryStatusAsync(
+        PlatformDbContext dbContext,
+        Guid donationId,
+        CancellationToken cancellationToken)
+    {
+        var applications = await dbContext.DonationApplications
+            .AsNoTracking()
+            .Where(item => item.DonationId == donationId)
+            .OrderBy(item => item.ApplicationDate)
+            .ThenBy(item => item.CreatedUtc)
+            .ToListAsync(cancellationToken);
+
+        if (applications.Count == 0)
+        {
+            return new DonationDocumentaryStatusResponse(
+                donationId,
+                TotalApplications: 0,
+                ApplicationsWithEvidence: 0,
+                ApplicationsMissingEvidence: 0,
+                NoApplicationsDocumentaryStatusCode,
+                "Sin aplicaciones que comprobar",
+                IsMinimumEvidenceComplete: false,
+                []);
+        }
+
+        var documentRule = DocumentRuleRegistry.FindByEntity(
+            DonationsModuleCode,
+            DocumentRuleRegistry.DonationApplicationEntityType);
+        var requiredDocumentClassCodes = documentRule?.RequiredDocumentClassCodes.ToArray() ?? [];
+        var minimumRequiredCount = documentRule?.MinimumRequiredCount ?? 1;
+        var missingReasonCode = documentRule?.MissingReasonCode ?? "MISSING_EVIDENCE";
+
+        var evidenceLookup = await BuildEvidenceLookupAsync(dbContext, applications, cancellationToken);
+        var activeDocumentCounts = await BuildActiveEvidenceDocumentCountsAsync(
+            dbContext,
+            evidenceLookup,
+            documentRule,
+            requiredDocumentClassCodes,
+            cancellationToken);
+
+        var applicationStatuses = applications
+            .Select(application =>
+            {
+                var evidences = evidenceLookup.GetValueOrDefault(application.Id) ?? [];
+                var activeDocumentCount = evidences.Sum(evidence => activeDocumentCounts.GetValueOrDefault(evidence.Id));
+                var hasMinimumEvidence = activeDocumentCount >= minimumRequiredCount;
+
+                return new DonationApplicationDocumentaryStatusResponse(
+                    application.Id,
+                    application.BeneficiaryName,
+                    application.ApplicationDate,
+                    application.AppliedAmount,
+                    evidences.Count,
+                    activeDocumentCount,
+                    hasMinimumEvidence
+                        ? MinimumEvidenceRegisteredRequirementStatusCode
+                        : EvidencePendingDocumentaryStatusCode,
+                    hasMinimumEvidence ? null : missingReasonCode,
+                    requiredDocumentClassCodes,
+                    $"/donatarias?donationId={donationId}&applicationId={application.Id}");
+            })
+            .ToList();
+
+        var applicationsWithEvidence = applicationStatuses.Count(item => item.ActiveDocumentCount >= minimumRequiredCount);
+        var applicationsMissingEvidence = applicationStatuses.Count - applicationsWithEvidence;
+        var isMinimumEvidenceComplete = applicationsMissingEvidence == 0;
+
+        return new DonationDocumentaryStatusResponse(
+            donationId,
+            applicationStatuses.Count,
+            applicationsWithEvidence,
+            applicationsMissingEvidence,
+            isMinimumEvidenceComplete
+                ? MinimumEvidenceCompleteDocumentaryStatusCode
+                : EvidencePendingDocumentaryStatusCode,
+            isMinimumEvidenceComplete
+                ? "Comprobacion minima completa"
+                : "Evidencia pendiente",
+            isMinimumEvidenceComplete,
+            applicationStatuses);
+    }
+
     private static DonationApplicationResponse MapDonationApplicationResponse(
         DonationApplication application,
         IReadOnlyList<DonationApplicationEvidence> evidences)
@@ -873,6 +982,37 @@ public static class DonationsEndpoints
         return evidences
             .GroupBy(item => item.DonationApplicationId)
             .ToDictionary(grouping => grouping.Key, grouping => grouping.ToList());
+    }
+
+    private static async Task<Dictionary<Guid, int>> BuildActiveEvidenceDocumentCountsAsync(
+        PlatformDbContext dbContext,
+        IReadOnlyDictionary<Guid, List<DonationApplicationEvidence>> evidenceLookup,
+        DocumentRuleDescriptor? documentRule,
+        IReadOnlyList<string> requiredDocumentClassCodes,
+        CancellationToken cancellationToken)
+    {
+        var evidenceIds = evidenceLookup
+            .SelectMany(pair => pair.Value.Select(evidence => evidence.Id))
+            .ToArray();
+
+        if (evidenceIds.Length == 0 || documentRule is null || requiredDocumentClassCodes.Count == 0)
+        {
+            return [];
+        }
+
+        return await dbContext.StoredDocuments
+            .AsNoTracking()
+            .Where(document =>
+                document.ModuleCode == documentRule.ModuleCode
+                && document.DocumentAreaCode == documentRule.DocumentAreaCode
+                && document.EntityType == documentRule.CoveredDocumentEntityType
+                && evidenceIds.Contains(document.EntityId)
+                && requiredDocumentClassCodes.Contains(document.DocumentClassCode)
+                && document.StatusCode == StoredDocument.ActiveStatusCode
+                && document.SupersededByDocumentId == null)
+            .GroupBy(document => document.EntityId)
+            .Select(grouping => new { EvidenceId = grouping.Key, Count = grouping.Count() })
+            .ToDictionaryAsync(item => item.EvidenceId, item => item.Count, cancellationToken);
     }
 
     private static DonationProgressMetrics CalculateProgress(decimal baseAmount, IReadOnlyList<DonationApplication> applications)

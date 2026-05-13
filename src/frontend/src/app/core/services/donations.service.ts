@@ -14,6 +14,7 @@ import {
   DonationApplication,
   DonationApplicationEvidence,
   DonationDetail,
+  DonationDocumentaryStatus,
   DonationProgress,
   DonationSummary
 } from '../models/donations.models';
@@ -55,6 +56,10 @@ export class DonationsService {
 
   getDonationProgress(donationId: string) {
     return this.httpClient.get<DonationProgress>(`${this.apiBaseUrl}/${donationId}/progress`);
+  }
+
+  getDonationDocumentaryStatus(donationId: string) {
+    return this.httpClient.get<DonationDocumentaryStatus>(`${this.apiBaseUrl}/${donationId}/documentary-status`);
   }
 
   getDonationApplications(donationId: string) {

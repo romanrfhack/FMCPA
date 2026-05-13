@@ -1,6 +1,7 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import {
@@ -8,8 +9,10 @@ import {
   CreateDonationRequest,
   DonationAlert,
   DonationApplication,
+  DonationApplicationDocumentaryStatus,
   DonationApplicationEvidence,
   DonationDetail,
+  DonationDocumentaryStatus,
   DonationSummary
 } from '../../core/models/donations.models';
 import { Contact, CatalogItem, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
@@ -19,6 +22,26 @@ import { SharedCatalogsService } from '../../core/services/shared-catalogs.servi
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
 import { RelatedDocumentsPanelComponent } from '../documents/related-documents-panel.component';
 
+type DonatariasTab = 'summary' | 'donations' | 'applications' | 'evidences' | 'report';
+type ApplicationSortMode = 'dateAsc' | 'dateDesc' | 'amountDesc' | 'evidencePending';
+
+interface VisibleDonationMetrics {
+  donationCount: number;
+  totalReceived: number;
+  totalApplied: number;
+  pendingBalance: number;
+  appliedPercentage: number;
+  openCount: number;
+  closedCount: number;
+  pendingBalanceCount: number;
+}
+
+interface PresentationReadiness {
+  label: 'Si' | 'Parcial' | 'No';
+  className: string;
+  description: string;
+}
+
 @Component({
   selector: 'app-donatarias-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,11 +49,10 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">STAGE-04</p>
+        <p class="page-kicker">Transparencia de donaciones</p>
         <h2>Donatarias</h2>
         <p>
-          Modulo de donaciones maestras con multiples aplicaciones, porcentaje aplicado calculado
-          y evidencia acotada por aplicacion.
+          Seguimiento del recurso recibido, su distribucion, saldo pendiente y evidencia minima por aplicacion.
         </p>
       </article>
 
@@ -38,7 +60,870 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
         <p class="alert error">{{ pageError() }}</p>
       }
 
-      <div class="page-grid">
+      @if (pageSuccess()) {
+        <p class="alert success">{{ pageSuccess() }}</p>
+      }
+
+      @if (selectedDonation(); as donationDetail) {
+        <article class="detail-card transparency-header">
+          <div class="detail-header">
+            <div>
+              <p class="page-kicker">Donacion seleccionada</p>
+              <h3>{{ donationDetail.donorEntityName }}</h3>
+              <p class="meta">
+                Ref {{ donationDetail.reference }}
+                · {{ donationDetail.donationDate }}
+                · {{ donationDetail.donationType }}
+              </p>
+            </div>
+            <div class="detail-badges">
+              <span class="status-pill" [class]="financialSignal().className">
+                Financiero: {{ financialSignal().label }}
+              </span>
+              <span class="status-pill" [class]="documentarySignal().className">
+                Documental: {{ documentarySignal().label }}
+              </span>
+              <span class="status-pill" [class]="operativeSignal().className">
+                Operativo: {{ operativeSignal().label }}
+              </span>
+              <button
+                type="button"
+                class="ghost"
+                (click)="openClosePanel()"
+                [disabled]="!canAdminister() || donationDetail.statusIsClosed"
+                [attr.title]="!canAdminister()
+                  ? 'Solo ADMIN puede registrar cierre formal.'
+                  : donationDetail.statusIsClosed
+                    ? 'La donacion ya se encuentra en estado terminal.'
+                    : 'Registrar cierre formal.'">
+                {{ donationDetail.statusIsClosed ? 'Ya cerrada' : 'Cerrar formalmente' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="summary-grid header-metrics">
+            <article>
+              <h4>Total recibido / valor recibido</h4>
+              <p>{{ donationDetail.baseAmount | number: '1.2-2' }}</p>
+            </article>
+            <article>
+              <h4>Total aplicado</h4>
+              <p>{{ donationDetail.appliedAmountTotal | number: '1.2-2' }}</p>
+            </article>
+            <article>
+              <h4>Saldo pendiente</h4>
+              <p>{{ donationDetail.remainingAmount | number: '1.2-2' }}</p>
+            </article>
+            <article>
+              <h4>Porcentaje aplicado</h4>
+              <p>{{ donationDetail.appliedPercentage | number: '1.2-2' }}%</p>
+            </article>
+          </div>
+
+          <p class="balance-callout" [class.warning]="donationDetail.remainingAmount > 0">
+            {{ selectedDonationBalanceMessage() }}
+          </p>
+        </article>
+      } @else {
+        <article class="empty-card">
+          <h3>Selecciona una donacion</h3>
+          <p>
+            La pantalla mostrara total recibido, aplicado, saldo, porcentaje, aplicaciones y evidencias
+            cuando exista una donacion seleccionada.
+          </p>
+        </article>
+      }
+
+      @if (isClosePanelOpen()) {
+        @if (selectedDonation(); as donationDetail) {
+          <article class="detail-card close-panel">
+            <div class="card-header">
+              <div>
+                <h3>Cierre formal operativo</h3>
+                <p>
+                  Este cierre operativo bloquea nuevas aplicaciones/evidencias sobre la donacion, pero no equivale
+                  a comprobacion legal o contable completa.
+                </p>
+              </div>
+            </div>
+
+            <div class="warning-list">
+              @if (donationDetail.remainingAmount > 0) {
+                <p class="inline-note">Saldo pendiente: {{ donationDetail.remainingAmount | number: '1.2-2' }}.</p>
+              }
+              @if (applicationsWithoutEvidenceCount() > 0) {
+                <p class="inline-note">
+                  Aplicaciones con evidencia minima pendiente: {{ applicationsWithoutEvidenceCount() }}.
+                </p>
+              }
+              <p class="inline-note">
+                La evidencia registrada acredita presencia documental minima; no sustituye revision legal o contable.
+              </p>
+            </div>
+
+            <label class="full-width">
+              <span>Motivo breve de cierre formal</span>
+              <textarea
+                rows="3"
+                [value]="closeReason()"
+                (input)="setCloseReason($event)"
+                placeholder="Opcional"></textarea>
+            </label>
+
+            <div class="form-actions">
+              <button type="button" (click)="confirmCloseSelectedDonation()" [disabled]="isClosingDonation()">
+                Confirmar cierre
+              </button>
+              <button type="button" class="ghost" (click)="cancelClosePanel()" [disabled]="isClosingDonation()">
+                Cancelar
+              </button>
+            </div>
+          </article>
+        }
+      }
+
+      <nav class="tab-nav" aria-label="Secciones de Donatarias">
+        <button type="button" [class.is-active]="activeTab() === 'summary'" (click)="setActiveTab('summary')">
+          Resumen
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'donations'" (click)="setActiveTab('donations')">
+          Donaciones
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'applications'" (click)="setActiveTab('applications')">
+          Aplicaciones / distribucion
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'evidences'" (click)="setActiveTab('evidences')">
+          Evidencias
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'report'" (click)="setActiveTab('report')">
+          Reporte de transparencia
+        </button>
+      </nav>
+
+      @if (visibleDonationMetrics(); as listMetrics) {
+        <article class="detail-card list-summary-card">
+          <div class="card-header">
+            <div>
+              <p class="page-kicker">Lista cargada / filtrada</p>
+              <h3>Resumen financiero visible</h3>
+              <p>
+                Estos KPIs se calculan en frontend sobre las donaciones cargadas con el filtro actual;
+                no representan el universo global si el backend no entrega un agregado dedicado.
+              </p>
+            </div>
+          </div>
+
+          <div class="summary-grid list-kpi-grid">
+            <article>
+              <h4>Donaciones visibles</h4>
+              <p>{{ listMetrics.donationCount }}</p>
+            </article>
+            <article>
+              <h4>Total recibido visible</h4>
+              <p>{{ listMetrics.totalReceived | number: '1.2-2' }}</p>
+            </article>
+            <article>
+              <h4>Total aplicado visible</h4>
+              <p>{{ listMetrics.totalApplied | number: '1.2-2' }}</p>
+            </article>
+            <article>
+              <h4>Saldo pendiente visible</h4>
+              <p>{{ listMetrics.pendingBalance | number: '1.2-2' }}</p>
+            </article>
+            <article>
+              <h4>% aplicado visible</h4>
+              <p>{{ listMetrics.appliedPercentage | number: '1.2-2' }}%</p>
+            </article>
+            <article>
+              <h4>Donaciones abiertas</h4>
+              <p>{{ listMetrics.openCount }}</p>
+            </article>
+            <article>
+              <h4>Donaciones cerradas</h4>
+              <p>{{ listMetrics.closedCount }}</p>
+            </article>
+            <article>
+              <h4>Con saldo pendiente</h4>
+              <p>{{ listMetrics.pendingBalanceCount }}</p>
+            </article>
+          </div>
+        </article>
+      }
+
+      @if (activeTab() === 'summary') {
+        @if (selectedDonation(); as donationDetail) {
+          <section class="tab-panel">
+            <div class="summary-grid kpi-grid">
+              <article>
+                <h4>Total recibido</h4>
+                <p>{{ donationDetail.baseAmount | number: '1.2-2' }}</p>
+              </article>
+              <article>
+                <h4>Total aplicado</h4>
+                <p>{{ donationDetail.appliedAmountTotal | number: '1.2-2' }}</p>
+              </article>
+              <article>
+                <h4>Saldo pendiente</h4>
+                <p>{{ donationDetail.remainingAmount | number: '1.2-2' }}</p>
+              </article>
+              <article>
+                <h4>Porcentaje aplicado</h4>
+                <p>{{ donationDetail.appliedPercentage | number: '1.2-2' }}%</p>
+              </article>
+              <article>
+                <h4>Numero de aplicaciones</h4>
+                <p>{{ donationDetail.applications.length }}</p>
+              </article>
+              <article>
+                <h4>Evidencias registradas</h4>
+                <p>{{ selectedDonationEvidenceCount() }}</p>
+              </article>
+              <article>
+                <h4>Documentos activos</h4>
+                <p>{{ selectedDonationActiveDocumentCount() }}</p>
+              </article>
+              <article>
+                <h4>Aplicaciones con evidencia minima</h4>
+                <p>{{ applicationsWithMinimumEvidenceCount() }}</p>
+              </article>
+              <article>
+                <h4>Pendientes de evidencia</h4>
+                <p>{{ applicationsWithoutEvidenceCount() }}</p>
+              </article>
+              <article>
+                <h4>Estado operativo</h4>
+                <p>{{ operativeSignal().label }}</p>
+              </article>
+            </div>
+
+            <p class="balance-callout" [class.warning]="donationDetail.remainingAmount > 0">
+              {{ selectedDonationBalanceMessage() }}
+            </p>
+
+            <div class="signal-grid">
+              <article class="signal-card {{ financialSignal().className }}">
+                <h4>Semaforo financiero</h4>
+                <strong>{{ financialSignal().label }}</strong>
+                <p>{{ financialSignal().description }}</p>
+              </article>
+              <article class="signal-card {{ documentarySignal().className }}">
+                <h4>Semaforo documental</h4>
+                <strong>{{ documentarySignal().label }}</strong>
+                <p>{{ documentarySignal().description }}</p>
+              </article>
+              <article class="signal-card {{ operativeSignal().className }}">
+                <h4>Semaforo operativo</h4>
+                <strong>{{ operativeSignal().label }}</strong>
+                <p>{{ operativeSignal().description }}</p>
+              </article>
+            </div>
+
+            <article class="detail-card compact-card">
+              <div class="card-header">
+                <div>
+                  <h4>Estado documental agregado</h4>
+                  <p class="meta">
+                    Aplicaciones con evidencia minima activa: {{ applicationsWithMinimumEvidenceCount() }}
+                    · Pendientes: {{ applicationsWithoutEvidenceCount() }}
+                    · Documentos activos: {{ selectedDonationActiveDocumentCount() }}
+                  </p>
+                </div>
+                <span class="status-pill" [class]="documentarySignal().className">
+                  {{ documentarySignal().label }}
+                </span>
+              </div>
+
+              @if (applicationsWithoutEvidenceCount() > 0) {
+                <div class="donation-stats">
+                  @for (application of sortedApplications(); track application.id) {
+                    @if (!applicationHasMinimumEvidence(application)) {
+                      <span>{{ application.beneficiaryName }}: {{ applicationDocumentaryMissingLabel(application) }}</span>
+                    }
+                  }
+                </div>
+              }
+            </article>
+
+            <article class="detail-card readiness-card {{ presentationReadiness().className }}">
+              <div>
+                <p class="page-kicker">Criterio operativo preliminar</p>
+                <h4>Lista para presentar: {{ presentationReadiness().label }}</h4>
+                <p>{{ presentationReadiness().description }}</p>
+                <p class="meta">
+                  Este criterio usa saldo pendiente y evidencia minima por aplicacion; no sustituye revision legal o contable.
+                </p>
+              </div>
+            </article>
+
+            @if (selectedDonationAlert(); as alert) {
+              <article class="alert-row">
+                <div class="row-top">
+                  <h4>Alerta activa</h4>
+                  <span class="status-pill" [class]="alertStateClass(alert.alertState)">
+                    {{ alertStateLabel(alert.alertState) }}
+                  </span>
+                </div>
+                <p class="meta">
+                  Total recibido {{ alert.baseAmount | number: '1.2-2' }}
+                  · Aplicado {{ alert.appliedAmountTotal | number: '1.2-2' }}
+                  · Saldo {{ alert.remainingAmount | number: '1.2-2' }}
+                </p>
+              </article>
+            }
+
+            @if (donationDetail.notes) {
+              <article class="detail-card compact-card">
+                <h4>Observaciones</h4>
+                <p class="detail-notes">{{ donationDetail.notes }}</p>
+              </article>
+            }
+
+            <div class="form-actions">
+              <button type="button" class="ghost" (click)="setActiveTab('applications')">Ver distribucion</button>
+              <button type="button" class="ghost" (click)="setActiveTab('evidences')">Ver evidencias</button>
+              <button type="button" class="ghost" (click)="setActiveTab('report')">Ver vista preliminar</button>
+            </div>
+          </section>
+        } @else {
+          <p class="empty-state">Selecciona una donacion para ver el resumen de transparencia.</p>
+        }
+      }
+
+      @if (activeTab() === 'applications') {
+        @if (selectedDonation(); as donationDetail) {
+          <section class="tab-panel detail-grid">
+            <article class="list-card wide-card">
+              <div class="card-header">
+                <div>
+                  <h3>Aplicaciones / distribucion</h3>
+                  <p>Distribucion del recurso recibido y evidencia minima por aplicacion.</p>
+                </div>
+              </div>
+
+              <div class="sort-toolbar">
+                <span>Orden visual para saldo acumulado:</span>
+                <button
+                  type="button"
+                  class="ghost"
+                  [class.is-active]="applicationSort() === 'dateAsc'"
+                  (click)="setApplicationSort('dateAsc')">
+                  Fecha asc.
+                </button>
+                <button
+                  type="button"
+                  class="ghost"
+                  [class.is-active]="applicationSort() === 'dateDesc'"
+                  (click)="setApplicationSort('dateDesc')">
+                  Fecha desc.
+                </button>
+                <button
+                  type="button"
+                  class="ghost"
+                  [class.is-active]="applicationSort() === 'amountDesc'"
+                  (click)="setApplicationSort('amountDesc')">
+                  Monto mayor
+                </button>
+                <button
+                  type="button"
+                  class="ghost"
+                  [class.is-active]="applicationSort() === 'evidencePending'"
+                  (click)="setApplicationSort('evidencePending')">
+                  Evidencia pendiente
+                </button>
+              </div>
+
+              <p class="inline-note">
+                El saldo restante despues de cada aplicacion se calcula sobre este orden visual con datos actuales.
+              </p>
+
+              @if (donationDetail.applications.length === 0) {
+                <p class="empty-state">Aun no hay aplicaciones registradas.</p>
+              } @else {
+                <div class="application-table">
+                  <div class="application-row table-head">
+                    <span>Beneficiario</span>
+                    <span>Fecha</span>
+                    <span>Responsable</span>
+                    <span>Monto aplicado</span>
+                    <span>% del total recibido</span>
+                    <span>Saldo restante</span>
+                    <span>Peso relativo</span>
+                    <span>Estatus de aplicacion</span>
+                    <span>Evidencias</span>
+                    <span>Estado documental simple</span>
+                    <span>Detalle de comprobacion</span>
+                  </div>
+                  @for (application of sortedApplications(); track application.id) {
+                    <button
+                      type="button"
+                      class="application-row"
+                      [class.is-selected]="application.id === selectedApplicationId()"
+                      (click)="selectApplication(application.id)">
+                      <span>{{ application.beneficiaryName }}</span>
+                      <span>{{ application.applicationDate }}</span>
+                      <span>{{ application.responsibleName }}</span>
+                      <span>{{ application.appliedAmount | number: '1.2-2' }}</span>
+                      <span>{{ applicationSharePercentage(application, donationDetail) | number: '1.2-2' }}%</span>
+                      <span>{{ applicationRemainingAfter(application, donationDetail) | number: '1.2-2' }}</span>
+                      <span class="status-pill" [class]="applicationSignificanceClass(application, donationDetail)">
+                        {{ applicationSignificanceLabel(application, donationDetail) }}
+                      </span>
+                      <span class="status-pill" [class]="applicationStatusClass(application.statusCode)">
+                        {{ application.statusName }}
+                      </span>
+                      <span>{{ applicationEvidenceSummary(application) }}</span>
+                      <span class="status-pill" [class]="applicationDocumentaryClass(application)">
+                        {{ applicationDocumentaryLabel(application) }}
+                      </span>
+                      <span>{{ application.verificationDetails || applicationDocumentaryMissingLabel(application) }}</span>
+                    </button>
+                  }
+                </div>
+              }
+            </article>
+
+            <article class="form-card">
+              <div class="card-header">
+                <div>
+                  <h3>Registrar aplicacion</h3>
+                  <p>Beneficiario, responsable, monto aplicado y detalle de comprobacion.</p>
+                </div>
+              </div>
+
+              @if (applicationFormError()) {
+                <p class="alert error">{{ applicationFormError() }}</p>
+              }
+
+              @if (applicationFormSuccess()) {
+                <p class="alert success">{{ applicationFormSuccess() }}</p>
+              }
+
+              <form class="form-grid" [formGroup]="applicationForm" (ngSubmit)="submitApplication()">
+                <label>
+                  <span>Beneficiario</span>
+                  <input type="text" formControlName="beneficiaryName" placeholder="Beneficiario" />
+                </label>
+
+                <label>
+                  <span>Fecha de aplicacion</span>
+                  <input type="date" formControlName="applicationDate" />
+                </label>
+
+                <label>
+                  <span>Contacto responsable</span>
+                  <select formControlName="responsibleContactId" (change)="syncResponsibleFromContact()">
+                    <option value="">Sin vincular</option>
+                    @for (contact of contacts(); track contact.id) {
+                      <option [value]="contact.id">{{ contact.name }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label>
+                  <span>Responsable o creador</span>
+                  <input type="text" formControlName="responsibleName" placeholder="Nombre del responsable" />
+                </label>
+
+                <label>
+                  <span>Monto aplicado</span>
+                  <input type="number" min="0.01" step="0.01" formControlName="appliedAmount" />
+                </label>
+
+                <label>
+                  <span>Estatus de aplicacion</span>
+                  <select formControlName="statusCatalogEntryId">
+                    <option [value]="0">Selecciona un estatus</option>
+                    @for (status of applicationStatuses(); track status.id) {
+                      <option [value]="status.id">{{ status.statusName }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="full-width">
+                  <span>Detalle de comprobacion</span>
+                  <textarea formControlName="verificationDetails" rows="4" placeholder="Detalle de comprobacion"></textarea>
+                </label>
+
+                <label class="full-width">
+                  <span>Nota de cierre de la aplicacion</span>
+                  <textarea formControlName="closingDetails" rows="3" placeholder="Si aplica"></textarea>
+                </label>
+
+                <div class="form-actions full-width">
+                  <button type="submit" [disabled]="isSubmittingApplication() || !canWrite()">Registrar aplicacion</button>
+                  <button type="button" class="ghost" (click)="resetApplicationForm()">Limpiar</button>
+                  <button
+                    type="button"
+                    class="ghost"
+                    [disabled]="!selectedApplication()"
+                    (click)="selectedApplication() && setActiveTab('evidences')">
+                    Cargar evidencia
+                  </button>
+                </div>
+              </form>
+            </article>
+          </section>
+        } @else {
+          <p class="empty-state">Selecciona una donacion para consultar o registrar aplicaciones.</p>
+        }
+      }
+
+      @if (activeTab() === 'evidences') {
+        @if (selectedDonation(); as donationDetail) {
+          <section class="tab-panel detail-grid">
+            <article class="detail-card wide-card">
+              <div class="card-header">
+                <div>
+                  <p class="page-kicker">Estado documental agregado</p>
+                  <h3>{{ documentarySignal().label }}</h3>
+                  <p>{{ documentarySignal().description }}</p>
+                </div>
+                <span class="status-pill" [class]="documentarySignal().className">
+                  {{ applicationsWithMinimumEvidenceCount() }} completas / {{ applicationsWithoutEvidenceCount() }} pendientes
+                </span>
+              </div>
+              <p class="inline-note">
+                El semaforo documental se calcula con documentos activos del catalogo transversal asociados a la evidencia de cada aplicacion.
+              </p>
+            </article>
+
+            <article class="form-card">
+              <div class="card-header">
+                <div>
+                  <h3>Cargar evidencia</h3>
+                  <p>La evidencia se asocia a una aplicacion especifica.</p>
+                </div>
+              </div>
+
+              <p class="inline-note">
+                La evidencia registrada acredita presencia documental minima; no sustituye revision legal o contable.
+              </p>
+
+              @if (evidenceFormError()) {
+                <p class="alert error">{{ evidenceFormError() }}</p>
+              }
+
+              @if (evidenceFormSuccess()) {
+                <p class="alert success">{{ evidenceFormSuccess() }}</p>
+              }
+
+              @if (selectedApplication(); as selectedApplicationDetail) {
+                <p class="inline-note">
+                  Aplicacion seleccionada: {{ selectedApplicationDetail.beneficiaryName }}
+                  · {{ selectedApplicationDetail.appliedAmount | number: '1.2-2' }}
+                </p>
+              } @else {
+                <p class="empty-state">Selecciona una aplicacion para cargar evidencia.</p>
+              }
+
+              <form class="form-grid" [formGroup]="evidenceForm" (ngSubmit)="submitEvidence()">
+                <label>
+                  <span>Tipo de evidencia</span>
+                  <select formControlName="evidenceTypeId">
+                    <option [value]="0">Selecciona un tipo</option>
+                    @for (type of evidenceTypes(); track type.id) {
+                      <option [value]="type.id">{{ type.name }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="full-width">
+                  <span>Descripcion</span>
+                  <textarea formControlName="description" rows="3" placeholder="Descripcion breve de la evidencia"></textarea>
+                </label>
+
+                <label class="full-width">
+                  <span>Archivo</span>
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi" (change)="onEvidenceSelected($event)" />
+                </label>
+
+                @if (selectedEvidenceFileName()) {
+                  <p class="inline-note full-width">Archivo seleccionado: {{ selectedEvidenceFileName() }}</p>
+                }
+
+                <div class="form-actions full-width">
+                  <button type="submit" [disabled]="isSubmittingEvidence() || !selectedApplication() || !canWrite()">Cargar evidencia</button>
+                  <button type="button" class="ghost" (click)="resetEvidenceForm()">Limpiar</button>
+                </div>
+              </form>
+            </article>
+
+            <article class="list-card">
+              <div class="card-header">
+                <div>
+                  <h3>Evidencias por aplicacion</h3>
+                  <p>Archivos agrupados por la aplicacion que respaldan.</p>
+                </div>
+              </div>
+
+              @if (donationDetail.applications.length === 0) {
+                <p class="empty-state">Aun no hay aplicaciones que puedan recibir evidencia.</p>
+              } @else {
+                <div class="entity-list">
+                  @for (application of sortedApplications(); track application.id) {
+                    <article class="entity-row" [class.is-selected]="application.id === selectedApplicationId()">
+                      <div class="row-top">
+                        <div>
+                          <h4>{{ application.beneficiaryName }}</h4>
+                          <p class="meta">
+                            {{ application.applicationDate }}
+                            · {{ application.appliedAmount | number: '1.2-2' }}
+                            · {{ applicationDocumentaryLabel(application) }}
+                          </p>
+                        </div>
+                        <button type="button" class="ghost" (click)="selectApplicationAndOpenEvidence(application.id)">
+                          Seleccionar
+                        </button>
+                      </div>
+
+                      @if (application.evidences.length === 0) {
+                        <p class="empty-state">Esta aplicacion no tiene evidencia registrada.</p>
+                      } @else {
+                        <div class="entity-list compact-list">
+                          @for (evidence of application.evidences; track evidence.id) {
+                            <article class="entity-row evidence-row">
+                              <div class="row-top">
+                                <div>
+                                  <h4>{{ evidence.evidenceTypeName }}</h4>
+                                  <p class="meta">{{ evidence.originalFileName }}</p>
+                                </div>
+                                <span class="status-pill neutral">
+                                  {{ evidence.fileSizeBytes / 1024 | number: '1.0-0' }} KB
+                                </span>
+                              </div>
+
+                              @if (evidence.description) {
+                                <p class="meta">{{ evidence.description }}</p>
+                              }
+
+                              <div class="row-actions">
+                                <span>{{ evidence.uploadedUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</span>
+                                <button type="button" class="ghost" (click)="downloadEvidence(evidence)">
+                                  Descargar evidencia
+                                </button>
+                              </div>
+                            </article>
+                          }
+                        </div>
+                      }
+                    </article>
+                  }
+                </div>
+              }
+
+              @if (selectedApplication(); as selectedApplicationDetail) {
+                <app-related-documents-panel
+                  moduleCode="DONATARIAS"
+                  entityType="DONATION_APPLICATION"
+                  [entityId]="selectedApplicationDetail.id"
+                  [canRemediate]="canWrite()"
+                  [remediationEvidenceTypes]="evidenceTypes()"
+                  title="Documentos de la aplicacion seleccionada"
+                  subtitle="Catalogo documental transversal para la misma evidencia operativa."
+                  emptyMessage="No hay documentos transversales asociados a esta aplicacion."
+                  (remediated)="reloadPage()">
+                </app-related-documents-panel>
+              }
+            </article>
+          </section>
+        } @else {
+          <p class="empty-state">Selecciona una donacion para consultar evidencias.</p>
+        }
+      }
+
+      @if (activeTab() === 'report') {
+        @if (selectedDonation(); as donationDetail) {
+          <section class="tab-panel">
+            <article class="detail-card report-preview">
+              <div class="card-header">
+                <div>
+                  <p class="page-kicker">Vista preliminar</p>
+                  <h3>Reporte de transparencia</h3>
+                  <p>
+                    Vista preliminar. La exportacion formal se implementara en una fase posterior.
+                  </p>
+                </div>
+                <span class="status-pill neutral">Corte {{ reportCutoffUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</span>
+              </div>
+
+              <div class="summary-grid">
+                <article>
+                  <h4>Donante</h4>
+                  <p>{{ donationDetail.donorEntityName }}</p>
+                </article>
+                <article>
+                  <h4>Referencia</h4>
+                  <p>{{ donationDetail.reference }}</p>
+                </article>
+                <article>
+                  <h4>Total recibido</h4>
+                  <p>{{ donationDetail.baseAmount | number: '1.2-2' }}</p>
+                </article>
+                <article>
+                  <h4>Total aplicado</h4>
+                  <p>{{ donationDetail.appliedAmountTotal | number: '1.2-2' }}</p>
+                </article>
+                <article>
+                  <h4>Saldo pendiente</h4>
+                  <p>{{ donationDetail.remainingAmount | number: '1.2-2' }}</p>
+                </article>
+                <article>
+                  <h4>Porcentaje aplicado</h4>
+                  <p>{{ donationDetail.appliedPercentage | number: '1.2-2' }}%</p>
+                </article>
+              </div>
+
+              <div class="signal-grid">
+                <article class="signal-card {{ financialSignal().className }}">
+                  <h4>Financiero</h4>
+                  <strong>{{ financialSignal().label }}</strong>
+                </article>
+                <article class="signal-card {{ documentarySignal().className }}">
+                  <h4>Documental</h4>
+                  <strong>{{ documentarySignal().label }}</strong>
+                </article>
+                <article class="signal-card {{ operativeSignal().className }}">
+                  <h4>Operativo</h4>
+                  <strong>{{ operativeSignal().label }}</strong>
+                </article>
+              </div>
+
+              <article class="readiness-card {{ presentationReadiness().className }}">
+                <p class="page-kicker">Criterio operativo preliminar</p>
+                <h4>Lista para presentar: {{ presentationReadiness().label }}</h4>
+                <p>{{ presentationReadiness().description }}</p>
+                <p class="meta">
+                  No es reporte formal, no exporta archivos y no sustituye revision legal o contable.
+                </p>
+              </article>
+
+              <div class="report-section">
+                <h4>Estado documental</h4>
+                <div class="summary-grid">
+                  <article>
+                    <h4>Aplicaciones completas</h4>
+                    <p>{{ applicationsWithMinimumEvidenceCount() }}</p>
+                  </article>
+                  <article>
+                    <h4>Aplicaciones pendientes</h4>
+                    <p>{{ applicationsWithoutEvidenceCount() }}</p>
+                  </article>
+                  <article>
+                    <h4>Documentos activos</h4>
+                    <p>{{ selectedDonationActiveDocumentCount() }}</p>
+                  </article>
+                </div>
+
+                @if (applicationsWithoutEvidenceCount() > 0) {
+                  <div class="entity-list compact-list">
+                    @for (application of sortedApplications(); track application.id) {
+                      @if (!applicationHasMinimumEvidence(application)) {
+                        <article class="entity-row">
+                          <div class="row-top">
+                            <div>
+                              <h4>{{ application.beneficiaryName }}</h4>
+                              <p class="meta">{{ applicationDocumentaryMissingLabel(application) }}</p>
+                            </div>
+                            <span class="status-pill signal-warning">Evidencia pendiente</span>
+                          </div>
+                        </article>
+                      }
+                    }
+                  </div>
+                } @else {
+                  <p class="meta">Todas las aplicaciones registran evidencia minima activa.</p>
+                }
+              </div>
+
+              <div class="report-section">
+                <h4>Distribucion financiera por aplicacion</h4>
+                @if (donationDetail.applications.length === 0) {
+                  <p class="empty-state">No hay aplicaciones registradas para reportar.</p>
+                } @else {
+                  <div class="application-table report-distribution-table">
+                    <div class="application-row table-head">
+                      <span>Beneficiario</span>
+                      <span>Fecha</span>
+                      <span>Responsable</span>
+                      <span>Monto aplicado</span>
+                      <span>% del total recibido</span>
+                      <span>Saldo restante</span>
+                      <span>Evidencia</span>
+                      <span>Faltantes basicos</span>
+                    </div>
+                    @for (application of sortedApplications(); track application.id) {
+                      <div class="application-row">
+                        <span>{{ application.beneficiaryName }}</span>
+                        <span>{{ application.applicationDate }}</span>
+                        <span>{{ application.responsibleName }}</span>
+                        <span>{{ application.appliedAmount | number: '1.2-2' }}</span>
+                        <span>{{ applicationSharePercentage(application, donationDetail) | number: '1.2-2' }}%</span>
+                        <span>{{ applicationRemainingAfter(application, donationDetail) | number: '1.2-2' }}</span>
+                        <span class="status-pill" [class]="applicationDocumentaryClass(application)">
+                          {{ applicationEvidenceSummary(application) }}
+                        </span>
+                        <span>{{ applicationDocumentaryMissingLabel(application) }}</span>
+                      </div>
+                    }
+                  </div>
+
+                  <p class="inline-note">
+                    El saldo restante se calcula sobre el orden visual seleccionado en la tabla de aplicaciones.
+                  </p>
+
+                  <div class="entity-list">
+                    @for (application of sortedApplications(); track application.id) {
+                      <article class="entity-row">
+                        <div class="row-top">
+                          <div>
+                            <h4>{{ application.beneficiaryName }}</h4>
+                            <p class="meta">{{ application.verificationDetails || 'Sin detalle de comprobacion capturado.' }}</p>
+                          </div>
+                          <span class="status-pill" [class]="applicationSignificanceClass(application, donationDetail)">
+                            {{ applicationSignificanceLabel(application, donationDetail) }}
+                          </span>
+                        </div>
+
+                        @if (!applicationHasMinimumEvidence(application)) {
+                          <p class="empty-state">Faltante documental: {{ applicationDocumentaryMissingLabel(application) }}.</p>
+                        }
+                        @if (application.evidences.length > 0) {
+                          <div class="donation-stats">
+                            @for (evidence of application.evidences; track evidence.id) {
+                              <span>{{ evidence.evidenceTypeName }} · {{ evidence.originalFileName }}</span>
+                            }
+                          </div>
+                        }
+                      </article>
+                    }
+                  </div>
+                }
+              </div>
+
+              <div class="report-section">
+                <h4>Faltantes basicos</h4>
+                @if (applicationsWithoutEvidenceCount() > 0) {
+                  <p class="empty-state">
+                    Aplicaciones con evidencia minima pendiente: {{ applicationsWithoutEvidenceCount() }}.
+                  </p>
+                } @else {
+                  <p class="meta">No se detectan faltantes basicos de evidencia minima.</p>
+                }
+              </div>
+
+              <p class="inline-note">
+                Nota de alcance: esta vista usa datos actuales de Donatarias y valida presencia documental minima.
+                No es un reporte formal, no exporta archivos y no sustituye revision legal o contable.
+              </p>
+            </article>
+          </section>
+        } @else {
+          <p class="empty-state">Selecciona una donacion para ver la vista preliminar de reporte.</p>
+        }
+      }
+
+      @if (activeTab() === 'donations') {
+        <div class="page-grid donations-tab">
         <aside class="sidebar">
           <article class="filter-card">
             <div class="card-header">
@@ -74,7 +959,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
           <article class="form-card">
             <div class="card-header">
               <div>
-                <h3>Alta de donación</h3>
+                <h3>Registrar donacion</h3>
                 <p>Registro maestro con referencia y estatus inicial controlado.</p>
               </div>
             </div>
@@ -104,7 +989,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               </label>
 
               <label>
-                <span>Monto o valor base</span>
+                <span>Total recibido / valor recibido</span>
                 <input type="number" min="0.01" step="0.01" formControlName="baseAmount" />
               </label>
 
@@ -166,9 +1051,10 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                     <p class="meta">{{ donation.donationType }} · Ref {{ donation.reference }}</p>
 
                     <div class="donation-stats">
-                      <span>Base {{ donation.baseAmount | number: '1.2-2' }}</span>
+                      <span>Total recibido {{ donation.baseAmount | number: '1.2-2' }}</span>
                       <span>Aplicado {{ donation.appliedAmountTotal | number: '1.2-2' }}</span>
-                      <span>{{ donation.appliedPercentage | number: '1.2-2' }}%</span>
+                      <span>Saldo pendiente {{ donation.remainingAmount | number: '1.2-2' }}</span>
+                      <span>Porcentaje aplicado {{ donation.appliedPercentage | number: '1.2-2' }}%</span>
                     </div>
 
                     <span class="status-pill" [class]="alertStateClass(donation.alertState)">
@@ -202,7 +1088,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                     </div>
                     <p class="meta">{{ alert.donationType }} · {{ alert.appliedPercentage | number: '1.2-2' }}%</p>
                     <p class="meta">
-                      Base {{ alert.baseAmount | number: '1.2-2' }}
+                      Total recibido {{ alert.baseAmount | number: '1.2-2' }}
                       · Aplicado {{ alert.appliedAmountTotal | number: '1.2-2' }}
                     </p>
                   </article>
@@ -234,7 +1120,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                   <button
                     type="button"
                     class="ghost"
-                    (click)="closeSelectedDonation()"
+                    (click)="openClosePanel()"
                     [disabled]="!canAdminister() || donationDetail.statusIsClosed"
                     [attr.title]="!canAdminister()
                       ? 'Solo ADMIN puede registrar cierre formal.'
@@ -252,19 +1138,19 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
               <div class="summary-grid">
                 <article>
-                  <h4>Monto base</h4>
+                  <h4>Total recibido / valor recibido</h4>
                   <p>{{ donationDetail.baseAmount | number: '1.2-2' }}</p>
                 </article>
                 <article>
-                  <h4>Monto aplicado</h4>
+                  <h4>Total aplicado</h4>
                   <p>{{ donationDetail.appliedAmountTotal | number: '1.2-2' }}</p>
                 </article>
                 <article>
-                  <h4>Remanente</h4>
+                  <h4>Saldo pendiente</h4>
                   <p>{{ donationDetail.remainingAmount | number: '1.2-2' }}</p>
                 </article>
                 <article>
-                  <h4>Porcentaje</h4>
+                  <h4>Porcentaje aplicado</h4>
                   <p>{{ donationDetail.appliedPercentage | number: '1.2-2' }}%</p>
                 </article>
                 <article>
@@ -282,7 +1168,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               <article class="form-card">
                 <div class="card-header">
                   <div>
-                    <h3>Alta de aplicación</h3>
+                    <h3>Registrar aplicacion</h3>
                     <p>Beneficiario, responsable, monto aplicado y detalle de comprobación.</p>
                   </div>
                 </div>
@@ -337,12 +1223,12 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                   </label>
 
                   <label class="full-width">
-                    <span>Comprobación / detalle</span>
-                    <textarea formControlName="verificationDetails" rows="4" placeholder="Detalle de comprobación"></textarea>
+                    <span>Detalle de comprobacion</span>
+                    <textarea formControlName="verificationDetails" rows="4" placeholder="Detalle de comprobacion"></textarea>
                   </label>
 
                   <label class="full-width">
-                    <span>Datos de cierre</span>
+                    <span>Nota de cierre de la aplicacion</span>
                     <textarea formControlName="closingDetails" rows="3" placeholder="Si aplica"></textarea>
                   </label>
 
@@ -383,7 +1269,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
                         <div class="donation-stats">
                           <span>Monto {{ application.appliedAmount | number: '1.2-2' }}</span>
-                          <span>Evidencias {{ application.evidenceCount }}</span>
+                          <span>{{ applicationEvidenceSummary(application) }}</span>
                         </div>
 
                         @if (application.verificationDetails) {
@@ -400,7 +1286,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               <article class="form-card">
                 <div class="card-header">
                   <div>
-                    <h3>Alta de evidencia</h3>
+                    <h3>Cargar evidencia</h3>
                     <p>La evidencia se asocia a una aplicación, no a la donación maestra.</p>
                   </div>
                 </div>
@@ -523,7 +1409,8 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
             </article>
           }
         </div>
-      </div>
+        </div>
+      }
     </section>
   `,
   styles: [
@@ -546,8 +1433,200 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
         align-items: start;
       }
 
+      .page-grid.donations-tab {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .page-grid.donations-tab .detail-column {
+        display: none;
+      }
+
       .detail-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .tab-panel,
+      .signal-grid,
+      .application-table,
+      .report-section,
+      .warning-list,
+      .list-summary-card,
+      .readiness-card,
+      .compact-list {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .tab-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        padding: 0.35rem;
+        border-radius: 1rem;
+        background: rgba(18, 63, 59, 0.06);
+      }
+
+      .tab-nav button {
+        border-radius: 999px;
+        background: transparent;
+        color: #17423d;
+      }
+
+      .tab-nav button.is-active {
+        background: #123f3b;
+        color: #f6f6f2;
+      }
+
+      .transparency-header {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .header-metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .kpi-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .list-kpi-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .signal-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .signal-card {
+        padding: 1rem;
+        border-radius: 1rem;
+        border: 1px solid rgba(29, 45, 42, 0.08);
+        background: #fbfbf8;
+      }
+
+      .signal-card h4,
+      .signal-card strong {
+        display: block;
+      }
+
+      .signal-card strong {
+        margin-top: 0.35rem;
+        color: #203734;
+      }
+
+      .signal-card p {
+        margin-top: 0.45rem;
+        color: #4d615c;
+        line-height: 1.5;
+      }
+
+      .wide-card {
+        grid-column: 1 / -1;
+      }
+
+      .compact-card {
+        padding: 1rem;
+      }
+
+      .balance-callout {
+        margin-top: 1rem;
+        padding: 0.85rem 1rem;
+        border-radius: 1rem;
+        background: rgba(22, 101, 52, 0.1);
+        color: #166534;
+        font-weight: 800;
+      }
+
+      .balance-callout.warning {
+        background: rgba(148, 98, 0, 0.12);
+        color: #7a5400;
+      }
+
+      .sort-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        align-items: center;
+      }
+
+      .sort-toolbar span {
+        color: #4d615c;
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+
+      .sort-toolbar button.is-active {
+        background: #123f3b;
+        color: #f6f6f2;
+      }
+
+      .application-table {
+        overflow-x: auto;
+      }
+
+      .application-row {
+        display: grid;
+        grid-template-columns:
+          minmax(9rem, 1.3fr)
+          minmax(7rem, 0.8fr)
+          minmax(9rem, 1fr)
+          minmax(8rem, 0.8fr)
+          minmax(7rem, 0.7fr)
+          minmax(8rem, 0.8fr)
+          minmax(9rem, 0.9fr)
+          minmax(8rem, 0.8fr)
+          minmax(6rem, 0.6fr)
+          minmax(10rem, 1fr)
+          minmax(12rem, 1.4fr);
+        gap: 0.6rem;
+        align-items: center;
+        min-width: 92rem;
+        padding: 0.85rem;
+        border-radius: 0.85rem;
+        background: #f6f5ef;
+        color: #203734;
+        text-align: left;
+      }
+
+      .application-row.table-head {
+        background: rgba(18, 63, 59, 0.08);
+        color: #29403b;
+        font-weight: 800;
+        cursor: default;
+      }
+
+      .report-distribution-table .application-row {
+        grid-template-columns:
+          minmax(10rem, 1.3fr)
+          minmax(7rem, 0.7fr)
+          minmax(9rem, 1fr)
+          minmax(8rem, 0.8fr)
+          minmax(8rem, 0.8fr)
+          minmax(8rem, 0.8fr)
+          minmax(8rem, 0.8fr)
+          minmax(12rem, 1.2fr);
+        min-width: 76rem;
+      }
+
+      button.application-row {
+        width: 100%;
+        border: 0;
+      }
+
+      button.application-row.is-selected,
+      .entity-row.is-selected {
+        outline: 2px solid rgba(15, 118, 110, 0.35);
+      }
+
+      .report-preview {
+        display: grid;
+        gap: 1.2rem;
+      }
+
+      .readiness-card {
+        padding: 1rem;
+        border-radius: 1rem;
       }
 
       .hero-card,
@@ -786,6 +1865,41 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
         color: #4338ca;
       }
 
+      .status-pill.signal-warning,
+      .signal-card.signal-warning,
+      .readiness-card.signal-warning {
+        background: rgba(148, 98, 0, 0.12);
+        color: #7a5400;
+      }
+
+      .status-pill.signal-partial,
+      .signal-card.signal-partial,
+      .readiness-card.signal-partial {
+        background: rgba(15, 118, 110, 0.12);
+        color: #0f766e;
+      }
+
+      .status-pill.signal-complete,
+      .signal-card.signal-complete,
+      .readiness-card.signal-complete {
+        background: rgba(22, 101, 52, 0.1);
+        color: #166534;
+      }
+
+      .status-pill.signal-open,
+      .signal-card.signal-open {
+        background: rgba(15, 118, 110, 0.08);
+        color: #17423d;
+      }
+
+      .status-pill.signal-closed,
+      .status-pill.signal-neutral,
+      .signal-card.signal-closed,
+      .signal-card.signal-neutral {
+        background: rgba(70, 85, 82, 0.14);
+        color: #41514e;
+      }
+
       .alert {
         padding: 0.9rem 1rem;
         border-radius: 0.9rem;
@@ -806,6 +1920,10 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
         .page-grid,
         .detail-grid,
         .summary-grid,
+        .header-metrics,
+        .kpi-grid,
+        .list-kpi-grid,
+        .signal-grid,
         .form-grid {
           grid-template-columns: 1fr;
         }
@@ -815,14 +1933,21 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 })
 export class DonatariasPageComponent {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
   private readonly authService = inject(AuthService);
   private readonly donationsService = inject(DonationsService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
+  private readonly initialDonationId = this.route.snapshot.queryParamMap.get('donationId');
+  private readonly initialApplicationId = this.route.snapshot.queryParamMap.get('applicationId');
+  private hasAppliedInitialQuerySelection = false;
 
   protected readonly canWrite = this.authService.canWriteDonations;
   protected readonly canAdminister = this.authService.canAdministerFormalClose;
   protected readonly isBootstrapping = signal(true);
   protected readonly pageError = signal<string | null>(null);
+  protected readonly pageSuccess = signal<string | null>(null);
+  protected readonly activeTab = signal<DonatariasTab>(this.initialApplicationId ? 'evidences' : 'summary');
+  protected readonly reportCutoffUtc = new Date().toISOString();
 
   protected readonly donationStatuses = signal<ModuleStatusCatalogEntry[]>([]);
   protected readonly applicationStatuses = signal<ModuleStatusCatalogEntry[]>([]);
@@ -832,11 +1957,15 @@ export class DonatariasPageComponent {
   protected readonly donationAlerts = signal<DonationAlert[]>([]);
   protected readonly selectedDonationId = signal<string | null>(null);
   protected readonly selectedDonation = signal<DonationDetail | null>(null);
+  protected readonly selectedDocumentaryStatus = signal<DonationDocumentaryStatus | null>(null);
   protected readonly selectedApplicationId = signal<string | null>(null);
+  protected readonly applicationSort = signal<ApplicationSortMode>('dateAsc');
 
   protected readonly isSubmittingDonation = signal(false);
   protected readonly isSubmittingApplication = signal(false);
   protected readonly isSubmittingEvidence = signal(false);
+  protected readonly isClosingDonation = signal(false);
+  protected readonly isClosePanelOpen = signal(false);
 
   protected readonly donationFormError = signal<string | null>(null);
   protected readonly donationFormSuccess = signal<string | null>(null);
@@ -846,6 +1975,7 @@ export class DonatariasPageComponent {
   protected readonly evidenceFormSuccess = signal<string | null>(null);
   protected readonly selectedEvidenceFile = signal<File | null>(null);
   protected readonly selectedEvidenceFileName = signal<string | null>(null);
+  protected readonly closeReason = signal('');
 
   protected readonly creatableDonationStatuses = computed(() =>
     this.donationStatuses().filter((status) => status.statusCode === 'NOT_APPLIED' || status.statusCode === 'CLOSED'));
@@ -861,8 +1991,197 @@ export class DonatariasPageComponent {
     return selectedDonation.applications.find((application) => application.id === selectedApplicationId) ?? null;
   });
 
-  protected readonly selectedDonationEvidenceCount = computed(() =>
-    this.selectedDonation()?.applications.reduce((total, application) => total + application.evidenceCount, 0) ?? 0);
+  protected readonly sortedApplications = computed<DonationApplication[]>(() => {
+    const applications = [...(this.selectedDonation()?.applications ?? [])];
+    const sortMode = this.applicationSort();
+
+    return applications.sort((left, right) => {
+      switch (sortMode) {
+        case 'dateDesc':
+          return this.compareApplicationsByDate(right, left);
+        case 'amountDesc':
+          return right.appliedAmount - left.appliedAmount || this.compareApplicationsByDate(left, right);
+        case 'evidencePending':
+          return this.compareApplicationsByEvidence(left, right) || this.compareApplicationsByDate(left, right);
+        case 'dateAsc':
+        default:
+          return this.compareApplicationsByDate(left, right);
+      }
+    });
+  });
+
+  protected readonly visibleDonationMetrics = computed<VisibleDonationMetrics>(() => {
+    const donations = this.donations();
+    const totalReceived = donations.reduce((total, donation) => total + donation.baseAmount, 0);
+    const totalApplied = donations.reduce((total, donation) => total + donation.appliedAmountTotal, 0);
+    const pendingBalance = donations.reduce((total, donation) => total + donation.remainingAmount, 0);
+
+    return {
+      donationCount: donations.length,
+      totalReceived,
+      totalApplied,
+      pendingBalance,
+      appliedPercentage: totalReceived <= 0 ? 0 : (totalApplied / totalReceived) * 100,
+      openCount: donations.filter((donation) => !donation.statusIsClosed).length,
+      closedCount: donations.filter((donation) => donation.statusIsClosed).length,
+      pendingBalanceCount: donations.filter((donation) => donation.remainingAmount > 0).length
+    };
+  });
+
+  protected readonly selectedDonationEvidenceCount = computed(() => {
+    const documentaryStatus = this.selectedDocumentaryStatus();
+    if (documentaryStatus) {
+      return documentaryStatus.applicationStatuses.reduce(
+        (total, applicationStatus) => total + applicationStatus.evidenceCount,
+        0);
+    }
+
+    return this.selectedDonation()?.applications.reduce((total, application) => total + application.evidenceCount, 0) ?? 0;
+  });
+
+  protected readonly selectedDonationActiveDocumentCount = computed(() =>
+    this.selectedDocumentaryStatus()?.applicationStatuses.reduce(
+      (total, applicationStatus) => total + applicationStatus.activeDocumentCount,
+      0) ?? this.selectedDonationEvidenceCount());
+
+  protected readonly applicationsWithMinimumEvidenceCount = computed(() =>
+    this.selectedDocumentaryStatus()?.applicationsWithEvidence
+      ?? this.selectedDonation()?.applications.filter((application) => application.evidenceCount > 0).length
+      ?? 0);
+
+  protected readonly applicationsWithoutEvidenceCount = computed(() =>
+    this.selectedDocumentaryStatus()?.applicationsMissingEvidence
+      ?? this.selectedDonation()?.applications.filter((application) => application.evidenceCount <= 0).length
+      ?? 0);
+
+  protected readonly presentationReadiness = computed<PresentationReadiness>(() => {
+    const donation = this.selectedDonation();
+    const hasApplications = (donation?.applications.length ?? 0) > 0;
+    const hasEvidence = this.selectedDonationActiveDocumentCount() > 0;
+    const hasPendingBalance = (donation?.remainingAmount ?? 0) > 0;
+    const hasPendingEvidence = this.applicationsWithoutEvidenceCount() > 0;
+
+    if (donation && hasApplications && !hasPendingBalance && !hasPendingEvidence) {
+      return {
+        label: 'Si',
+        className: 'signal-complete',
+        description: 'El recurso registrado esta aplicado financieramente y cada aplicacion tiene evidencia minima.'
+      };
+    }
+
+    if (hasApplications && hasEvidence) {
+      return {
+        label: 'Parcial',
+        className: 'signal-partial',
+        description: 'Existe avance comprobable, pero hay saldo pendiente o faltantes basicos por aplicacion.'
+      };
+    }
+
+    return {
+      label: 'No',
+      className: 'signal-warning',
+      description: 'Faltan aplicaciones registradas o evidencia minima para presentar el uso del recurso.'
+    };
+  });
+
+  protected readonly selectedDonationAlert = computed(() => {
+    const donationId = this.selectedDonationId();
+    return donationId
+      ? this.donationAlerts().find((alert) => alert.donationId === donationId) ?? null
+      : null;
+  });
+
+  protected readonly financialSignal = computed(() => {
+    const donation = this.selectedDonation();
+    if (!donation || donation.appliedAmountTotal <= 0) {
+      return {
+        label: 'Sin aplicar',
+        className: 'signal-warning',
+        description: 'Aun no hay recurso aplicado financieramente.'
+      };
+    }
+
+    if (donation.appliedAmountTotal < donation.baseAmount) {
+      return {
+        label: 'Parcialmente aplicada',
+        className: 'signal-partial',
+        description: 'Existe recurso aplicado financieramente y saldo pendiente.'
+      };
+    }
+
+    return {
+      label: 'Aplicada financieramente',
+      className: 'signal-complete',
+      description: 'El recurso registrado ya fue aplicado financieramente; esto es independiente del cierre operativo.'
+    };
+  });
+
+  protected readonly documentarySignal = computed(() => {
+    const documentaryStatus = this.selectedDocumentaryStatus();
+    if (documentaryStatus?.documentaryStatusCode === 'NO_APPLICATIONS') {
+      return {
+        label: 'Sin aplicaciones que comprobar',
+        className: 'signal-neutral',
+        description: 'Primero registra una aplicacion para asociar evidencia.'
+      };
+    }
+
+    if (documentaryStatus?.documentaryStatusCode === 'EVIDENCE_PENDING') {
+      return {
+        label: 'Evidencia pendiente',
+        className: 'signal-warning',
+        description: `${documentaryStatus.applicationsMissingEvidence} aplicacion(es) tienen evidencia minima pendiente.`
+      };
+    }
+
+    if (documentaryStatus?.documentaryStatusCode === 'MINIMUM_EVIDENCE_COMPLETE') {
+      return {
+        label: 'Comprobacion minima completa',
+        className: 'signal-complete',
+        description: 'Cada aplicacion tiene evidencia minima activa registrada.'
+      };
+    }
+
+    const donation = this.selectedDonation();
+    if (!donation || donation.applications.length === 0) {
+      return {
+        label: 'Sin aplicaciones que comprobar',
+        className: 'signal-neutral',
+        description: 'Primero registra una aplicacion para asociar evidencia.'
+      };
+    }
+
+    if (this.applicationsWithoutEvidenceCount() > 0) {
+      return {
+        label: 'Evidencia pendiente',
+        className: 'signal-warning',
+        description: 'Hay aplicaciones sin evidencia minima registrada.'
+      };
+    }
+
+    return {
+      label: 'Comprobacion minima completa',
+      className: 'signal-complete',
+      description: 'Cada aplicacion tiene al menos una evidencia registrada.'
+    };
+  });
+
+  protected readonly operativeSignal = computed(() => {
+    const donation = this.selectedDonation();
+    if (donation?.statusIsClosed) {
+      return {
+        label: 'Cerrada',
+        className: 'signal-closed',
+        description: 'La donacion ya tiene estado operativo terminal; no implica aplicacion financiera al 100%.'
+      };
+    }
+
+    return {
+      label: 'Abierta',
+      className: 'signal-open',
+      description: 'La donacion sigue disponible para operacion.'
+    };
+  });
 
   protected readonly filtersForm = this.formBuilder.nonNullable.group({
     statusCode: [''],
@@ -899,6 +2218,10 @@ export class DonatariasPageComponent {
     void this.bootstrap();
   }
 
+  protected setActiveTab(tab: DonatariasTab): void {
+    this.activeTab.set(tab);
+  }
+
   protected async applyFilters(): Promise<void> {
     await this.reloadDonations();
   }
@@ -913,16 +2236,19 @@ export class DonatariasPageComponent {
   }
 
   protected async reloadPage(): Promise<void> {
+    this.pageSuccess.set(null);
     await this.bootstrap();
   }
 
   protected async selectDonation(donationId: string): Promise<void> {
+    this.pageSuccess.set(null);
     this.selectedDonationId.set(donationId);
     this.selectedApplicationId.set(null);
+    this.selectedDocumentaryStatus.set(null);
     await this.loadDonationDetail(donationId);
   }
 
-  protected async closeSelectedDonation(): Promise<void> {
+  protected openClosePanel(): void {
     const donation = this.selectedDonation();
     if (!donation) {
       return;
@@ -933,21 +2259,49 @@ export class DonatariasPageComponent {
       return;
     }
 
-    const reason = globalThis.prompt('Motivo breve de cierre formal de la donación. Deja vacío si no aplica.', '');
-    if (reason === null) {
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.closeReason.set('');
+    this.isClosePanelOpen.set(true);
+  }
+
+  protected cancelClosePanel(): void {
+    this.isClosePanelOpen.set(false);
+    this.closeReason.set('');
+  }
+
+  protected setCloseReason(event: Event): void {
+    const input = event.target as HTMLTextAreaElement;
+    this.closeReason.set(input.value);
+  }
+
+  protected async confirmCloseSelectedDonation(): Promise<void> {
+    const donation = this.selectedDonation();
+    if (!donation) {
+      return;
+    }
+
+    if (donation.statusIsClosed) {
+      this.pageError.set('La donación ya se encuentra en estado terminal y no admite un nuevo cierre formal.');
       return;
     }
 
     this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.isClosingDonation.set(true);
 
     try {
-      await firstValueFrom(this.donationsService.closeDonation(donation.id, { reason: this.normalizeOptional(reason) }));
+      await firstValueFrom(this.donationsService.closeDonation(donation.id, { reason: this.normalizeOptional(this.closeReason()) }));
       await this.reloadDonations(donation.id);
       await this.loadDonationDetail(donation.id, this.selectedApplicationId() ?? undefined);
       await this.reloadAlerts();
-      globalThis.alert('Cierre formal registrado en bitácora.');
+      this.isClosePanelOpen.set(false);
+      this.closeReason.set('');
+      this.pageSuccess.set('Cierre formal registrado en bitácora.');
     } catch (error) {
       this.pageError.set(getApiErrorMessage(error, 'No fue posible registrar el cierre formal de la donación.'));
+    } finally {
+      this.isClosingDonation.set(false);
     }
   }
 
@@ -957,10 +2311,140 @@ export class DonatariasPageComponent {
     this.evidenceFormSuccess.set(null);
   }
 
+  protected setApplicationSort(sortMode: ApplicationSortMode): void {
+    this.applicationSort.set(sortMode);
+  }
+
+  protected selectApplicationAndOpenEvidence(applicationId: string): void {
+    this.selectApplication(applicationId);
+    this.activeTab.set('evidences');
+  }
+
+  protected selectedDonationBalanceMessage(): string {
+    const donation = this.selectedDonation();
+
+    if (!donation) {
+      return '';
+    }
+
+    if (donation.statusIsClosed && donation.remainingAmount > 0) {
+      return 'La donacion fue cerrada operativamente con saldo pendiente.';
+    }
+
+    if (donation.remainingAmount > 0) {
+      return 'Aun existe recurso pendiente de aplicar.';
+    }
+
+    return 'El recurso registrado ya fue aplicado financieramente.';
+  }
+
+  protected applicationSharePercentage(application: DonationApplication, donation: DonationDetail): number {
+    return donation.baseAmount <= 0
+      ? 0
+      : (application.appliedAmount / donation.baseAmount) * 100;
+  }
+
+  protected applicationRemainingAfter(application: DonationApplication, donation: DonationDetail): number {
+    const sortedApplications = this.sortedApplications();
+    const selectedIndex = sortedApplications.findIndex((item) => item.id === application.id);
+    const appliedThroughApplication = sortedApplications
+      .slice(0, selectedIndex + 1)
+      .reduce((total, item) => total + item.appliedAmount, 0);
+
+    return donation.baseAmount - appliedThroughApplication;
+  }
+
+  protected applicationEvidenceSummary(application: DonationApplication): string {
+    const documentaryStatus = this.applicationDocumentaryStatus(application.id);
+    if (documentaryStatus) {
+      if (documentaryStatus.activeDocumentCount > 0) {
+        return `${documentaryStatus.activeDocumentCount} documento(s) activo(s)`;
+      }
+
+      if (documentaryStatus.evidenceCount > 0) {
+        return `${documentaryStatus.evidenceCount} evidencia(s), sin documento activo`;
+      }
+
+      return 'Sin evidencia activa';
+    }
+
+    return application.evidenceCount > 0
+      ? `${application.evidenceCount} evidencia(s)`
+      : 'Sin evidencia';
+  }
+
+  protected applicationSignificanceLabel(application: DonationApplication, donation: DonationDetail): string {
+    return this.applicationSharePercentage(application, donation) >= 25
+      ? 'Parte significativa'
+      : 'Distribucion regular';
+  }
+
+  protected applicationSignificanceClass(application: DonationApplication, donation: DonationDetail): string {
+    return this.applicationSharePercentage(application, donation) >= 25
+      ? 'signal-partial'
+      : 'neutral';
+  }
+
+  protected applicationMissingBasicsLabel(application: DonationApplication): string {
+    const documentaryStatus = this.applicationDocumentaryStatus(application.id);
+    const missingItems = [
+      this.applicationHasMinimumEvidence(application) ? null : this.missingReasonLabel(documentaryStatus?.missingReasonCode),
+      application.verificationDetails ? null : 'detalle de comprobacion'
+    ].filter((item): item is string => item !== null);
+
+    return missingItems.length > 0
+      ? `Falta: ${missingItems.join(', ')}`
+      : 'Sin faltantes basicos';
+  }
+
+  protected applicationDocumentaryLabel(application: DonationApplication): string {
+    return this.applicationHasMinimumEvidence(application)
+      ? 'Evidencia minima registrada'
+      : 'Evidencia pendiente';
+  }
+
+  protected applicationDocumentaryClass(application: DonationApplication): string {
+    return this.applicationHasMinimumEvidence(application)
+      ? 'signal-complete'
+      : 'signal-warning';
+  }
+
+  protected applicationDocumentaryStatus(applicationId: string): DonationApplicationDocumentaryStatus | null {
+    return this.selectedDocumentaryStatus()?.applicationStatuses.find(
+      (status) => status.applicationId === applicationId) ?? null;
+  }
+
+  protected applicationDocumentaryMissingLabel(application: DonationApplication): string {
+    const documentaryStatus = this.applicationDocumentaryStatus(application.id);
+    return this.applicationHasMinimumEvidence(application)
+      ? 'Sin faltantes documentales minimos'
+      : `Falta: ${this.missingReasonLabel(documentaryStatus?.missingReasonCode)}`;
+  }
+
+  protected applicationHasMinimumEvidence(application: DonationApplication): boolean {
+    const documentaryStatus = this.applicationDocumentaryStatus(application.id);
+    if (documentaryStatus) {
+      return documentaryStatus.requirementStatus === 'MINIMUM_EVIDENCE_REGISTERED'
+        || documentaryStatus.activeDocumentCount > 0;
+    }
+
+    return application.evidenceCount > 0;
+  }
+
+  protected missingReasonLabel(missingReasonCode: string | null | undefined): string {
+    switch (missingReasonCode) {
+      case 'MISSING_EVIDENCE':
+        return 'evidencia minima activa';
+      default:
+        return 'evidencia minima activa';
+    }
+  }
+
   protected async submitDonation(): Promise<void> {
     this.donationFormError.set(null);
     this.donationFormSuccess.set(null);
     this.pageError.set(null);
+    this.pageSuccess.set(null);
 
     if (this.donationForm.invalid) {
       this.donationForm.markAllAsTouched();
@@ -987,6 +2471,7 @@ export class DonatariasPageComponent {
       this.resetDonationForm();
       await this.reloadDonations(donation.id);
       await this.reloadAlerts();
+      this.activeTab.set('summary');
     } catch (error) {
       this.donationFormError.set(getApiErrorMessage(error, 'No fue posible registrar la donación.'));
     } finally {
@@ -1000,6 +2485,7 @@ export class DonatariasPageComponent {
     this.applicationFormError.set(null);
     this.applicationFormSuccess.set(null);
     this.pageError.set(null);
+    this.pageSuccess.set(null);
 
     if (!selectedDonationId) {
       this.applicationFormError.set('Selecciona una donación antes de registrar una aplicación.');
@@ -1035,6 +2521,7 @@ export class DonatariasPageComponent {
       await this.reloadDonations(selectedDonationId);
       await this.loadDonationDetail(selectedDonationId, application.id);
       await this.reloadAlerts();
+      this.activeTab.set('applications');
     } catch (error) {
       this.applicationFormError.set(getApiErrorMessage(error, 'No fue posible registrar la aplicación.'));
     } finally {
@@ -1049,6 +2536,7 @@ export class DonatariasPageComponent {
     this.evidenceFormError.set(null);
     this.evidenceFormSuccess.set(null);
     this.pageError.set(null);
+    this.pageSuccess.set(null);
 
     if (!selectedApplication) {
       this.evidenceFormError.set('Selecciona una aplicación antes de cargar evidencia.');
@@ -1085,6 +2573,7 @@ export class DonatariasPageComponent {
         await this.loadDonationDetail(selectedDonationId, selectedApplication.id);
         await this.reloadDonations(selectedDonationId);
       }
+      this.activeTab.set('evidences');
     } catch (error) {
       this.evidenceFormError.set(getApiErrorMessage(error, 'No fue posible cargar la evidencia.'));
     } finally {
@@ -1244,20 +2733,31 @@ export class DonatariasPageComponent {
 
     this.donations.set(donations);
 
-    const nextSelectedDonationId = preferredSelectionId
-      ?? this.selectedDonationId()
-      ?? donations[0]?.id
-      ?? null;
+    const queryDonationId = this.hasAppliedInitialQuerySelection ? null : this.initialDonationId;
+    const nextSelectedDonationId = [
+      preferredSelectionId,
+      queryDonationId,
+      this.selectedDonationId(),
+      donations[0]?.id
+    ].find((candidate): candidate is string =>
+      !!candidate && donations.some((item) => item.id === candidate)) ?? null;
 
     if (nextSelectedDonationId && donations.some((item) => item.id === nextSelectedDonationId)) {
       this.selectedDonationId.set(nextSelectedDonationId);
-      await this.loadDonationDetail(nextSelectedDonationId, this.selectedApplicationId() ?? undefined);
+      await this.loadDonationDetail(
+        nextSelectedDonationId,
+        this.hasAppliedInitialQuerySelection
+          ? this.selectedApplicationId() ?? undefined
+          : this.initialApplicationId ?? this.selectedApplicationId() ?? undefined);
+      this.hasAppliedInitialQuerySelection = true;
       return;
     }
 
     this.selectedDonationId.set(null);
     this.selectedDonation.set(null);
+    this.selectedDocumentaryStatus.set(null);
     this.selectedApplicationId.set(null);
+    this.hasAppliedInitialQuerySelection = true;
   }
 
   private async reloadAlerts(): Promise<void> {
@@ -1266,8 +2766,12 @@ export class DonatariasPageComponent {
   }
 
   private async loadDonationDetail(donationId: string, preferredApplicationId?: string): Promise<void> {
-    const donationDetail = await firstValueFrom(this.donationsService.getDonation(donationId));
+    const [donationDetail, documentaryStatus] = await Promise.all([
+      firstValueFrom(this.donationsService.getDonation(donationId)),
+      firstValueFrom(this.donationsService.getDonationDocumentaryStatus(donationId))
+    ]);
     this.selectedDonation.set(donationDetail);
+    this.selectedDocumentaryStatus.set(documentaryStatus);
 
     const nextSelectedApplicationId = preferredApplicationId
       ?? this.selectedApplicationId()
@@ -1279,6 +2783,19 @@ export class DonatariasPageComponent {
     } else {
       this.selectedApplicationId.set(donationDetail.applications[0]?.id ?? null);
     }
+  }
+
+  private compareApplicationsByDate(left: DonationApplication, right: DonationApplication): number {
+    return left.applicationDate.localeCompare(right.applicationDate)
+      || left.createdUtc.localeCompare(right.createdUtc)
+      || left.beneficiaryName.localeCompare(right.beneficiaryName);
+  }
+
+  private compareApplicationsByEvidence(left: DonationApplication, right: DonationApplication): number {
+    const leftHasEvidence = this.applicationHasMinimumEvidence(left) ? 1 : 0;
+    const rightHasEvidence = this.applicationHasMinimumEvidence(right) ? 1 : 0;
+
+    return leftHasEvidence - rightHasEvidence;
   }
 
   private defaultCreatableDonationStatusId(): number {

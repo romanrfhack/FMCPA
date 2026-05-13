@@ -62,6 +62,30 @@ export interface DonationProgress {
   applicationCount: number;
 }
 
+export interface DonationDocumentaryStatus {
+  donationId: string;
+  totalApplications: number;
+  applicationsWithEvidence: number;
+  applicationsMissingEvidence: number;
+  documentaryStatusCode: string;
+  documentaryStatusLabel: string;
+  isMinimumEvidenceComplete: boolean;
+  applicationStatuses: DonationApplicationDocumentaryStatus[];
+}
+
+export interface DonationApplicationDocumentaryStatus {
+  applicationId: string;
+  beneficiaryName: string;
+  applicationDate: string;
+  appliedAmount: number;
+  evidenceCount: number;
+  activeDocumentCount: number;
+  requirementStatus: string;
+  missingReasonCode: string | null;
+  requiredDocumentClassCodes: string[];
+  routeHint: string | null;
+}
+
 export interface CreateDonationApplicationRequest {
   beneficiaryName: string;
   responsibleContactId: string | null;

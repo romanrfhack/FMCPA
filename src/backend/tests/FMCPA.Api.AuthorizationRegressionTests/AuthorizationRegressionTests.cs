@@ -210,6 +210,7 @@ public sealed class AuthorizationRegressionTests : IClassFixture<AuthorizationRe
             new("Markets write", HttpMethod.Post.Method, "/api/markets", writeRoles, ["READONLY"]),
             new("Markets formal close", HttpMethod.Post.Method, $"/api/markets/{MissingEntityId}/close", adminOnly, nonAdmins),
             new("Donations read", HttpMethod.Get.Method, "/api/donations", allRoles, []),
+            new("Donation documentary status read", HttpMethod.Get.Method, $"/api/donations/{MissingEntityId}/documentary-status", allRoles, []),
             new("Donations write", HttpMethod.Post.Method, "/api/donations", writeRoles, ["READONLY"]),
             new("Donations formal close", HttpMethod.Post.Method, $"/api/donations/{MissingEntityId}/close", adminOnly, nonAdmins),
             new("Financials read", HttpMethod.Get.Method, "/api/financials", allRoles, []),

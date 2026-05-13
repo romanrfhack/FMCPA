@@ -1,17 +1,27 @@
 # Current Phase
 
 ## Fase actual
-**Track 5 post-MVP: Ficha operativa contextual de Financieras**
+**Track funcional post-MVP: Donatarias Transparencia - Fase 3 semaforo documental agregado**
 
 ## Estado actual
-- Fecha de inicio documentada: 2026-05-08
-- Estado de la fase: Track 5 abierto con renovacion formal minima de `FinancialPermit`, continuidad operativa por cadena, captura nueva restringida al permiso vigente/no terminal, unicidad operativa minima, resolucion contextual, captura contextual minima de creditos, sugerencias operativas para contextos sin vigente, renovacion contextual prellenada por draft de lectura, alta contextual prellenada para `CREATE_NEW_PERMIT` y ficha operativa contextual consolidada; pendiente de aprobacion formal
+- Fecha de inicio documentada: 2026-05-12
+- Estado de la fase: Fase 3 de Donatarias Transparencia implementada y validada con endpoint calculado `GET /api/donations/{donationId}/documentary-status`, semaforo documental agregado por donacion, conteo de aplicaciones completas/pendientes, faltantes documentales por aplicacion e integracion en Resumen, Aplicaciones, Evidencias, Reporte preliminar y cierre formal; pendiente de aprobacion formal
 - Estado del MVP: **Cerrado con reservas**
-- Estado del track anterior: `Track 4` queda con centro operativo, ventanas temporales y exportacion CSV ligera entregados y pendientes de aprobacion formal
-- Enfoque: orientar y preparar la siguiente accion operativa sobre un contexto de Financieras desde una ficha de lectura compuesta, sin abrir workflow complejo, aprobaciones multinivel, catalogo maestro, versionado contractual completo, entidad draft persistida, BI ni refactor del modulo
+- Estado del track anterior: `Track 5` de Financieras queda con ficha operativa contextual consolidada entregada y pendiente de aprobacion formal
+- Enfoque: reforzar transparencia documental de Donatarias reutilizando `DocumentRuleRegistry` y `StoredDocument` activos/no reemplazados, sin schema nuevo, migracion, permisos nuevos, checklist legal avanzado, aprobacion documental humana, exportacion formal ni validacion legal/contable
 
 ## Nota operativa
-- El MVP permanece cerrado con reservas; `Track 5` abre evolucion funcional acotada solo sobre Financieras.
+- El MVP permanece cerrado con reservas; despues de la ficha contextual de Financieras, se abre una evolucion funcional acotada sobre Donatarias orientada a transparencia ante donantes.
+- Donatarias Transparencia Fase 1 reordena la pantalla existente, pero conserva los flujos actuales de alta de donacion, alta de aplicacion, carga/descarga de evidencia, filtros, alertas y cierre formal admin.
+- Donatarias Transparencia Fase 2 agrega agregados calculados en cliente sobre la lista visible/filtrada; estos totales no deben presentarse como universo global hasta que exista endpoint agregado server-side.
+- El saldo restante por aplicacion se calcula sobre el orden visual seleccionado en frontend; sirve para lectura operativa de distribucion, no como asiento contable persistido.
+- Donatarias Transparencia Fase 3 agrega un agregado documental server-side por donacion; cuenta evidencia minima con documentos activos de `StoredDocument` asociados a evidencias de aplicacion y conforme a `DocumentRuleRegistry`, no solo con `evidenceCount`.
+- El semaforo documental de Fase 3 distingue `NO_APPLICATIONS`, `EVIDENCE_PENDING` y `MINIMUM_EVIDENCE_COMPLETE`; esto representa presencia documental minima registrada, no cumplimiento legal ni suficiencia contable.
+- La validacion local de Fase 3 se cerro con stack aislado `FMCPA_DonatariasPhase3Validation`, API `5109`, frontend `4221`, donaciones de prueba sin aplicaciones, evidencia parcial y evidencia completa, pruebas backend del endpoint, build/test frontend, build backend, Playwright sobre `/donatarias` y `git diff --check`; no hubo migracion.
+- La validacion local de Fase 2 se cerro con stack aislado `FMCPA_DonatariasPhase2Validation`, API `5108`, frontend `4220`, tres donaciones de prueba y Playwright sobre `/donatarias` validando KPIs, tabs, query params, distribucion, reporte preliminar y estatus aplicada vs cerrada.
+- La vista de reporte de transparencia queda como preliminar y sin exportacion; el reporte formal, endpoint agregado, PDF/CSV y comprobacion documental avanzada permanecen fuera de esta fase.
+- No se modifica schema, migraciones, permisos ni significado de estatus.
+- La validacion visual/operativa de Fase 1 se cerro con stack local aislado `FMCPA_DonatariasValidation`, API `5098`, frontend `4218` y una donacion parcial de prueba con dos aplicaciones, una evidencia PDF descargable y una aplicacion sin evidencia; solo se corrigieron labels/copy mínimos en UI.
 - `FinancialPermit` incorpora trazabilidad minima de renovacion: `RenewedFromPermitId`, `CurrentRootPermitId`, `IsCurrentVersion` y `RenewalSequence`.
 - `POST /api/financials/{permitId}/renew` crea un nuevo permiso a partir del anterior, captura nuevo periodo y permite actualizar lugar/stand, horario, terminos negociados y observaciones.
 - La politica elegida mantiene el permiso anterior como historico no vigente, conserva el original sin borrar ni sobrescribir, y deja el nuevo permiso como vigente de la cadena.

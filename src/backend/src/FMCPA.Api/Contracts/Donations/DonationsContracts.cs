@@ -62,6 +62,28 @@ public sealed record DonationProgressResponse(
     decimal AppliedPercentage,
     int ApplicationCount);
 
+public sealed record DonationDocumentaryStatusResponse(
+    Guid DonationId,
+    int TotalApplications,
+    int ApplicationsWithEvidence,
+    int ApplicationsMissingEvidence,
+    string DocumentaryStatusCode,
+    string DocumentaryStatusLabel,
+    bool IsMinimumEvidenceComplete,
+    IReadOnlyList<DonationApplicationDocumentaryStatusResponse> ApplicationStatuses);
+
+public sealed record DonationApplicationDocumentaryStatusResponse(
+    Guid ApplicationId,
+    string BeneficiaryName,
+    DateOnly ApplicationDate,
+    decimal AppliedAmount,
+    int EvidenceCount,
+    int ActiveDocumentCount,
+    string RequirementStatus,
+    string? MissingReasonCode,
+    IReadOnlyList<string> RequiredDocumentClassCodes,
+    string? RouteHint);
+
 public sealed record CreateDonationApplicationRequest(
     string BeneficiaryName,
     Guid? ResponsibleContactId,
