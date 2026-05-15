@@ -13,7 +13,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   template: `
     <section class="page-shell">
       <header class="page-header">
-        <p class="page-kicker">TRACK 3 DOCUMENTOS</p>
+        <p class="page-kicker">Control documental</p>
         <h2>Bandeja documental</h2>
       </header>
 
@@ -21,48 +21,55 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         <p class="alert error">{{ pageError() }}</p>
       }
 
-      <form class="filters-panel" [formGroup]="filtersForm" (ngSubmit)="reload()">
-        <label>
-          <span>Modulo</span>
-          <select formControlName="moduleCode">
-            <option value="">Todos</option>
-            <option value="MARKETS">Mercados</option>
-            <option value="DONATARIAS">Donatarias</option>
-            <option value="FEDERATION">Federacion</option>
-          </select>
-        </label>
+      <section class="filters-panel" aria-label="Filtros de bandeja documental">
+        <form class="filters-grid" [formGroup]="filtersForm" (ngSubmit)="reload()">
+          <label>
+            <span>Modulo</span>
+            <select formControlName="moduleCode">
+              <option value="">Todos</option>
+              <option value="MARKETS">Mercados</option>
+              <option value="DONATARIAS">Donatarias</option>
+              <option value="FEDERATION">Federacion</option>
+            </select>
+          </label>
 
-        <label>
-          <span>Tipo</span>
-          <select formControlName="workItemType">
-            <option value="">Todos</option>
-            <option value="COMPLETENESS_PENDING">Completitud</option>
-            <option value="DOCUMENT_INTEGRITY_ISSUE">Integridad</option>
-            <option value="RETENTION_REVIEW">Retencion</option>
-          </select>
-        </label>
+          <label>
+            <span>Tipo de pendiente</span>
+            <select formControlName="workItemType">
+              <option value="">Todos</option>
+              <option value="COMPLETENESS_PENDING">Evidencia pendiente</option>
+              <option value="DOCUMENT_INTEGRITY_ISSUE">Integridad documental</option>
+              <option value="RETENTION_REVIEW">Revision de retencion</option>
+            </select>
+          </label>
 
-        <label>
-          <span>Severidad</span>
-          <select formControlName="severityCode">
-            <option value="">Todas</option>
-            <option value="HIGH">HIGH</option>
-            <option value="MEDIUM">MEDIUM</option>
-            <option value="LOW">LOW</option>
-          </select>
-        </label>
+          <label>
+            <span>Prioridad</span>
+            <select formControlName="severityCode">
+              <option value="">Todas</option>
+              <option value="HIGH">Alta</option>
+              <option value="MEDIUM">Media</option>
+              <option value="LOW">Baja</option>
+            </select>
+          </label>
 
-        <label>
-          <span>Limite</span>
-          <input type="number" min="1" max="200" formControlName="take" />
-        </label>
+          <label>
+            <span>Limite</span>
+            <input type="number" min="1" max="200" formControlName="take" />
+          </label>
 
-        <div class="filter-actions">
-          <button type="submit" [disabled]="isLoading()">Filtrar</button>
-          <button type="button" class="ghost" (click)="resetFilters()">Limpiar</button>
-          <button type="button" class="ghost" [disabled]="isExporting()" (click)="exportWorkQueue()">Exportar CSV</button>
+          <div class="filter-actions">
+            <button type="submit" [disabled]="isLoading()">Filtrar</button>
+            <button type="button" class="ghost" (click)="resetFilters()">Limpiar</button>
+          </div>
+        </form>
+
+        <div class="export-actions">
+          <button type="button" class="ghost compact" [disabled]="isExporting()" (click)="exportWorkQueue()">
+            Exportar CSV
+          </button>
         </div>
-      </form>
+      </section>
 
       <article class="panel">
         <div class="panel-header">
@@ -81,7 +88,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 <div>
                   <div class="badges">
                     <span class="severity" [class.medium]="item.severityCode === 'MEDIUM'" [class.low]="item.severityCode === 'LOW'">
-                      {{ item.severityCode }}
+                      {{ severityLabel(item.severityCode) }}
                     </span>
                     <span>{{ labelForType(item.workItemType) }}</span>
                     <span>{{ item.moduleName }}</span>
@@ -91,21 +98,21 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                         [class.high]="item.documentOperationalSeverityCode === 'HIGH'"
                         [class.medium]="item.documentOperationalSeverityCode === 'MEDIUM'"
                         [class.low]="item.documentOperationalSeverityCode === 'LOW'">
-                        {{ item.documentOperationalStatusCode }}
+                        {{ operationalStatusLabel(item.documentOperationalStatusCode) }}
                       </span>
                     }
                   </div>
                   <h4>{{ item.title }}</h4>
                   <p>{{ item.summary }}</p>
-                  <small>{{ item.originContext.displayName }} · {{ item.reasonCode }} · {{ item.currentStatusCode }}</small>
+                  <small>{{ item.originContext.displayName }} · {{ reasonLabel(item.reasonCode) }} · {{ currentStatusLabel(item.currentStatusCode) }}</small>
                   @if (item.remediationHint) {
                     <p class="hint">{{ item.remediationHint }}</p>
                   }
                 </div>
                 <div class="row-actions">
-                  <a [href]="resolveActionRoute(item)">Abrir contexto</a>
+                  <a [href]="resolveActionRoute(item)">Ir al origen</a>
                   @if (item.documentId) {
-                    <small>Doc. {{ item.documentId }}</small>
+                    <small>Documento {{ item.documentId }}</small>
                   }
                 </div>
               </article>
@@ -121,6 +128,11 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .queue-list {
         display: grid;
         gap: 1rem;
+      }
+
+      :host {
+        display: block;
+        min-width: 0;
       }
 
       .page-header,
@@ -154,9 +166,16 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
       .filters-panel {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 0.85rem;
-        padding: 1rem;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.75rem;
+        padding: 0.9rem;
+        align-items: end;
+      }
+
+      .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+        gap: 0.7rem;
         align-items: end;
       }
 
@@ -169,18 +188,21 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       input,
       select {
         width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
         border: 1px solid rgba(35, 51, 47, 0.16);
         border-radius: 8px;
-        padding: 0.7rem 0.8rem;
+        padding: 0.58rem 0.7rem;
         font: inherit;
         background: #fff;
       }
 
       button,
       a {
+        min-width: 0;
         border: 0;
         border-radius: 8px;
-        padding: 0.7rem 0.9rem;
+        padding: 0.68rem 0.9rem;
         font-weight: 800;
         color: #fff;
         background: #0f766e;
@@ -193,6 +215,10 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         background: rgba(15, 118, 110, 0.1);
       }
 
+      button.compact {
+        padding: 0.58rem 0.8rem;
+      }
+
       .filter-actions,
       .panel-header,
       .queue-row,
@@ -202,6 +228,16 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         gap: 0.65rem;
       }
 
+      .filter-actions,
+      .export-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .export-actions {
+        display: flex;
+      }
+
       .panel-header,
       .queue-row {
         justify-content: space-between;
@@ -209,8 +245,13 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       }
 
       .queue-row {
+        min-width: 0;
         padding: 1rem 0;
         border-top: 1px solid rgba(35, 51, 47, 0.08);
+      }
+
+      .queue-row > div:first-child {
+        min-width: 0;
       }
 
       .queue-row:first-child {
@@ -277,6 +318,13 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .row-actions {
         display: grid;
         justify-items: end;
+        min-width: 9rem;
+      }
+
+      .row-actions small,
+      .queue-row h4,
+      .queue-row p {
+        overflow-wrap: anywhere;
       }
 
       .alert.error {
@@ -288,9 +336,17 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
       @media (max-width: 920px) {
         .filters-panel,
+        .filters-grid,
         .queue-row {
           display: grid;
           grid-template-columns: 1fr;
+        }
+
+        .filter-actions,
+        .export-actions,
+        .row-actions {
+          justify-content: stretch;
+          justify-items: stretch;
         }
       }
     `
@@ -363,13 +419,77 @@ export class DocumentsWorkQueuePageComponent {
   protected labelForType(workItemType: string): string {
     switch (workItemType) {
       case 'COMPLETENESS_PENDING':
-        return 'Completitud';
+        return 'Evidencia pendiente';
       case 'DOCUMENT_INTEGRITY_ISSUE':
-        return 'Integridad';
+        return 'Integridad documental';
       case 'RETENTION_REVIEW':
-        return 'Retencion';
+        return 'Revision de retencion';
       default:
         return workItemType;
+    }
+  }
+
+  protected severityLabel(severityCode: string): string {
+    switch (severityCode) {
+      case 'HIGH':
+        return 'Alta';
+      case 'MEDIUM':
+        return 'Media';
+      case 'LOW':
+        return 'Baja';
+      default:
+        return severityCode;
+    }
+  }
+
+  protected operationalStatusLabel(statusCode: string): string {
+    switch (statusCode) {
+      case 'ACTIVE_OK':
+        return 'Disponible';
+      case 'INTEGRITY_ISSUE':
+        return 'Revisar integridad';
+      case 'ON_HOLD':
+        return 'En resguardo';
+      case 'REVIEW_DUE':
+        return 'Requiere revision';
+      case 'RETENTION_EXPIRED':
+        return 'Retencion vencida';
+      case 'ARCHIVED':
+        return 'Archivado';
+      case 'SUPERSEDED':
+        return 'Reemplazado';
+      default:
+        return statusCode;
+    }
+  }
+
+  protected reasonLabel(reasonCode: string): string {
+    switch (reasonCode) {
+      case 'MISSING_REQUIRED_DOCUMENT':
+      case 'MISSING_EVIDENCE':
+        return 'Falta evidencia';
+      case 'INTEGRITY_ISSUE':
+        return 'Revisar archivo';
+      case 'RETENTION_REVIEW':
+      case 'REVIEW_DUE':
+        return 'Revision pendiente';
+      default:
+        return reasonCode;
+    }
+  }
+
+  protected currentStatusLabel(statusCode: string): string {
+    switch (statusCode) {
+      case 'COMPLETE':
+        return 'Completo';
+      case 'INCOMPLETE':
+        return 'Pendiente';
+      case 'ACTIVE':
+        return 'Vigente';
+      case 'ARCHIVED':
+        return 'Archivado';
+      default:
+        return statusCode;
     }
   }
 

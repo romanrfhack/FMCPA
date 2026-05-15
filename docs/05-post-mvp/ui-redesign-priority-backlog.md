@@ -1,0 +1,83 @@
+# Backlog priorizado de rediseño visual FMCPA
+
+## Principios de la siguiente fase
+
+- Donatarias, login, header y navegacion principal son la referencia visual vigente.
+- Priorizar layout, copy e interaccion local antes que cambios de datos.
+- No introducir dependencias backend para resolver problemas visuales.
+- Mover captura secundaria a modales/drawers cuando la pantalla principal deba ser de consulta.
+- Conservar fondo crema, verde petroleo, teal, tarjetas limpias, badges pill, layout compacto y lenguaje no tecnico.
+
+## Fases sugeridas
+
+### Fase 1 - Correcciones visuales criticas y responsive
+
+| Prioridad | Pantalla | Objetivo | Tipo de cambio | Riesgo | Requiere backend | Criterios de aceptacion |
+| --- | --- | --- | --- | --- | --- | --- |
+| P0 | `/documents` | Etapa A implementada: eliminar overflow movil y reducir apariencia de panel tecnico. | Layout/copy/responsive | Medio | No | Cumplido en Etapa A: 390/768/1366 sin overflow global; filtros compactos; codigos principales traducidos; detalle prioriza datos operativos y conserva metadata tecnica en seccion secundaria. |
+| P0 | `/documents/work-queue` | Etapa A implementada: corregir overflow desktop y clarificar severidad. | Layout/copy/responsive | Bajo | No | Cumplido en Etapa A: 390/768/1366 sin overflow global; `Exportar CSV` queda en area secundaria; severidades se leen como Alta/Media/Baja y tipos de pendiente usan lenguaje operativo. |
+| P0 | `/admin/users` | Eliminar overflow desktop y comprimir acciones por usuario. | Layout/interaccion local | Medio | No | 1366px sin overflow; acciones de rol/password/lockout no aparecen todas como controles permanentes; alta puede abrirse sin desplazar el listado. |
+| P0 | `/federation` | Reducir scroll extremo y separar focos operativos. | Layout/interaccion local | Medio | No | En movil la vista inicial muestra resumen, tabs y una accion primaria; altas de gestion/donacion/aplicacion/comision/evidencia no quedan inline permanentes. |
+| P1 | `/financials` | Convertir captura financiera en flujo guiado, no formulario permanente. | Layout/interaccion local | Medio | No | Ficha contextual compacta; alta de oficio, credito, comision y renovacion en modales/drawers; primera pantalla prioriza permisos y alertas. |
+| P1 | `/markets` | Reducir sidebar largo y hacer el detalle mas operativo. | Layout/interaccion local | Medio | No | Alta de mercado/locatario/incidencia en modales; listado y detalle visibles sin recorrer todos los formularios; scroll movil reducido. |
+
+### Fase 2 - Limpieza de lenguaje tecnico
+
+| Prioridad | Pantalla | Objetivo | Tipo de cambio | Riesgo | Requiere backend | Criterios de aceptacion |
+| --- | --- | --- | --- | --- | --- | --- |
+| P1 | Todas excepto login/header/nav/Donatarias | Retirar `STAGE`, `TRACK`, `MVP`, "minima/minimo" y copy de implementacion. | Copy | Bajo | No | Ninguna pantalla visible al usuario muestra etiquetas de etapa o referencias MVP. |
+| P1 | `/operations` | Traducir centro operativo a lenguaje institucional. | Copy/layout | Bajo | No | No se muestran `SUMMARY`, `HIGH`, `MEDIUM`, `LOW`, `SECURITY`, `DOCUMENTS` como labels principales; exportaciones son secundarias. |
+| P1 | `/documents` | Traducir taxonomia documental. | Copy/layout | Bajo | No | `GUID`, `Entity ID`, `Content type`, `Baseline`, `Effective`, `Hold admin` dejan de ser labels de primer nivel. |
+| P1 | `/admin/security` | Traducir eventos y bloqueo a lenguaje de administracion. | Copy | Bajo | No | Eventos de seguridad se leen como actividad administrativa; codigos quedan solo en detalle expandido si son necesarios. |
+| P2 | `/history`, `/bitacora`, `/commissions` | Homologar lenguaje de cierre, historial y comisiones. | Copy/layout | Bajo | No | Encabezados y empty states hablan de operacion FMCPA, no de tracks ni cierre de MVP. |
+
+### Fase 3 - Homologacion de catalogos y pantallas administrativas simples
+
+| Prioridad | Pantalla | Objetivo | Tipo de cambio | Riesgo | Requiere backend | Criterios de aceptacion |
+| --- | --- | --- | --- | --- | --- | --- |
+| P2 | `/contacts` | Convertir alta inline a accion secundaria. | Interaccion local | Bajo | No | Pantalla inicial muestra listado/filtro y boton `Nuevo contacto`; formulario abre en modal. |
+| P2 | `/catalogs/commission-types` | Homologar catalogo simple. | Layout/copy/interaccion local | Bajo | No | Boton `Nuevo tipo`; formulario en modal; `Codigo` y `Orden` tratados como campos administrativos. |
+| P2 | `/catalogs/evidence-types` | Homologar catalogo simple. | Layout/copy/interaccion local | Bajo | No | Misma estructura que tipos de comision; badges activos/inactivos tipo pill. |
+| P2 | `/catalogs/module-statuses` | Reducir complejidad del catalogo de estatus. | Layout/interaccion local | Medio | No | Alta en modal con secciones; campos de codigo agrupados como datos administrativos; listado legible en movil. |
+| P2 | `/account/password` | Limpiar copy tecnico. | Copy/layout | Bajo | No | Sin `TRACK`; no menciona token; conserva validaciones y flujo actual. |
+
+### Fase 4 - Pulido de dashboards y reportes transversales
+
+| Prioridad | Pantalla | Objetivo | Tipo de cambio | Riesgo | Requiere backend | Criterios de aceptacion |
+| --- | --- | --- | --- | --- | --- | --- |
+| P3 | `/dashboard` | Hacerlo ejecutivo y compacto. | Layout/copy | Bajo | No | KPIs compactos, alertas priorizadas, sin referencias MVP; primera vista desktop no se siente como hero de prototipo. |
+| P3 | `/operations` | Consolidarlo como tablero de trabajo diario. | Layout/copy | Bajo | No | Acciones principales visibles; filtros de tiempo compactos; exportaciones bajo menu secundario. |
+| P3 | `/commissions` | Alinear con reportes de Donatarias. | Layout/copy | Bajo | No | Filtros compactos, totales claros, exportacion secundaria, badges consistentes. |
+| P3 | `/history` | Mejorar lectura de cerrados. | Layout/copy | Bajo | No | Filtros ligeros; tarjetas compactas; lenguaje de consulta historica. |
+| P3 | `/bitacora` | Mejorar lectura de auditoria operativa. | Layout/copy | Bajo | No | Eventos agrupados por fecha/modulo; metadatos tecnicos escondidos en detalle. |
+
+## Quick wins
+
+- Reemplazar kickers `STAGE-*` y `TRACK-*` por nombres de area: `Operacion`, `Control documental`, `Administracion`, `Historico`.
+- Cambiar "Alta minima" por "Nuevo registro" o "Agregar".
+- Traducir badges `HIGH/MEDIUM/LOW` a `Alta`, `Media`, `Baja`.
+- Mover exportaciones a boton secundario o menu compacto.
+- Reducir radios grandes de tarjetas antiguas para igualar el shell.
+- Usar headings mas cortos y operativos en dashboard, historico, bitacora y catalogos.
+- Convertir copy de "MVP", "modulo real", "sembrado", "base minima" a lenguaje institucional.
+
+## Cambios de riesgo medio
+
+- Modales/drawers para formularios que hoy viven inline.
+- Menus de acciones por fila en usuarios y documentos.
+- Tabs internas para `/federation` y posiblemente `/financials`.
+- Filtros colapsables en `/documents`.
+- Reordenar contenido maestro-detalle en `/markets`, `/financials` y `/federation`.
+
+## Cambios que deberian evitarse por ahora
+
+- Crear endpoints nuevos para resolver layout.
+- Dividir rutas a nivel router si no es necesario para la mejora visual.
+- Cambiar contratos API, permisos, guards o modelos backend.
+- Reestructurar datos de documentos/retencion/seguridad.
+- Cambiar CI/CD o scripts locales.
+- Rediseñar Donatarias desde cero; debe usarse como referencia.
+
+## Siguiente fase recomendada
+
+Continuar con `/admin/users`, `/federation`, `/financials` y `/markets`, ya que `/documents` y `/documents/work-queue` recibieron Etapa A. La siguiente fase debe limitarse a frontend visual/interaccion local: copy, responsive, modales, drawers, menus de acciones y compactacion de tarjetas. La validacion minima debe repetir Playwright en `390px`, `768px` y `1366px`, confirmando sin overflow horizontal y sin cambios en `src/backend`.

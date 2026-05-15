@@ -22,8 +22,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   template: `
     <section class="page-shell">
       <header class="page-header">
-        <p class="page-kicker">TRACK 3 DOCUMENTOS</p>
-        <h2>Catalogo documental</h2>
+        <p class="page-kicker">Control documental</p>
+        <h2>Documentos</h2>
       </header>
 
       @if (pageError()) {
@@ -43,7 +43,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
             }
           </div>
           <div class="summary-actions">
-            <a class="origin-link" href="/documents/work-queue">Bandeja documental</a>
+            <a class="origin-link" href="/documents/work-queue">Ver pendientes</a>
             <button type="button" class="ghost compact" [disabled]="isSummaryLoading()" (click)="reloadSummary()">
               Actualizar
             </button>
@@ -73,7 +73,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               <strong>{{ documentSummary.incompleteEntitiesCount | number }}</strong>
             </div>
             <div>
-              <span>Revision</span>
+              <span>Por revisar</span>
               <strong>{{ documentSummary.reviewDueCount | number }}</strong>
             </div>
             <div>
@@ -81,7 +81,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               <strong>{{ documentSummary.expiredRetentionCount | number }}</strong>
             </div>
             <div>
-              <span>Hold admin</span>
+              <span>En resguardo</span>
               <strong>{{ documentSummary.administrativeHoldCount | number }}</strong>
             </div>
           </div>
@@ -93,12 +93,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 @for (module of documentSummary.modules; track module.moduleCode) {
                   <div>
                     <strong>{{ module.moduleName }}</strong>
-                    <span>{{ module.totalDocuments | number }} docs</span>
+                    <span>{{ module.totalDocuments | number }} documentos</span>
                     <span>{{ module.incompleteEntitiesCount | number }} incompletos</span>
                     <span>{{ module.integrityIssuesCount | number }} integridad</span>
-                    <span>{{ module.reviewDueCount | number }} revision</span>
+                    <span>{{ module.reviewDueCount | number }} por revisar</span>
                     <span>{{ module.expiredRetentionCount | number }} vencidos</span>
-                    <span>{{ module.administrativeHoldCount | number }} hold</span>
+                    <span>{{ module.administrativeHoldCount | number }} en resguardo</span>
                   </div>
                 }
               </div>
@@ -112,9 +112,9 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 <div class="summary-table">
                   @for (status of documentSummary.operationalStatuses; track status.documentOperationalStatusCode) {
                     <div>
-                      <strong>{{ status.documentOperationalStatusCode }}</strong>
-                      <span>{{ status.documentOperationalSeverityCode }}</span>
-                      <span>{{ status.totalCount | number }} docs</span>
+                      <strong>{{ operationalStatusLabel(status.documentOperationalStatusCode) }}</strong>
+                      <span>{{ severityLabel(status.documentOperationalSeverityCode) }}</span>
+                      <span>{{ status.totalCount | number }} documentos</span>
                     </div>
                   }
                 </div>
@@ -129,10 +129,10 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 <div class="summary-table">
                   @for (category of documentSummary.workQueueCategories; track category.workItemType + category.reasonCode + category.severityCode) {
                     <div>
-                      <strong>{{ category.reasonCode }}</strong>
-                      <span>{{ category.workItemType }}</span>
-                      <span>{{ category.severityCode }}</span>
-                      <span>{{ category.totalCount | number }} items</span>
+                      <strong>{{ workItemTypeLabel(category.workItemType) }}</strong>
+                      <span>{{ reasonLabel(category.reasonCode) }}</span>
+                      <span>{{ severityLabel(category.severityCode) }}</span>
+                      <span>{{ category.totalCount | number }} pendientes</span>
                     </div>
                   }
                 </div>
@@ -144,7 +144,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         }
       </article>
 
-      <form class="filters-panel" [formGroup]="filtersForm" (ngSubmit)="reload()">
+      <form class="filters-panel" [formGroup]="filtersForm" (ngSubmit)="reload()" aria-label="Filtros documentales">
         <label>
           <span>Modulo</span>
           <select formControlName="moduleCode">
@@ -169,10 +169,10 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           <span>Integridad</span>
           <select formControlName="integrityState">
             <option value="">Todos</option>
-            <option value="VALID">VALID</option>
-            <option value="MISSING_FILE">MISSING_FILE</option>
-            <option value="SIZE_MISMATCH">SIZE_MISMATCH</option>
-            <option value="INVALID_PATH">INVALID_PATH</option>
+            <option value="VALID">Correcta</option>
+            <option value="MISSING_FILE">Archivo no localizado</option>
+            <option value="SIZE_MISMATCH">Tamano distinto</option>
+            <option value="INVALID_PATH">Ruta no valida</option>
           </select>
         </label>
 
@@ -180,13 +180,13 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           <span>Estado operativo</span>
           <select formControlName="documentOperationalStatusCode">
             <option value="">Todos</option>
-            <option value="ACTIVE_OK">ACTIVE_OK</option>
-            <option value="INTEGRITY_ISSUE">INTEGRITY_ISSUE</option>
-            <option value="ON_HOLD">ON_HOLD</option>
-            <option value="REVIEW_DUE">REVIEW_DUE</option>
-            <option value="RETENTION_EXPIRED">RETENTION_EXPIRED</option>
-            <option value="ARCHIVED">ARCHIVED</option>
-            <option value="SUPERSEDED">SUPERSEDED</option>
+            <option value="ACTIVE_OK">Disponible</option>
+            <option value="INTEGRITY_ISSUE">Revisar integridad</option>
+            <option value="ON_HOLD">En resguardo</option>
+            <option value="REVIEW_DUE">Requiere revision</option>
+            <option value="RETENTION_EXPIRED">Retencion vencida</option>
+            <option value="ARCHIVED">Archivado</option>
+            <option value="SUPERSEDED">Reemplazado</option>
           </select>
         </label>
 
@@ -194,33 +194,33 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           <span>Clase</span>
           <select formControlName="documentClassCode">
             <option value="">Todas</option>
-            <option value="CERTIFICATE">CERTIFICATE</option>
-            <option value="SIGNED_DOCUMENT">SIGNED_DOCUMENT</option>
-            <option value="SUPPORTING_DOCUMENT">SUPPORTING_DOCUMENT</option>
-            <option value="PHOTO_EVIDENCE">PHOTO_EVIDENCE</option>
-            <option value="VIDEO_EVIDENCE">VIDEO_EVIDENCE</option>
-            <option value="OTHER">OTHER</option>
+            <option value="CERTIFICATE">Cedula o certificado</option>
+            <option value="SIGNED_DOCUMENT">Documento firmado</option>
+            <option value="SUPPORTING_DOCUMENT">Soporte documental</option>
+            <option value="PHOTO_EVIDENCE">Evidencia fotografica</option>
+            <option value="VIDEO_EVIDENCE">Evidencia en video</option>
+            <option value="OTHER">Otro</option>
           </select>
         </label>
 
         <label>
-          <span>Politica retencion</span>
+          <span>Politica de retencion</span>
           <select formControlName="retentionPolicyCode">
             <option value="">Todas</option>
-            <option value="CERTIFICATE_REVIEW">CERTIFICATE_REVIEW</option>
-            <option value="SIGNED_LONG_TERM">SIGNED_LONG_TERM</option>
-            <option value="EVIDENCE_MEDIUM_TERM">EVIDENCE_MEDIUM_TERM</option>
-            <option value="GENERIC_REVIEW">GENERIC_REVIEW</option>
+            <option value="CERTIFICATE_REVIEW">Revision de cedulas</option>
+            <option value="SIGNED_LONG_TERM">Resguardo largo</option>
+            <option value="EVIDENCE_MEDIUM_TERM">Evidencia operativa</option>
+            <option value="GENERIC_REVIEW">Revision general</option>
           </select>
         </label>
 
         <label>
-          <span>Estado retencion</span>
+          <span>Estado de retencion</span>
           <select formControlName="retentionStatusCode">
             <option value="">Todos</option>
-            <option value="ACTIVE_RETENTION">ACTIVE_RETENTION</option>
-            <option value="REVIEW_DUE">REVIEW_DUE</option>
-            <option value="EXPIRED_RETENTION">EXPIRED_RETENTION</option>
+            <option value="ACTIVE_RETENTION">Dentro de periodo</option>
+            <option value="REVIEW_DUE">Por revisar</option>
+            <option value="EXPIRED_RETENTION">Vencida</option>
           </select>
         </label>
 
@@ -234,13 +234,13 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         </label>
 
         <label>
-          <span>Entidad</span>
-          <input type="text" formControlName="entityType" placeholder="MARKET_TENANT" />
+          <span>Tipo de origen</span>
+          <input type="text" formControlName="entityType" placeholder="Tipo de origen" />
         </label>
 
         <label>
-          <span>Entity ID</span>
-          <input type="text" formControlName="entityId" placeholder="GUID" />
+          <span>ID de origen</span>
+          <input type="text" formControlName="entityId" placeholder="Identificador" />
         </label>
 
         <label>
@@ -251,7 +251,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         <div class="filter-actions">
           <button type="submit" [disabled]="isLoading()">Buscar</button>
           <button type="button" class="ghost" (click)="resetFilters()">Limpiar</button>
-          <button type="button" class="ghost" [disabled]="isExporting()" (click)="exportCatalog()">Exportar CSV</button>
+          <button type="button" class="ghost compact" [disabled]="isExporting()" (click)="exportCatalog()">Exportar</button>
         </div>
       </form>
 
@@ -285,19 +285,18 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 <div>
                   <span class="badge">{{ item.moduleName }}</span>
                   <h4>{{ item.originContext.displayName }}</h4>
-                  <p>{{ item.originContext.entityType }} · {{ item.originContext.entityId }}</p>
+                  <p>{{ entityTypeLabel(item.originContext.entityType) }} · {{ item.originContext.entityId }}</p>
                   <p>{{ item.missingReasonDescription || item.requiredDocumentDescription }}</p>
                   <p>
-                    Regla {{ item.ruleCode }}
-                    · minimo {{ item.minimumRequiredCount }}
-                    · clases {{ item.requiredDocumentClassCodes.join(', ') }}
+                    Minimo requerido {{ item.minimumRequiredCount }}
+                    · {{ documentClassListLabel(item.requiredDocumentClassCodes) }}
                   </p>
                   @if (item.remediationHint) {
                     <p>{{ item.remediationHint }}</p>
                   }
                 </div>
                 <div class="pending-row-actions">
-                  <span class="pending-status">{{ item.statusCode }}</span>
+                  <span class="pending-status">{{ completenessStatusLabel(item.statusCode) }}</span>
                   <button type="button" class="ghost compact" (click)="filterByPendingEntity(item)">
                     Ver documentos
                   </button>
@@ -335,8 +334,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   <button type="button" class="row-main" (click)="selectDocument(document)">
                     <span class="badge">{{ document.moduleName }}</span>
                     <strong>{{ document.originalFileName }}</strong>
-                    <small>{{ document.documentClassCode }} · {{ document.originContext.displayName }}</small>
-                    <small>{{ document.originContext.entityType }} · {{ document.originContext.entityId }}</small>
+                    <small>{{ documentClassLabel(document.documentClassCode) }} · {{ document.originContext.displayName }}</small>
+                    <small>{{ entityTypeLabel(document.originContext.entityType) }} · {{ document.originContext.entityId }}</small>
                   </button>
                   <div class="row-meta">
                     <span
@@ -344,7 +343,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                       [class.high]="document.documentOperationalSeverityCode === 'HIGH'"
                       [class.medium]="document.documentOperationalSeverityCode === 'MEDIUM'"
                       [class.low]="document.documentOperationalSeverityCode === 'LOW'">
-                      {{ document.documentOperationalStatusCode }}
+                      {{ operationalStatusLabel(document.documentOperationalStatusCode) }}
                     </span>
                     @if (document.isPrimaryDocument) {
                       <span class="primary">Principal</span>
@@ -355,19 +354,19 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                       <span class="replacement">Vigente reemplazo</span>
                     }
                     <span class="retention" [class.expired]="document.retentionStatusCode === 'EXPIRED_RETENTION'" [class.review]="document.retentionStatusCode === 'REVIEW_DUE'">
-                      {{ document.retentionStatusCode }}
+                      {{ retentionStatusLabel(document.retentionStatusCode) }}
                     </span>
                     @if (document.hasRetentionOverride) {
-                      <span class="retention">Override retencion</span>
+                      <span class="retention">Retencion ajustada</span>
                     }
                     @if (document.isAdministrativeHold) {
-                      <span class="hold">Hold admin</span>
+                      <span class="hold">En resguardo</span>
                     }
                     <span class="status" [class.archived]="document.statusCode === 'ARCHIVED'">
-                      {{ document.statusCode }}
+                      {{ documentStatusLabel(document.statusCode) }}
                     </span>
                     <span [class.issue]="document.integrityState !== 'VALID'">
-                      {{ document.integrityState }}
+                      {{ integrityLabel(document.integrityState) }}
                     </span>
                     <span>{{ document.sizeBytes | number }} bytes</span>
                     <span>{{ document.createdUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</span>
@@ -387,26 +386,34 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           </div>
 
           @if (selectedDocument(); as document) {
-            <dl>
+            <section class="detail-summary">
+              <span class="badge">{{ document.moduleName }}</span>
+              <h4>{{ document.originalFileName }}</h4>
+              <p>{{ document.originContext.displayName }}</p>
+              <div class="detail-badges">
+                <span class="operational">{{ operationalStatusLabel(document.documentOperationalStatusCode) }}</span>
+                <span>{{ documentClassLabel(document.documentClassCode) }}</span>
+                <span>{{ integrityLabel(document.integrityState) }}</span>
+                <span>{{ retentionStatusLabel(document.retentionStatusCode) }}</span>
+              </div>
+            </section>
+
+            <dl class="detail-list priority-detail">
               <div>
                 <dt>Modulo</dt>
-                <dd>{{ document.moduleCode }}</dd>
+                <dd>{{ document.moduleName }}</dd>
               </div>
               <div>
                 <dt>Area</dt>
-                <dd>{{ document.documentAreaCode }}</dd>
-              </div>
-              <div>
-                <dt>Entidad</dt>
-                <dd>{{ document.entityType }} · {{ document.entityId }}</dd>
+                <dd>{{ documentAreaLabel(document.documentAreaCode) }}</dd>
               </div>
               <div>
                 <dt>Origen</dt>
                 <dd>{{ document.originContext.displayName }}</dd>
               </div>
               <div>
-                <dt>Entidad origen</dt>
-                <dd>{{ document.originContext.entityType }} · {{ document.originContext.entityId }}</dd>
+                <dt>Tipo de origen</dt>
+                <dd>{{ entityTypeLabel(document.originContext.entityType) }}</dd>
               </div>
               @if (document.originContext.summary) {
                 <div>
@@ -416,45 +423,70 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               }
               @if (document.originContext.routeHint) {
                 <div>
-                  <dt>Navegacion</dt>
-                  <dd><a class="origin-link" [href]="document.originContext.routeHint">Abrir origen</a></dd>
+                  <dt>Origen</dt>
+                  <dd><a class="origin-link" [href]="document.originContext.routeHint">Ir al origen</a></dd>
                 </div>
               }
               <div>
-                <dt>Content type</dt>
-                <dd>{{ document.contentType }}</dd>
-              </div>
-              <div>
-                <dt>Clase</dt>
-                <dd>{{ document.documentClassCode }}</dd>
+                <dt>Clase documental</dt>
+                <dd>{{ documentClassLabel(document.documentClassCode) }}</dd>
               </div>
               <div>
                 <dt>Estado operativo</dt>
-                <dd>{{ document.documentOperationalStatusCode }} · {{ document.documentOperationalSeverityCode }}</dd>
+                <dd>{{ operationalStatusLabel(document.documentOperationalStatusCode) }} · {{ severityLabel(document.documentOperationalSeverityCode) }}</dd>
               </div>
               <div>
-                <dt>Politica efectiva</dt>
-                <dd>{{ document.retentionPolicyCode }}</dd>
+                <dt>Integridad</dt>
+                <dd>{{ integrityLabel(document.integrityState) }}</dd>
               </div>
               <div>
-                <dt>Estado retencion</dt>
-                <dd>{{ document.retentionStatusCode }}</dd>
+                <dt>Retencion</dt>
+                <dd>{{ retentionStatusLabel(document.retentionStatusCode) }}</dd>
               </div>
               <div>
-                <dt>Revision retencion</dt>
-                <dd>{{ document.retentionReviewStatusCode }}</dd>
+                <dt>Vigente hasta</dt>
+                <dd>{{ document.retentionUntilUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</dd>
               </div>
               <div>
-                <dt>Hold administrativo</dt>
+                <dt>Resguardo administrativo</dt>
                 <dd>{{ document.isAdministrativeHold ? 'Activo' : 'Inactivo' }}</dd>
               </div>
+            </dl>
+
+            <details class="technical-details">
+              <summary>Detalles tecnicos</summary>
+              <dl class="detail-list">
+                <div>
+                  <dt>Codigo de modulo</dt>
+                  <dd>{{ document.moduleCode }}</dd>
+                </div>
+                <div>
+                  <dt>ID de origen</dt>
+                  <dd>{{ document.entityId }}</dd>
+                </div>
+                <div>
+                  <dt>Tipo de origen</dt>
+                  <dd>{{ document.entityType }}</dd>
+                </div>
+                <div>
+                  <dt>Content type</dt>
+                  <dd>{{ document.contentType }}</dd>
+                </div>
+                <div>
+                  <dt>Politica efectiva</dt>
+                  <dd>{{ retentionPolicyLabel(document.retentionPolicyCode) }}</dd>
+                </div>
+                <div>
+                  <dt>Revision de retencion</dt>
+                  <dd>{{ retentionReviewStatusLabel(document.retentionReviewStatusCode) }}</dd>
+                </div>
               @if (document.isAdministrativeHold) {
                 <div>
-                  <dt>Motivo hold</dt>
+                  <dt>Motivo de resguardo</dt>
                   <dd>{{ document.holdReason || 'Sin motivo registrado' }}</dd>
                 </div>
                 <div>
-                  <dt>Hold colocado UTC</dt>
+                  <dt>Resguardo desde UTC</dt>
                   <dd>{{ document.holdPlacedUtc ? (document.holdPlacedUtc | date: 'yyyy-MM-dd HH:mm':'UTC') : 'Sin fecha' }}</dd>
                 </div>
                 <div>
@@ -463,27 +495,23 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 </div>
               } @else if (document.holdReleasedUtc) {
                 <div>
-                  <dt>Hold liberado UTC</dt>
+                  <dt>Resguardo liberado UTC</dt>
                   <dd>{{ document.holdReleasedUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</dd>
                 </div>
               }
               <div>
-                <dt>Retener efectivo UTC</dt>
-                <dd>{{ document.retentionUntilUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</dd>
-              </div>
-              <div>
                 <dt>Baseline retencion</dt>
-                <dd>{{ document.retentionBaselinePolicyCode }} · {{ document.retentionBaselineUntilUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</dd>
+                <dd>{{ retentionPolicyLabel(document.retentionBaselinePolicyCode) }} · {{ document.retentionBaselineUntilUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</dd>
               </div>
               <div>
                 <dt>Effective retencion</dt>
-                <dd>{{ document.retentionEffectivePolicyCode }} · {{ document.retentionEffectiveUntilUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</dd>
+                <dd>{{ retentionPolicyLabel(document.retentionEffectivePolicyCode) }} · {{ document.retentionEffectiveUntilUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</dd>
               </div>
               @if (document.hasRetentionOverride) {
                 <div>
                   <dt>Override retencion</dt>
                   <dd>
-                    {{ document.retentionOverridePolicyCode || 'Politica baseline' }}
+                    {{ retentionPolicyLabel(document.retentionOverridePolicyCode || 'Politica baseline') }}
                     · {{ document.retentionOverrideUntilUtc ? (document.retentionOverrideUntilUtc | date: 'yyyy-MM-dd HH:mm':'UTC') : 'Fecha calculada' }}
                   </dd>
                 </div>
@@ -530,7 +558,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               </div>
               <div>
                 <dt>Estado</dt>
-                <dd>{{ document.statusCode }}</dd>
+                <dd>{{ documentStatusLabel(document.statusCode) }}</dd>
               </div>
               @if (document.statusCode === 'ARCHIVED') {
                 <div>
@@ -560,7 +588,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               </div>
               <div>
                 <dt>Integridad</dt>
-                <dd>{{ document.integrityState }}</dd>
+                <dd>{{ integrityLabel(document.integrityState) }}</dd>
               </div>
               <div>
                 <dt>Checksum</dt>
@@ -572,7 +600,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   <dd class="hash">{{ document.sha256Hex }}</dd>
                 </div>
               }
-            </dl>
+              </dl>
+            </details>
 
             <section class="timeline-section">
               <div class="timeline-header">
@@ -637,7 +666,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   </label>
 
                   <button type="submit" class="ghost" [disabled]="isMutating()">
-                    Guardar metadata
+                    Guardar datos
                   </button>
                 </form>
 
@@ -664,29 +693,29 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   </label>
 
                   <button type="submit" class="ghost" [disabled]="isMutating()">
-                    Guardar override retencion
+                    Guardar ajuste de retencion
                   </button>
 
                   @if (document.hasRetentionOverride) {
                     <button type="button" class="ghost" [disabled]="isMutating()" (click)="clearRetentionOverride(document)">
-                      Limpiar override retencion
+                      Limpiar ajuste
                     </button>
                   }
                 </form>
 
                 <form class="metadata-form" [formGroup]="holdForm" (ngSubmit)="setAdministrativeHold(document)">
                   <label>
-                    <span>Motivo hold administrativo</span>
+                    <span>Motivo de resguardo administrativo</span>
                     <textarea formControlName="reason" maxlength="500"></textarea>
                   </label>
 
                   <button type="submit" class="ghost" [disabled]="isMutating()">
-                    Guardar hold administrativo
+                    Guardar resguardo
                   </button>
 
                   @if (document.isAdministrativeHold) {
                     <button type="button" class="ghost" [disabled]="isMutating()" (click)="clearAdministrativeHold(document)">
-                      Limpiar hold administrativo
+                      Liberar resguardo
                     </button>
                   }
                 </form>
@@ -724,6 +753,11 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         gap: 1rem;
       }
 
+      :host {
+        display: block;
+        min-width: 0;
+      }
+
       .page-header,
       .filters-panel,
       .panel {
@@ -757,9 +791,9 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
       .filters-panel {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 0.85rem;
-        padding: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+        gap: 0.7rem;
+        padding: 0.9rem;
         align-items: end;
       }
 
@@ -773,9 +807,11 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       textarea,
       select {
         width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
         border: 1px solid rgba(35, 51, 47, 0.16);
         border-radius: 8px;
-        padding: 0.7rem 0.8rem;
+        padding: 0.58rem 0.7rem;
         font: inherit;
         background: #fff;
       }
@@ -786,9 +822,10 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       }
 
       button {
+        min-width: 0;
         border: 0;
         border-radius: 8px;
-        padding: 0.75rem 1rem;
+        padding: 0.68rem 0.9rem;
         font-weight: 800;
         color: #fff;
         background: #0f766e;
@@ -812,6 +849,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .filter-actions {
         display: flex;
         gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
       }
 
       .content-grid {
@@ -838,11 +877,54 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .summary-actions {
         display: flex;
         gap: 0.65rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .summary-grid,
+      .kpi-grid {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .kpi-grid {
+        grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+        margin-bottom: 1rem;
+      }
+
+      .kpi-grid div,
+      .summary-table div {
+        min-width: 0;
+        border-radius: 8px;
+        background: #f6f5ef;
+      }
+
+      .kpi-grid div {
+        padding: 0.75rem;
+      }
+
+      .kpi-grid span,
+      .summary-table span {
+        color: #60716d;
+        overflow-wrap: anywhere;
+      }
+
+      .kpi-grid strong {
+        display: block;
+        margin-top: 0.25rem;
+        color: #123f3b;
+        font-size: 1.35rem;
       }
 
       .summary-table {
         display: grid;
         gap: 0.5rem;
+      }
+
+      .summary-table div {
+        display: grid;
+        gap: 0.25rem;
+        padding: 0.65rem;
       }
 
       .pending-list {
@@ -854,6 +936,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         display: flex;
         justify-content: space-between;
         gap: 1rem;
+        min-width: 0;
         padding: 0.95rem 0;
         border-top: 1px solid rgba(35, 51, 47, 0.08);
       }
@@ -894,7 +977,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
       .document-row {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-columns: minmax(0, 1.4fr) minmax(12rem, 0.8fr) auto;
         gap: 0.9rem;
         align-items: center;
         padding: 1rem;
@@ -924,8 +1007,9 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       }
 
       .row-meta {
-        display: grid;
-        gap: 0.25rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
         font-size: 0.85rem;
         color: #60716d;
       }
@@ -1000,6 +1084,57 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .origin-link {
         color: #0f766e;
         font-weight: 800;
+      }
+
+      .detail-summary {
+        display: grid;
+        gap: 0.45rem;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(35, 51, 47, 0.1);
+      }
+
+      .detail-summary h4 {
+        margin: 0;
+        color: #123f3b;
+        overflow-wrap: anywhere;
+      }
+
+      .detail-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+      }
+
+      .detail-badges span {
+        width: fit-content;
+        border-radius: 999px;
+        padding: 0.22rem 0.55rem;
+        font-size: 0.76rem;
+        font-weight: 800;
+        color: #0f766e;
+        background: rgba(15, 118, 110, 0.1);
+      }
+
+      .priority-detail {
+        grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+        gap: 0.75rem;
+      }
+
+      .technical-details {
+        margin-top: 1rem;
+        border-top: 1px solid rgba(35, 51, 47, 0.1);
+        padding-top: 0.75rem;
+      }
+
+      .technical-details summary {
+        color: #0f5f58;
+        cursor: pointer;
+        font-weight: 800;
+      }
+
+      .technical-details dl {
+        margin-top: 0.75rem;
       }
 
       .detail-panel button {
@@ -1228,6 +1363,198 @@ export class DocumentsPageComponent {
       this.pageError.set(getApiErrorMessage(error, 'No se pudo exportar el catalogo documental.'));
     } finally {
       this.isExporting.set(false);
+    }
+  }
+
+  protected documentClassLabel(documentClassCode: string): string {
+    switch (documentClassCode) {
+      case 'CERTIFICATE':
+        return 'Cedula o certificado';
+      case 'SIGNED_DOCUMENT':
+        return 'Documento firmado';
+      case 'SUPPORTING_DOCUMENT':
+        return 'Soporte documental';
+      case 'PHOTO_EVIDENCE':
+        return 'Evidencia fotografica';
+      case 'VIDEO_EVIDENCE':
+        return 'Evidencia en video';
+      case 'OTHER':
+        return 'Otro';
+      default:
+        return documentClassCode;
+    }
+  }
+
+  protected documentClassListLabel(documentClassCodes: string[]): string {
+    return documentClassCodes.map((documentClassCode) => this.documentClassLabel(documentClassCode)).join(', ');
+  }
+
+  protected documentAreaLabel(documentAreaCode: string): string {
+    switch (documentAreaCode) {
+      case 'MARKETS_TENANT_CERTIFICATES':
+        return 'Cedulas de mercados';
+      case 'DONATIONS_APPLICATION_EVIDENCES':
+        return 'Evidencias donatarias';
+      case 'FEDERATION_APPLICATION_EVIDENCES':
+        return 'Evidencias federacion';
+      default:
+        return documentAreaCode;
+    }
+  }
+
+  protected operationalStatusLabel(statusCode: string | null): string {
+    switch (statusCode) {
+      case 'ACTIVE_OK':
+        return 'Disponible';
+      case 'INTEGRITY_ISSUE':
+        return 'Revisar integridad';
+      case 'ON_HOLD':
+        return 'En resguardo';
+      case 'REVIEW_DUE':
+        return 'Requiere revision';
+      case 'RETENTION_EXPIRED':
+        return 'Retencion vencida';
+      case 'ARCHIVED':
+        return 'Archivado';
+      case 'SUPERSEDED':
+        return 'Reemplazado';
+      default:
+        return statusCode || 'Sin estado';
+    }
+  }
+
+  protected severityLabel(severityCode: string | null): string {
+    switch (severityCode) {
+      case 'HIGH':
+        return 'Alta';
+      case 'MEDIUM':
+        return 'Media';
+      case 'LOW':
+        return 'Baja';
+      case 'NONE':
+        return 'Sin prioridad';
+      default:
+        return severityCode || 'Sin prioridad';
+    }
+  }
+
+  protected retentionStatusLabel(statusCode: string): string {
+    switch (statusCode) {
+      case 'ACTIVE_RETENTION':
+        return 'Dentro de periodo';
+      case 'REVIEW_DUE':
+        return 'Por revisar';
+      case 'EXPIRED_RETENTION':
+        return 'Vencida';
+      default:
+        return statusCode;
+    }
+  }
+
+  protected retentionPolicyLabel(policyCode: string): string {
+    switch (policyCode) {
+      case 'CERTIFICATE_REVIEW':
+        return 'Revision de cedulas';
+      case 'SIGNED_LONG_TERM':
+        return 'Resguardo largo';
+      case 'EVIDENCE_MEDIUM_TERM':
+        return 'Evidencia operativa';
+      case 'GENERIC_REVIEW':
+        return 'Revision general';
+      default:
+        return policyCode;
+    }
+  }
+
+  protected retentionReviewStatusLabel(statusCode: string): string {
+    switch (statusCode) {
+      case 'REVIEW_PENDING':
+        return 'Pendiente';
+      case 'REVIEW_COMPLETED':
+        return 'Revisada';
+      case 'REVIEW_DEFERRED':
+        return 'Diferida';
+      default:
+        return statusCode;
+    }
+  }
+
+  protected integrityLabel(integrityState: string): string {
+    switch (integrityState) {
+      case 'VALID':
+      case 'OK':
+        return 'Correcta';
+      case 'MISSING_FILE':
+        return 'Archivo no localizado';
+      case 'SIZE_MISMATCH':
+        return 'Tamano distinto';
+      case 'INVALID_PATH':
+        return 'Ruta no valida';
+      default:
+        return integrityState;
+    }
+  }
+
+  protected documentStatusLabel(statusCode: string): string {
+    switch (statusCode) {
+      case 'ACTIVE':
+        return 'Vigente';
+      case 'ARCHIVED':
+        return 'Archivado';
+      default:
+        return statusCode;
+    }
+  }
+
+  protected workItemTypeLabel(workItemType: string): string {
+    switch (workItemType) {
+      case 'COMPLETENESS_PENDING':
+        return 'Evidencia pendiente';
+      case 'DOCUMENT_INTEGRITY_ISSUE':
+        return 'Integridad documental';
+      case 'RETENTION_REVIEW':
+        return 'Revision de retencion';
+      default:
+        return workItemType;
+    }
+  }
+
+  protected reasonLabel(reasonCode: string): string {
+    switch (reasonCode) {
+      case 'MISSING_REQUIRED_DOCUMENT':
+      case 'MISSING_EVIDENCE':
+        return 'Falta evidencia';
+      case 'INTEGRITY_ISSUE':
+        return 'Revisar archivo';
+      case 'RETENTION_REVIEW':
+      case 'REVIEW_DUE':
+        return 'Revision pendiente';
+      default:
+        return reasonCode;
+    }
+  }
+
+  protected entityTypeLabel(entityType: string): string {
+    switch (entityType) {
+      case 'MARKET_TENANT':
+        return 'Locatario';
+      case 'DONATION_APPLICATION':
+        return 'Aplicacion donataria';
+      case 'FEDERATION_DONATION_APPLICATION':
+        return 'Aplicacion federacion';
+      default:
+        return entityType;
+    }
+  }
+
+  protected completenessStatusLabel(statusCode: string): string {
+    switch (statusCode) {
+      case 'COMPLETE':
+        return 'Completo';
+      case 'INCOMPLETE':
+        return 'Pendiente';
+      default:
+        return statusCode;
     }
   }
 
