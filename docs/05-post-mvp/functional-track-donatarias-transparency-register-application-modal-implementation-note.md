@@ -51,7 +51,7 @@ Validacion ejecutada:
 ## Riesgos pendientes
 
 - El componente Donatarias conserva una advertencia blanda de presupuesto CSS; la subetapa reutilizo estilos existentes y no agrego reglas CSS nuevas.
-- `Cargar evidencia` sigue inline por alcance, por lo que aun puede requerir una etapa UX posterior si se quiere compactar mas el tab documental.
+- En esta subetapa `Cargar evidencia` quedo fuera por alcance; se atendio despues en una subetapa propia con modal contextual.
 - La validacion final de monto excedido sigue dependiendo del flujo existente del servicio/backend; el modal muestra contexto de saldo para reducir captura incorrecta.
 
 ## Fuera de alcance

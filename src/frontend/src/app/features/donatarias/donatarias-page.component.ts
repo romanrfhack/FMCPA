@@ -249,6 +249,80 @@ interface PresentationReadiness {
         </div>
       }
 
+      @if (isEvidenceModalOpen()) {
+        <div class="modal" (click)="closeEvidenceModal()" (document:keydown.escape)="closeEvidenceModal()">
+          @if (selectedApplication(); as selectedApplicationDetail) {
+            <article
+              class="form-card"
+              style="width: min(40rem, 100%); max-height: 90vh; overflow: auto;"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="upload-evidence-title"
+              (click)="$event.stopPropagation()">
+              <div class="card-header">
+                <div>
+                  <h3 id="upload-evidence-title">Cargar evidencia</h3>
+                  <p>Adjunta evidencia para respaldar esta aplicación del recurso.</p>
+                </div>
+                <button type="button" class="ghost" (click)="closeEvidenceModal()">
+                  Cerrar
+                </button>
+              </div>
+
+              <p class="inline-note">
+                Aplicación: {{ selectedApplicationDetail.beneficiaryName }}
+                · Monto {{ selectedApplicationDetail.appliedAmount | number: '1.2-2' }}
+                · Fecha {{ selectedApplicationDetail.applicationDate }}
+                · {{ applicationDocumentaryLabel(selectedApplicationDetail) }}.
+              </p>
+              <p class="inline-note">
+                La evidencia registrada acredita presencia documental mínima; no sustituye revisión legal, fiscal o contable.
+              </p>
+
+              @if (evidenceFormError()) {
+                <p class="alert error">{{ evidenceFormError() }}</p>
+              }
+
+              <form class="form-grid" [formGroup]="evidenceForm" (ngSubmit)="submitEvidence()">
+                <label>
+                  <span>Tipo de evidencia</span>
+                  <select formControlName="evidenceTypeId">
+                    <option [value]="0">Selecciona un tipo</option>
+                    @for (type of evidenceTypes(); track type.id) {
+                      <option [value]="type.id">{{ type.name }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="full-width">
+                  <span>Archivo</span>
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi" (change)="onEvidenceSelected($event)" />
+                </label>
+
+                <label class="full-width">
+                  <span>Descripción</span>
+                  <textarea formControlName="description" rows="3" placeholder="Descripción breve de la evidencia"></textarea>
+                </label>
+
+                @if (selectedEvidenceFileName()) {
+                  <p class="inline-note full-width">Archivo seleccionado: {{ selectedEvidenceFileName() }}</p>
+                }
+
+                <div class="form-actions full-width">
+                  <button type="submit" [disabled]="isSubmittingEvidence() || !canUploadEvidence()">Guardar evidencia</button>
+                  <button type="button" class="ghost" (click)="resetEvidenceForm()" [disabled]="isSubmittingEvidence()">
+                    Limpiar
+                  </button>
+                  <button type="button" class="ghost" (click)="closeEvidenceModal()" [disabled]="isSubmittingEvidence()">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </article>
+          }
+        </div>
+      }
+
       @if (selectedDonation(); as donationDetail) {
         <article class="detail-card transparency-header">
           <div class="detail-header">
@@ -586,15 +660,13 @@ interface PresentationReadiness {
                   <h3>Aplicaciones / distribucion</h3>
                   <p>Distribucion del recurso recibido y evidencia minima por aplicacion.</p>
                 </div>
-                <div class="form-actions">
-                  <button
-                    type="button"
-                    class="ghost"
-                    [disabled]="!selectedApplication()"
-                    (click)="selectedApplication() && setActiveTab('evidences')">
-                    Cargar evidencia
-                  </button>
-                </div>
+                @if (canUploadEvidence()) {
+                  <div class="form-actions">
+                    <button type="button" class="ghost" (click)="openEvidenceModal()">
+                      Cargar evidencia
+                    </button>
+                  </div>
+                }
               </div>
 
               <div class="sort-toolbar">
@@ -697,77 +769,26 @@ interface PresentationReadiness {
                   <h3>{{ documentarySignal().label }}</h3>
                   <p>{{ documentarySignal().description }}</p>
                 </div>
-                <span class="status-pill" [class]="documentarySignal().className">
-                  {{ applicationsWithMinimumEvidenceCount() }} completas / {{ applicationsWithoutEvidenceCount() }} pendientes
-                </span>
+                <div class="detail-badges">
+                  <span class="status-pill" [class]="documentarySignal().className">
+                    {{ applicationsWithMinimumEvidenceCount() }} completas / {{ applicationsWithoutEvidenceCount() }} pendientes
+                  </span>
+                  @if (canUploadEvidence()) {
+                    <button type="button" class="ghost" (click)="openEvidenceModal()">
+                      Cargar evidencia
+                    </button>
+                  }
+                </div>
               </div>
               <p class="inline-note">
                 El semaforo documental se calcula con documentos activos del catalogo transversal asociados a la evidencia de cada aplicacion.
               </p>
+              @if (evidenceUploadUnavailableMessage(); as uploadMessage) {
+                <p class="inline-note">{{ uploadMessage }}</p>
+              }
             </article>
 
-            <article class="form-card">
-              <div class="card-header">
-                <div>
-                  <h3>Cargar evidencia</h3>
-                  <p>La evidencia se asocia a una aplicacion especifica.</p>
-                </div>
-              </div>
-
-              <p class="inline-note">
-                La evidencia registrada acredita presencia documental minima; no sustituye revision legal o contable.
-              </p>
-
-              @if (evidenceFormError()) {
-                <p class="alert error">{{ evidenceFormError() }}</p>
-              }
-
-              @if (evidenceFormSuccess()) {
-                <p class="alert success">{{ evidenceFormSuccess() }}</p>
-              }
-
-              @if (selectedApplication(); as selectedApplicationDetail) {
-                <p class="inline-note">
-                  Aplicacion seleccionada: {{ selectedApplicationDetail.beneficiaryName }}
-                  · {{ selectedApplicationDetail.appliedAmount | number: '1.2-2' }}
-                </p>
-              } @else {
-                <p class="empty-state">Selecciona una aplicacion para cargar evidencia.</p>
-              }
-
-              <form class="form-grid" [formGroup]="evidenceForm" (ngSubmit)="submitEvidence()">
-                <label>
-                  <span>Tipo de evidencia</span>
-                  <select formControlName="evidenceTypeId">
-                    <option [value]="0">Selecciona un tipo</option>
-                    @for (type of evidenceTypes(); track type.id) {
-                      <option [value]="type.id">{{ type.name }}</option>
-                    }
-                  </select>
-                </label>
-
-                <label class="full-width">
-                  <span>Descripcion</span>
-                  <textarea formControlName="description" rows="3" placeholder="Descripcion breve de la evidencia"></textarea>
-                </label>
-
-                <label class="full-width">
-                  <span>Archivo</span>
-                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi" (change)="onEvidenceSelected($event)" />
-                </label>
-
-                @if (selectedEvidenceFileName()) {
-                  <p class="inline-note full-width">Archivo seleccionado: {{ selectedEvidenceFileName() }}</p>
-                }
-
-                <div class="form-actions full-width">
-                  <button type="submit" [disabled]="isSubmittingEvidence() || !selectedApplication() || !canWrite()">Cargar evidencia</button>
-                  <button type="button" class="ghost" (click)="resetEvidenceForm()">Limpiar</button>
-                </div>
-              </form>
-            </article>
-
-            <article class="list-card">
+            <article class="list-card wide-card">
               <div class="card-header">
                 <div>
                   <h3>Evidencias por aplicacion</h3>
@@ -790,13 +811,26 @@ interface PresentationReadiness {
                             · {{ applicationDocumentaryLabel(application) }}
                           </p>
                         </div>
-                        <button type="button" class="ghost" (click)="selectApplicationAndOpenEvidence(application.id)">
-                          Seleccionar
-                        </button>
+                        <div class="form-actions">
+                          @if (!applicationHasMinimumEvidence(application) && canWrite() && !donationDetail.statusIsClosed) {
+                            <button type="button" class="ghost" (click)="openEvidenceModal(application.id)">
+                              Cargar evidencia
+                            </button>
+                          } @else {
+                            <button type="button" class="ghost" (click)="selectApplication(application.id)">
+                              Seleccionar
+                            </button>
+                          }
+                        </div>
                       </div>
 
                       @if (application.evidences.length === 0) {
-                        <p class="empty-state">Esta aplicacion no tiene evidencia registrada.</p>
+                        <p class="empty-state">
+                          Esta aplicacion no tiene evidencia registrada.
+                          @if (canWrite() && !donationDetail.statusIsClosed) {
+                            Usa la accion Cargar evidencia para resolver el faltante.
+                          }
+                        </p>
                       } @else {
                         <div class="entity-list compact-list">
                           @for (evidence of application.evidences; track evidence.id) {
@@ -835,7 +869,7 @@ interface PresentationReadiness {
                   moduleCode="DONATARIAS"
                   entityType="DONATION_APPLICATION"
                   [entityId]="selectedApplicationDetail.id"
-                  [canRemediate]="canWrite()"
+                  [canRemediate]="canUploadEvidence()"
                   [remediationEvidenceTypes]="evidenceTypes()"
                   title="Documentos de la aplicacion seleccionada"
                   subtitle="Catalogo documental transversal para la misma evidencia operativa."
@@ -1369,69 +1403,17 @@ interface PresentationReadiness {
             </div>
 
             <div class="detail-grid">
-              <article class="form-card">
-                <div class="card-header">
-                  <div>
-                    <h3>Cargar evidencia</h3>
-                    <p>La evidencia se asocia a una aplicación, no a la donación maestra.</p>
-                  </div>
-                </div>
-
-                @if (evidenceFormError()) {
-                  <p class="alert error">{{ evidenceFormError() }}</p>
-                }
-
-                @if (evidenceFormSuccess()) {
-                  <p class="alert success">{{ evidenceFormSuccess() }}</p>
-                }
-
-                @if (selectedApplication(); as selectedApplicationDetail) {
-                  <p class="inline-note">
-                    Aplicación seleccionada: {{ selectedApplicationDetail.beneficiaryName }}
-                    · {{ selectedApplicationDetail.appliedAmount | number: '1.2-2' }}
-                  </p>
-                } @else {
-                  <p class="empty-state">Selecciona una aplicación para cargar evidencia.</p>
-                }
-
-                <form class="form-grid" [formGroup]="evidenceForm" (ngSubmit)="submitEvidence()">
-                  <label>
-                    <span>Tipo de evidencia</span>
-                    <select formControlName="evidenceTypeId">
-                      <option [value]="0">Selecciona un tipo</option>
-                      @for (type of evidenceTypes(); track type.id) {
-                        <option [value]="type.id">{{ type.name }}</option>
-                      }
-                    </select>
-                  </label>
-
-                  <label class="full-width">
-                    <span>Descripción</span>
-                    <textarea formControlName="description" rows="3" placeholder="Descripción breve de la evidencia"></textarea>
-                  </label>
-
-                  <label class="full-width">
-                    <span>Archivo</span>
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi" (change)="onEvidenceSelected($event)" />
-                  </label>
-
-                  @if (selectedEvidenceFileName()) {
-                    <p class="inline-note full-width">Archivo seleccionado: {{ selectedEvidenceFileName() }}</p>
-                  }
-
-                  <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingEvidence() || !selectedApplication() || !canWrite()">Cargar evidencia</button>
-                    <button type="button" class="ghost" (click)="resetEvidenceForm()">Limpiar</button>
-                  </div>
-                </form>
-              </article>
-
-              <article class="list-card">
+              <article class="list-card wide-card">
                 <div class="card-header">
                   <div>
                     <h3>Evidencias</h3>
                     <p>Metadatos descargables por aplicación.</p>
                   </div>
+                  @if (canUploadEvidence()) {
+                    <button type="button" class="ghost" (click)="openEvidenceModal()">
+                      Cargar evidencia
+                    </button>
+                  }
                 </div>
 
                 @if (selectedApplication(); as selectedApplicationDetail) {
@@ -1473,7 +1455,7 @@ interface PresentationReadiness {
                     moduleCode="DONATARIAS"
                     entityType="DONATION_APPLICATION"
                     [entityId]="selectedApplicationDetail.id"
-                    [canRemediate]="canWrite()"
+                    [canRemediate]="canUploadEvidence()"
                     [remediationEvidenceTypes]="evidenceTypes()"
                     title="Documentos de la aplicación"
                     subtitle="Evidencias vistas desde el catálogo documental transversal."
@@ -2168,6 +2150,7 @@ export class DonatariasPageComponent {
   protected readonly isClosePanelOpen = signal(false);
   protected readonly isDonationModalOpen = signal(false);
   protected readonly isApplicationModalOpen = signal(false);
+  protected readonly isEvidenceModalOpen = signal(false);
 
   protected readonly donationFormError = signal<string | null>(null);
   protected readonly donationFormSuccess = signal<string | null>(null);
@@ -2213,6 +2196,33 @@ export class DonatariasPageComponent {
 
     if (donation.statusIsClosed) {
       return 'La donación ya se encuentra en estado terminal y no admite nuevas aplicaciones.';
+    }
+
+    return null;
+  });
+
+  protected readonly canUploadEvidence = computed(() => {
+    const donation = this.selectedDonation();
+    return this.canWrite() && !!donation && !donation.statusIsClosed && !!this.selectedApplication();
+  });
+
+  protected readonly evidenceUploadUnavailableMessage = computed(() => {
+    const donation = this.selectedDonation();
+
+    if (!donation) {
+      return 'Selecciona una donación abierta para cargar evidencia.';
+    }
+
+    if (!this.canWrite()) {
+      return 'No tienes permiso de escritura para cargar evidencia.';
+    }
+
+    if (donation.statusIsClosed) {
+      return 'La donación ya se encuentra en estado terminal y no admite nueva evidencia.';
+    }
+
+    if (!this.selectedApplication()) {
+      return 'Selecciona una aplicación para cargar evidencia.';
     }
 
     return null;
@@ -2533,6 +2543,36 @@ export class DonatariasPageComponent {
     this.resetApplicationForm();
   }
 
+  protected openEvidenceModal(applicationId?: string): void {
+    if (applicationId) {
+      this.selectApplication(applicationId);
+    }
+
+    const unavailableMessage = this.evidenceUploadUnavailableMessage();
+
+    if (unavailableMessage) {
+      this.pageError.set(unavailableMessage);
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.evidenceFormError.set(null);
+    this.evidenceFormSuccess.set(null);
+    this.isEvidenceModalOpen.set(true);
+  }
+
+  protected closeEvidenceModal(): void {
+    if (this.isSubmittingEvidence()) {
+      return;
+    }
+
+    this.isEvidenceModalOpen.set(false);
+    this.evidenceFormError.set(null);
+    this.evidenceFormSuccess.set(null);
+    this.resetEvidenceForm();
+  }
+
   protected async selectDonation(donationId: string): Promise<void> {
     this.pageSuccess.set(null);
     this.selectedDonationId.set(donationId);
@@ -2610,8 +2650,8 @@ export class DonatariasPageComponent {
   }
 
   protected selectApplicationAndOpenEvidence(applicationId: string): void {
-    this.selectApplication(applicationId);
     this.activeTab.set('evidences');
+    this.openEvidenceModal(applicationId);
   }
 
   protected selectedDonationBalanceMessage(): string {
@@ -2839,14 +2879,15 @@ export class DonatariasPageComponent {
   protected async submitEvidence(): Promise<void> {
     const selectedApplication = this.selectedApplication();
     const evidenceFile = this.selectedEvidenceFile();
+    const unavailableMessage = this.evidenceUploadUnavailableMessage();
 
     this.evidenceFormError.set(null);
     this.evidenceFormSuccess.set(null);
     this.pageError.set(null);
     this.pageSuccess.set(null);
 
-    if (!selectedApplication) {
-      this.evidenceFormError.set('Selecciona una aplicación antes de cargar evidencia.');
+    if (!selectedApplication || unavailableMessage) {
+      this.evidenceFormError.set(unavailableMessage ?? 'Selecciona una aplicación antes de cargar evidencia.');
       return;
     }
 
@@ -2872,13 +2913,15 @@ export class DonatariasPageComponent {
           file: evidenceFile
         }));
 
-      this.evidenceFormSuccess.set('Evidencia cargada.');
       this.resetEvidenceForm();
+      this.isEvidenceModalOpen.set(false);
+      this.pageSuccess.set('Evidencia cargada.');
 
       const selectedDonationId = this.selectedDonationId();
       if (selectedDonationId) {
         await this.loadDonationDetail(selectedDonationId, selectedApplication.id);
         await this.reloadDonations(selectedDonationId);
+        await this.reloadAlerts();
       }
       this.activeTab.set('evidences');
     } catch (error) {

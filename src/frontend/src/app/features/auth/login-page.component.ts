@@ -14,45 +14,38 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   template: `
     <section class="login-shell">
       <article class="login-card">
-        <div class="login-copy">
-          <p class="page-kicker">Track 2 Seguridad</p>
-          <h1>Acceso local mínimo</h1>
-          <p>
-            Base inicial de autenticación para el MVP: login con token JWT, protección de rutas
-            principales y sesión local acotada al navegador actual.
-          </p>
-        </div>
+        <header class="login-header">
+          <img src="/assets/brand/logo-fmcpa.webp" alt="FMCPA" class="brand-logo" />
+          <div>
+            <h1>FMCPA Platform</h1>
+            <p class="login-subtitle">Acceso al sistema</p>
+            <p class="login-help">Ingresa tus credenciales para continuar</p>
+          </div>
+        </header>
 
         @if (errorMessage()) {
-          <p class="alert error">{{ errorMessage() }}</p>
+          <p class="alert error" role="alert">{{ errorMessage() }}</p>
         }
 
         <form class="login-form" [formGroup]="loginForm" (ngSubmit)="submit()">
-          <label>
-            <span>Usuario</span>
-            <input type="text" formControlName="userName" autocomplete="username" />
-          </label>
+          <div class="field">
+            <label for="userName">Usuario</label>
+            <input id="userName" type="text" formControlName="userName" autocomplete="username" />
+          </div>
 
-          <label>
-            <span>Contraseña</span>
-            <input type="password" formControlName="password" autocomplete="current-password" />
-          </label>
+          <div class="field">
+            <label for="password">Contraseña</label>
+            <input
+              id="password"
+              type="password"
+              formControlName="password"
+              autocomplete="current-password" />
+          </div>
 
           <button type="submit" [disabled]="isSubmitting()">
             {{ isSubmitting() ? 'Ingresando...' : 'Iniciar sesión' }}
           </button>
         </form>
-
-        <div class="login-note">
-          <strong>Convención local</strong>
-          <p>
-            Usuarios locales sugeridos: <code>admin</code>, <code>operator</code> y
-            <code>readonly</code>. Las contraseñas se definen fuera del repo vía
-            <code>FMCPA_AUTH_BOOTSTRAP_PASSWORD</code>,
-            <code>FMCPA_AUTH_OPERATOR_PASSWORD</code> y
-            <code>FMCPA_AUTH_READONLY_PASSWORD</code>.
-          </p>
-        </div>
       </article>
     </section>
   `,
@@ -68,40 +61,51 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         display: grid;
         place-items: center;
         padding: 1.5rem;
-        background:
-          radial-gradient(circle at top left, rgba(7, 114, 103, 0.16), transparent 26rem),
-          radial-gradient(circle at bottom right, rgba(184, 115, 51, 0.14), transparent 22rem),
-          linear-gradient(180deg, #f4f2eb 0%, #f7f6f2 52%, #ede8db 100%);
+        background: linear-gradient(180deg, #f7f4ea 0%, #f1ecdd 100%);
       }
 
       .login-card {
-        width: min(100%, 28rem);
-        padding: 1.5rem;
-        border-radius: 1.4rem;
-        background: rgba(255, 255, 255, 0.88);
-        border: 1px solid rgba(29, 45, 42, 0.08);
-        box-shadow: 0 24px 48px rgba(32, 44, 41, 0.12);
+        width: min(100%, 27.5rem);
+        padding: 1.6rem;
+        border-radius: 8px;
+        background: #ffffff;
+        border: 1px solid rgba(29, 45, 42, 0.1);
+        border-top: 4px solid #a8302d;
+        box-shadow: 0 18px 40px rgba(32, 44, 41, 0.12);
       }
 
-      .page-kicker {
-        margin: 0 0 0.6rem;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: #0f766e;
+      .login-header {
+        display: grid;
+        justify-items: center;
+        gap: 1rem;
+        text-align: center;
+      }
+
+      .brand-logo {
+        display: block;
+        width: 6.2rem;
+        max-width: 34vw;
+        height: auto;
+        object-fit: contain;
       }
 
       h1 {
         margin: 0;
-        font-size: clamp(2rem, 6vw, 2.8rem);
-        line-height: 0.96;
+        font-size: 2rem;
+        line-height: 1.08;
         color: #1d2d2a;
       }
 
-      .login-copy p:not(.page-kicker) {
-        margin: 0.9rem 0 0;
-        line-height: 1.65;
+      .login-subtitle {
+        margin: 0.45rem 0 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0f5f58;
+      }
+
+      .login-help {
+        margin: 0.35rem 0 0;
+        line-height: 1.45;
         color: #445854;
       }
 
@@ -111,12 +115,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         margin-top: 1.5rem;
       }
 
-      label {
+      .field {
         display: grid;
         gap: 0.45rem;
       }
 
-      label span {
+      label {
         font-size: 0.9rem;
         font-weight: 700;
         color: #29403b;
@@ -124,21 +128,24 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
       input {
         border: 1px solid rgba(29, 45, 42, 0.14);
-        border-radius: 0.9rem;
-        padding: 0.85rem 0.95rem;
+        border-radius: 8px;
+        min-height: 2.9rem;
+        padding: 0.82rem 0.95rem;
         font: inherit;
         color: #1d2d2a;
-        background: rgba(255, 255, 255, 0.95);
+        background: #fbfaf6;
       }
 
       input:focus {
-        outline: 2px solid rgba(15, 118, 110, 0.22);
+        outline: 3px solid rgba(15, 118, 110, 0.22);
+        outline-offset: 1px;
         border-color: #0f766e;
       }
 
       button {
         border: none;
-        border-radius: 999px;
+        border-radius: 8px;
+        min-height: 2.9rem;
         padding: 0.9rem 1.15rem;
         font: inherit;
         font-weight: 700;
@@ -147,34 +154,48 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         cursor: pointer;
       }
 
+      button:hover:not(:disabled) {
+        background: #0f332f;
+      }
+
+      button:focus-visible {
+        outline: 3px solid rgba(168, 48, 45, 0.28);
+        outline-offset: 2px;
+      }
+
       button:disabled {
         opacity: 0.65;
         cursor: wait;
       }
 
-      .login-note {
-        margin-top: 1.25rem;
-        padding: 0.95rem 1rem;
-        border-radius: 1rem;
-        background: rgba(15, 118, 110, 0.08);
-        color: #29403b;
-      }
-
-      .login-note p {
-        margin: 0.45rem 0 0;
-        line-height: 1.55;
-      }
-
-      code {
-        font-size: 0.88rem;
-      }
-
       .alert.error {
         margin-top: 1rem;
         padding: 0.85rem 0.95rem;
-        border-radius: 0.95rem;
-        background: rgba(178, 34, 34, 0.08);
+        border-radius: 8px;
+        border: 1px solid rgba(168, 48, 45, 0.2);
+        background: #fff4f2;
         color: #8d1f1f;
+      }
+
+      @media (max-width: 30rem) {
+        .login-shell {
+          align-items: start;
+          padding: 1rem;
+        }
+
+        .login-card {
+          margin-top: 1rem;
+          padding: 1.2rem;
+        }
+
+        .brand-logo {
+          width: 5.2rem;
+          max-width: 38vw;
+        }
+
+        h1 {
+          font-size: 1.75rem;
+        }
       }
     `
   ]
@@ -188,7 +209,7 @@ export class LoginPageComponent {
   protected readonly isSubmitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly loginForm = this.formBuilder.nonNullable.group({
-    userName: ['admin', Validators.required],
+    userName: ['', Validators.required],
     password: ['', Validators.required]
   });
 

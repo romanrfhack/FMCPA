@@ -1,16 +1,19 @@
 # Current Phase
 
 ## Fase actual
-**Track funcional post-MVP: Donatarias Transparencia - UX registrar aplicacion en modal**
+**Track UX/security frontend: login institucional FMCPA**
 
 ## Estado actual
-- Fecha de inicio documentada: 2026-05-13
-- Estado de la fase: mejora UX frontend de Donatarias implementada moviendo `Registrar donacion` y `Registrar aplicacion` desde formularios inline a modales responsive, con botones contextuales, reutilizacion de formularios/servicios/validaciones actuales y sin cambios backend; pendiente de aprobacion formal
+- Fecha de inicio documentada: 2026-05-15
+- Estado de la fase: login institucional frontend implementado con logo local `.webp`, copy tecnico retirado, credenciales sugeridas ocultas, validacion responsive y sin cambios backend; pendiente de aprobacion formal
 - Estado del MVP: **Cerrado con reservas**
 - Estado del track anterior: `Track 5` de Financieras queda con ficha operativa contextual consolidada entregada y pendiente de aprobacion formal
-- Enfoque: reducir scroll y separar captura de lectura en `/donatarias`, manteniendo la pantalla principal y el tab de aplicaciones orientados a consulta, transparencia, distribucion del recurso y estado documental, sin schema nuevo, migracion, permisos nuevos, endpoint nuevo ni cambios de reglas de negocio
+- Enfoque: limpiar `/login` para usuario final, alinear la entrada al sistema con el logotipo institucional y conservar intactos `AuthService`, rutas, guards, contratos API, backend, permisos, migraciones, token handling, produccion y CI/CD
 
 ## Nota operativa
+- El login institucional usa `src/frontend/public/assets/brand/logo-fmcpa.webp` y se publica como `/assets/brand/logo-fmcpa.webp`.
+- Se retiraron de `/login` textos de `Track 2`, JWT, convencion local, variables de entorno y usuarios sugeridos `admin`/`operator`/`readonly`.
+- La validacion local se cerro con `npm run build`, `npm test -- --watch=false` `24/24`, `dotnet build src/backend/FMCPA.Backend.sln --no-restore`, `git diff -- src/backend` sin cambios, `git diff --check` y Playwright/Chromium headless en 390/768/1366 con login fallido y login exitoso mockeado.
 - El MVP permanece cerrado con reservas; despues de la ficha contextual de Financieras, se abre una evolucion funcional acotada sobre Donatarias orientada a transparencia ante donantes.
 - Donatarias Transparencia Fase 1 reordena la pantalla existente, pero conserva los flujos actuales de alta de donacion, alta de aplicacion, carga/descarga de evidencia, filtros, alertas y cierre formal admin.
 - Donatarias Transparencia Fase 2 agrega agregados calculados en cliente sobre la lista visible/filtrada; estos totales no deben presentarse como universo global hasta que exista endpoint agregado server-side.
@@ -34,6 +37,11 @@
 - El modal de aplicacion reutiliza `applicationForm`, validaciones y `DonationsService.createDonationApplication`; tras crear conserva la recarga de lista/detalle/alertas, actualiza KPIs, semaforos y reporte, selecciona la aplicacion creada, cierra el modal y muestra confirmacion global.
 - Esta subetapa no cambia backend, contratos API, permisos, schema, migraciones, flujo de `Cargar evidencia`, produccion ni CI/CD.
 - La validacion local de la subetapa de aplicacion se cerro con `npm run build` exitoso con advertencia blanda de presupuesto CSS de Donatarias, `npm test -- --watch=false` `22/22`, `dotnet build src/backend/FMCPA.Backend.sln --no-restore` sin warnings/errores, Playwright mockeado en 1366/768/390 para abrir/cancelar/reabrir/guardar aplicacion, actualizar aplicado/saldo y ocultar el boton en donacion cerrada, `git diff -- src/backend` sin cambios y `git diff --check`.
+- La subetapa UX siguiente mueve `Cargar evidencia` a una ventana modal abierta desde la aplicacion seleccionada o desde acciones de faltantes; el formulario inline deja de ocupar espacio permanente en el tab `Evidencias` y en el detalle heredado.
+- El modal de evidencia reutiliza `evidenceForm`, archivo seleccionado y `DonationsService.createApplicationEvidence`; tras cargar conserva la aplicacion seleccionada, recarga detalle/documentary-status/reporte/lista/alertas, actualiza KPIs, semaforo documental y reporte, cierra el modal y muestra confirmacion global.
+- Las acciones de remediacion en aplicaciones sin evidencia seleccionan la aplicacion y abren el modal directamente, sin cambiar endpoint, payload ni validaciones de upload.
+- Esta subetapa no cambia backend, contratos API, permisos, schema, migraciones, produccion ni CI/CD.
+- La validacion local de la subetapa de evidencia se cerro con `npm run build` exitoso con advertencia blanda de presupuesto CSS de Donatarias, `npm test -- --watch=false` `22/22`, `dotnet build src/backend/FMCPA.Backend.sln --no-restore` sin warnings/errores, Playwright mockeado en 1366/768/390 para abrir/cancelar/reabrir/cargar evidencia, resolver faltantes, actualizar reporte y bloquear carga en donacion cerrada, `git diff -- src/backend` sin cambios y `git diff --check`.
 - La validacion local de Fase 5A se cerro con `npm run build` exitoso con advertencia existente de presupuesto CSS de Donatarias, `npm test -- --watch=false` `22/22`, `dotnet build src/backend/FMCPA.Backend.sln --no-restore` sin warnings/errores, Playwright mockeado para donacion sin aplicaciones, parcial con evidencia pendiente, completa con evidencia y modo print, y sin migracion nueva.
 - La validacion local de Fase 4 se cerro con `dotnet restore`, `dotnet build`, suite backend de autorizacion/regresion `267/267`, `npm run build`, frontend tests `22/22`, Playwright con API mockeada para tres escenarios UI y `git diff --check`; no hubo migracion.
 - La validacion local de Fase 3 se cerro con stack aislado `FMCPA_DonatariasPhase3Validation`, API `5109`, frontend `4221`, donaciones de prueba sin aplicaciones, evidencia parcial y evidencia completa, pruebas backend del endpoint, build/test frontend, build backend, Playwright sobre `/donatarias` y `git diff --check`; no hubo migracion.

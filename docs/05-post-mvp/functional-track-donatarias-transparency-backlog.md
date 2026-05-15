@@ -284,6 +284,40 @@ Criterios de aceptacion:
 - Las donaciones cerradas no muestran el boton de registro de aplicacion.
 - `/donatarias` conserva filtros, lista, tabs, evidencias y reporte sin cambios de contrato.
 
+### Mejora UX posterior: carga de evidencia en modal
+
+Estado 2026-05-13: Entregada y validada en frontend. Se movio el formulario `Cargar evidencia` desde el flujo inline del tab `Evidencias` y del detalle heredado a un modal responsive abierto desde la aplicacion seleccionada o desde acciones de faltantes. Se conserva `evidenceForm`, archivo seleccionado, validaciones, `DonationsService.createApplicationEvidence`, payload multipart, endpoint, recarga de lista/detalle/alertas, documentary-status, transparency-report y seleccion de la aplicacion.
+
+Objetivo:
+
+Reducir scroll y mantener los tabs `Aplicaciones / distribucion` y `Evidencias` enfocados en evidencia registrada, faltantes documentales, descarga y estado documental agregado.
+
+Alcance:
+
+- Boton `Cargar evidencia` visible solo con donacion seleccionada, aplicacion seleccionada, donacion abierta/no terminal y permiso `DONATIONS_WRITE`.
+- Accion `Cargar evidencia` en aplicaciones sin evidencia para seleccionar la aplicacion y abrir el modal.
+- Modal con tipo de evidencia, archivo y descripcion.
+- Contexto de aplicacion dentro del modal: beneficiario, monto, fecha y estado documental actual.
+- Advertencia de alcance documental dentro del modal.
+- Cierre por boton `Cerrar`, `Cancelar`, Escape o click en overlay.
+- Scroll interno del modal en viewport pequeno.
+
+Requiere backend:
+
+- No.
+
+Requiere migracion:
+
+- No.
+
+Criterios de aceptacion:
+
+- El formulario de evidencia ya no aparece inline.
+- El modal abre, cancela, cierra y guarda usando el comportamiento existente.
+- Tras guardar se actualizan detalle, KPIs, semaforo documental, faltantes y reporte calculado.
+- Las donaciones cerradas no habilitan carga de evidencia.
+- `/donatarias` conserva filtros, lista, tabs, aplicaciones y reporte sin cambios de contrato.
+
 ## Backlog propuesto
 
 | ID | Fase | Prioridad | Item | Tipo | Backend | Migracion | Criterio resumido |
@@ -291,7 +325,7 @@ Criterios de aceptacion:
 | DON-TR-001 | 1 | P0 | Reorganizar pantalla en tabs | UX/UI | No | No | Tabs visibles y acciones actuales preservadas. |
 | DON-TR-002 | 1 | P0 | Renombrar labels a lenguaje de transparencia | UX/UI | No | No | Total recibido, aplicado, saldo pendiente y evidencia son claros. |
 | DON-TR-003 | 1 | P0 | KPIs arriba del detalle | UX/UI | No | No | KPIs visibles sin desplazamiento largo. |
-| DON-TR-004 | 1 | P1 | Formularios en modal/panel contextual | UX/UI | No | No | Entregado para `Registrar donacion` y `Registrar aplicacion`; evidencia queda fuera de esta subetapa. |
+| DON-TR-004 | 1 | P1 | Formularios en modal/panel contextual | UX/UI | No | No | Entregado para `Registrar donacion`, `Registrar aplicacion` y `Cargar evidencia`. |
 | DON-TR-005 | 1 | P1 | Soportar query params de seleccion | Frontend | No | No | `donationId` y `applicationId` abren el contexto solicitado. |
 | DON-TR-006 | 1 | P1 | Reemplazar `prompt` de cierre formal | UX/UI | No | No | Cierre usa modal con motivo y advertencias. |
 | DON-TR-007 | 2 | P0 | Tabla de aplicaciones con porcentaje del total | Frontend | No | No | Cada aplicacion muestra monto y porcentaje de la donacion. |
@@ -320,7 +354,7 @@ Criterios de aceptacion:
 | `DON-TR-001` | Entregado. |
 | `DON-TR-002` | Entregado. |
 | `DON-TR-003` | Entregado. |
-| `DON-TR-004` | Entregado como secciones/paneles contextuales dentro de tabs; no se abrieron modales generales para todas las altas. |
+| `DON-TR-004` | Entregado y validado con modales contextuales para `Registrar donacion`, `Registrar aplicacion` y `Cargar evidencia`. |
 | `DON-TR-005` | Entregado para carga inicial de `/donatarias?donationId=...&applicationId=...`. |
 | `DON-TR-006` | Entregado con panel de cierre formal y advertencias operativas. |
 
@@ -369,6 +403,16 @@ Criterios de aceptacion:
 - Cierre formal: el panel advierte saldo pendiente 25000, una aplicacion con evidencia minima pendiente y que la evidencia no sustituye revision legal o contable.
 - Validacion tecnica: `npm run build`, `npm test -- --watch=false`, `dotnet build src/backend/FMCPA.Backend.sln --no-restore`, Playwright real `1/1` y `git diff --check` pasaron; no hubo cambios backend ni migracion.
 - Estado: lista para demo controlada, explicando que el caso demo esta parcialmente listo por saldo y evidencia pendiente.
+
+## Validacion final post-modales 2026-05-13
+
+- Datos usados: `Asociación Donante Demo Final`, referencia `DON-DEMO-FINAL-1778713719836`, total recibido 100000, tres aplicaciones por 35000, 30000 y 20000, tres evidencias PDF registradas al cierre y saldo pendiente 15000.
+- Resultado funcional: login correcto; `/donatarias` carga; `Registrar donación`, `Registrar aplicación` y `Cargar evidencia` abren/cancelan/cierran/guardan en modal; los formularios ya no aparecen inline.
+- Resultado documental: una aplicacion se dejo inicialmente sin evidencia para validar accion desde faltante; la accion selecciono la aplicacion correcta, cargo PDF real de prueba y actualizo semaforo documental, faltantes y reporte.
+- Resultado financiero/reporte: KPIs y distribucion muestran recibido 100000, aplicado 85000, saldo 15000 y 85%; el reporte muestra aplicaciones, evidencias, sin faltantes al cierre, readiness `PARTIAL` por saldo pendiente y nota de alcance legal/fiscal/contable.
+- Resultado print/query params/cierre: la vista imprimible oculta navegacion, tabs, formularios, botones y controles tecnicos; `/donatarias?donationId=...` y `/donatarias?donationId=...&applicationId=...` seleccionan contexto; el cierre formal muestra advertencias de saldo sin confirmar cierre.
+- Validacion tecnica: `npm run build`, `npm test -- --watch=false`, `dotnet build src/backend/FMCPA.Backend.sln --no-restore`, Playwright real `1/1` en 1366/768/390, `git diff --check` y `git diff -- src/backend` pasaron.
+- Estado: lista para demo controlada post-modales; no se detectaron bugs funcionales ni se modifico codigo en esta validacion.
 
 ### Puede hacerse solo con frontend y DTOs actuales
 
