@@ -65,6 +65,10 @@ interface FederationVisibleMetrics {
         <p class="alert error">{{ pageError() }}</p>
       }
 
+      @if (pageSuccess()) {
+        <p class="alert success">{{ pageSuccess() }}</p>
+      }
+
       <nav class="tab-nav" aria-label="Secciones de Federación">
         <button type="button" [class.is-active]="activeTab() === 'summary'" (click)="setActiveTab('summary')">
           Resumen
@@ -82,6 +86,439 @@ interface FederationVisibleMetrics {
           Evidencias
         </button>
       </nav>
+
+      @if (isActionModalOpen()) {
+        <div class="modal" (click)="closeActionModal()" (document:keydown.escape)="closeActionModal()">
+          <article
+            class="form-card modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="federation-action-modal-title"
+            (click)="$event.stopPropagation()">
+            <div class="card-header">
+              <div>
+                <h3 id="federation-action-modal-title">Registrar gestión</h3>
+                <p>Tipo, contraparte, fecha, objetivo y estatus base.</p>
+              </div>
+              <button type="button" class="ghost" (click)="closeActionModal()">Cerrar</button>
+            </div>
+
+            @if (actionFormError()) {
+              <p class="alert error">{{ actionFormError() }}</p>
+            }
+
+            <form class="form-grid" [formGroup]="actionForm" (ngSubmit)="submitAction()">
+              <label>
+                <span>Tipo</span>
+                <select formControlName="actionTypeCode">
+                  <option value="">Selecciona un tipo</option>
+                  @for (type of actionTypes; track type.value) {
+                    <option [value]="type.value">{{ type.label }}</option>
+                  }
+                </select>
+              </label>
+
+              <label>
+                <span>Fecha</span>
+                <input type="date" formControlName="actionDate" />
+              </label>
+
+              <label class="full-width">
+                <span>Contraparte o institucion</span>
+                <input type="text" formControlName="counterpartyOrInstitution" placeholder="Institucion, dependencia o contraparte" />
+              </label>
+
+              <label>
+                <span>Estatus</span>
+                <select formControlName="statusCatalogEntryId">
+                  <option [value]="0">Selecciona un estatus</option>
+                  @for (status of actionStatuses(); track status.id) {
+                    <option [value]="status.id">{{ status.statusName }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="full-width">
+                <span>Objetivo</span>
+                <textarea formControlName="objective" rows="4" placeholder="Objetivo operativo de la gestión"></textarea>
+              </label>
+
+              <label class="full-width">
+                <span>Observaciones</span>
+                <textarea formControlName="notes" rows="3" placeholder="Observaciones de la gestión"></textarea>
+              </label>
+
+              <div class="form-actions full-width">
+                <button type="submit" [disabled]="isSubmittingAction() || !canWrite()">Guardar gestión</button>
+                <button type="button" class="ghost" (click)="resetActionForm()" [disabled]="isSubmittingAction()">Limpiar</button>
+                <button type="button" class="ghost" (click)="closeActionModal()" [disabled]="isSubmittingAction()">Cancelar</button>
+              </div>
+            </form>
+          </article>
+        </div>
+      }
+
+      @if (isParticipantModalOpen()) {
+        <div class="modal" (click)="closeParticipantModal()" (document:keydown.escape)="closeParticipantModal()">
+          @if (selectedAction(); as actionDetail) {
+            <article
+              class="form-card modal-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="federation-participant-modal-title"
+              (click)="$event.stopPropagation()">
+              <div class="card-header">
+                <div>
+                  <h3 id="federation-participant-modal-title">Agregar participante</h3>
+                  <p>Relaciona personas internas y externas reutilizando el catalogo compartido.</p>
+                </div>
+                <button type="button" class="ghost" (click)="closeParticipantModal()">Cerrar</button>
+              </div>
+
+              <p class="inline-note">
+                Gestión: {{ actionDetail.actionTypeName }} · {{ actionDetail.counterpartyOrInstitution }}.
+              </p>
+
+              @if (participantFormError()) {
+                <p class="alert error">{{ participantFormError() }}</p>
+              }
+
+              <form class="form-grid" [formGroup]="participantForm" (ngSubmit)="submitParticipant()">
+                <label>
+                  <span>Contacto</span>
+                  <select formControlName="contactId" (change)="syncParticipantSideFromContact()">
+                    <option value="">Selecciona un contacto</option>
+                    @for (contact of contacts(); track contact.id) {
+                      <option [value]="contact.id">{{ contact.name }} · {{ contact.contactTypeName }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label>
+                  <span>Lado</span>
+                  <select formControlName="participantSide">
+                    <option value="">Selecciona un lado</option>
+                    @for (side of participantSides; track side.value) {
+                      <option [value]="side.value">{{ side.label }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="full-width">
+                  <span>Observaciones</span>
+                  <textarea formControlName="notes" rows="3" placeholder="Nota breve del participante en esta gestión"></textarea>
+                </label>
+
+                <div class="form-actions full-width">
+                  <button type="submit" [disabled]="isSubmittingParticipant() || !canAddParticipant()">Agregar participante</button>
+                  <button type="button" class="ghost" (click)="resetParticipantForm()" [disabled]="isSubmittingParticipant()">Limpiar</button>
+                  <button type="button" class="ghost" (click)="closeParticipantModal()" [disabled]="isSubmittingParticipant()">Cancelar</button>
+                </div>
+              </form>
+            </article>
+          }
+        </div>
+      }
+
+      @if (isDonationModalOpen()) {
+        <div class="modal" (click)="closeDonationModal()" (document:keydown.escape)="closeDonationModal()">
+          <article
+            class="form-card modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="federation-donation-modal-title"
+            (click)="$event.stopPropagation()">
+            <div class="card-header">
+              <div>
+                <h3 id="federation-donation-modal-title">Registrar donación</h3>
+                <p>Registro maestro de Federación con referencia y estatus inicial controlado.</p>
+              </div>
+              <button type="button" class="ghost" (click)="closeDonationModal()">Cerrar</button>
+            </div>
+
+            @if (donationFormError()) {
+              <p class="alert error">{{ donationFormError() }}</p>
+            }
+
+            <form class="form-grid" [formGroup]="donationForm" (ngSubmit)="submitDonation()">
+              <label class="full-width">
+                <span>Donante</span>
+                <input type="text" formControlName="donorName" placeholder="Donante o entidad donante" />
+              </label>
+
+              <label>
+                <span>Fecha</span>
+                <input type="date" formControlName="donationDate" />
+              </label>
+
+              <label>
+                <span>Tipo de donación</span>
+                <input type="text" formControlName="donationType" placeholder="Efectivo, especie u otro" />
+              </label>
+
+              <label>
+                <span>Monto o valor base</span>
+                <input type="number" min="0.01" step="0.01" formControlName="baseAmount" />
+              </label>
+
+              <label>
+                <span>Referencia</span>
+                <input type="text" formControlName="reference" placeholder="Referencia interna o documental" />
+              </label>
+
+              <label>
+                <span>Estatus inicial</span>
+                <select formControlName="statusCatalogEntryId">
+                  <option [value]="0">Selecciona un estatus</option>
+                  @for (status of creatableDonationStatuses(); track status.id) {
+                    <option [value]="status.id">{{ status.statusName }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="full-width">
+                <span>Observaciones</span>
+                <textarea formControlName="notes" rows="3" placeholder="Observaciones de la donación"></textarea>
+              </label>
+
+              <div class="form-actions full-width">
+                <button type="submit" [disabled]="isSubmittingDonation() || !canWrite()">Guardar donación</button>
+                <button type="button" class="ghost" (click)="resetDonationForm()" [disabled]="isSubmittingDonation()">Limpiar</button>
+                <button type="button" class="ghost" (click)="closeDonationModal()" [disabled]="isSubmittingDonation()">Cancelar</button>
+              </div>
+            </form>
+          </article>
+        </div>
+      }
+
+      @if (isApplicationModalOpen()) {
+        <div class="modal" (click)="closeApplicationModal()" (document:keydown.escape)="closeApplicationModal()">
+          @if (selectedDonation(); as donationDetail) {
+            <article
+              class="form-card modal-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="federation-application-modal-title"
+              (click)="$event.stopPropagation()">
+              <div class="card-header">
+                <div>
+                  <h3 id="federation-application-modal-title">Registrar aplicación</h3>
+                  <p>Beneficiario o destino, monto aplicado, comprobacion y datos de cierre.</p>
+                </div>
+                <button type="button" class="ghost" (click)="closeApplicationModal()">Cerrar</button>
+              </div>
+
+              <p class="inline-note">
+                Donante: {{ donationDetail.donorName }}
+                · Total recibido {{ donationDetail.baseAmount | number: '1.2-2' }}
+                · Total aplicado {{ donationDetail.appliedAmountTotal | number: '1.2-2' }}
+                · Saldo pendiente {{ donationDetail.remainingAmount | number: '1.2-2' }}.
+              </p>
+
+              @if (applicationFormError()) {
+                <p class="alert error">{{ applicationFormError() }}</p>
+              }
+
+              <form class="form-grid" [formGroup]="applicationForm" (ngSubmit)="submitApplication()">
+                <label class="full-width">
+                  <span>Beneficiario o destino</span>
+                  <input type="text" formControlName="beneficiaryOrDestinationName" placeholder="Beneficiario o destino" />
+                </label>
+
+                <label>
+                  <span>Fecha de aplicación</span>
+                  <input type="date" formControlName="applicationDate" />
+                </label>
+
+                <label>
+                  <span>Monto aplicado</span>
+                  <input type="number" min="0.01" step="0.01" formControlName="appliedAmount" />
+                </label>
+
+                <label>
+                  <span>Estatus</span>
+                  <select formControlName="statusCatalogEntryId">
+                    <option [value]="0">Selecciona un estatus</option>
+                    @for (status of applicationStatuses(); track status.id) {
+                      <option [value]="status.id">{{ status.statusName }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="full-width">
+                  <span>Comprobacion / detalle</span>
+                  <textarea formControlName="verificationDetails" rows="4" placeholder="Detalle de comprobacion"></textarea>
+                </label>
+
+                <label class="full-width">
+                  <span>Datos de cierre</span>
+                  <textarea formControlName="closingDetails" rows="3" placeholder="Si aplica"></textarea>
+                </label>
+
+                <div class="form-actions full-width">
+                  <button type="submit" [disabled]="isSubmittingApplication() || !canRegisterApplication()">Guardar aplicación</button>
+                  <button type="button" class="ghost" (click)="resetApplicationForm()" [disabled]="isSubmittingApplication()">Limpiar</button>
+                  <button type="button" class="ghost" (click)="closeApplicationModal()" [disabled]="isSubmittingApplication()">Cancelar</button>
+                </div>
+              </form>
+            </article>
+          }
+        </div>
+      }
+
+      @if (isCommissionModalOpen()) {
+        <div class="modal" (click)="closeCommissionModal()" (document:keydown.escape)="closeCommissionModal()">
+          @if (selectedApplication(); as selectedApplicationDetail) {
+            <article
+              class="form-card modal-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="federation-commission-modal-title"
+              (click)="$event.stopPropagation()">
+              <div class="card-header">
+                <div>
+                  <h3 id="federation-commission-modal-title">Registrar comisión</h3>
+                  <p>La comisión queda asociada a la aplicación seleccionada.</p>
+                </div>
+                <button type="button" class="ghost" (click)="closeCommissionModal()">Cerrar</button>
+              </div>
+
+              <p class="inline-note">
+                Aplicación: {{ selectedApplicationDetail.beneficiaryOrDestinationName }}
+                · Monto {{ selectedApplicationDetail.appliedAmount | number: '1.2-2' }}.
+              </p>
+
+              @if (commissionFormError()) {
+                <p class="alert error">{{ commissionFormError() }}</p>
+              }
+
+              <form class="form-grid" [formGroup]="commissionForm" (ngSubmit)="submitCommission()">
+                <label>
+                  <span>Tipo de comisión</span>
+                  <select formControlName="commissionTypeId">
+                    <option [value]="0">Selecciona un tipo</option>
+                    @for (type of commissionTypes(); track type.id) {
+                      <option [value]="type.id">{{ type.name }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label>
+                  <span>Categoria destinatario</span>
+                  <select formControlName="recipientCategory">
+                    <option value="">Selecciona una categoria</option>
+                    @for (category of recipientCategories; track category.value) {
+                      <option [value]="category.value">{{ category.label }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label>
+                  <span>Contacto destinatario</span>
+                  <select formControlName="recipientContactId" (change)="syncRecipientFromContact()">
+                    <option value="">Sin vincular</option>
+                    @for (contact of contacts(); track contact.id) {
+                      <option [value]="contact.id">{{ contact.name }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label>
+                  <span>Destinatario</span>
+                  <input type="text" formControlName="recipientName" placeholder="Nombre del destinatario" />
+                </label>
+
+                <label>
+                  <span>Monto base</span>
+                  <input type="number" min="0.01" step="0.01" formControlName="baseAmount" />
+                </label>
+
+                <label>
+                  <span>Monto de comisión</span>
+                  <input type="number" min="0.01" step="0.01" formControlName="commissionAmount" />
+                </label>
+
+                <label class="full-width">
+                  <span>Observaciones</span>
+                  <textarea formControlName="notes" rows="3" placeholder="Observaciones de la comisión"></textarea>
+                </label>
+
+                <div class="form-actions full-width">
+                  <button type="submit" [disabled]="isSubmittingCommission() || !canRegisterCommission()">Guardar comisión</button>
+                  <button type="button" class="ghost" (click)="resetCommissionForm()" [disabled]="isSubmittingCommission()">Limpiar</button>
+                  <button type="button" class="ghost" (click)="closeCommissionModal()" [disabled]="isSubmittingCommission()">Cancelar</button>
+                </div>
+              </form>
+            </article>
+          }
+        </div>
+      }
+
+      @if (isEvidenceModalOpen()) {
+        <div class="modal" (click)="closeEvidenceModal()" (document:keydown.escape)="closeEvidenceModal()">
+          @if (selectedApplication(); as selectedApplicationDetail) {
+            <article
+              class="form-card modal-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="federation-evidence-modal-title"
+              (click)="$event.stopPropagation()">
+              <div class="card-header">
+                <div>
+                  <h3 id="federation-evidence-modal-title">Cargar evidencia</h3>
+                  <p>La evidencia se asocia a la aplicación seleccionada, no al maestro.</p>
+                </div>
+                <button type="button" class="ghost" (click)="closeEvidenceModal()">Cerrar</button>
+              </div>
+
+              <p class="inline-note">
+                Aplicación: {{ selectedApplicationDetail.beneficiaryOrDestinationName }}
+                · Monto {{ selectedApplicationDetail.appliedAmount | number: '1.2-2' }}
+                · Estatus documental {{ selectedApplicationDetail.evidenceCount > 0 ? 'con evidencia' : 'sin evidencia' }}.
+              </p>
+              <p class="inline-note">
+                La evidencia registrada acredita presencia documental mínima; no sustituye revisión legal, fiscal o contable.
+              </p>
+
+              @if (evidenceFormError()) {
+                <p class="alert error">{{ evidenceFormError() }}</p>
+              }
+
+              <form class="form-grid" [formGroup]="evidenceForm" (ngSubmit)="submitEvidence()">
+                <label>
+                  <span>Tipo de evidencia</span>
+                  <select formControlName="evidenceTypeId">
+                    <option [value]="0">Selecciona un tipo</option>
+                    @for (type of evidenceTypes(); track type.id) {
+                      <option [value]="type.id">{{ type.name }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="full-width">
+                  <span>Descripcion</span>
+                  <textarea formControlName="description" rows="3" placeholder="Descripción breve de la evidencia"></textarea>
+                </label>
+
+                <label class="full-width">
+                  <span>Archivo</span>
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi" (change)="onEvidenceSelected($event)" />
+                </label>
+
+                @if (selectedEvidenceFileName()) {
+                  <p class="inline-note full-width">Archivo seleccionado: {{ selectedEvidenceFileName() }}</p>
+                }
+
+                <div class="form-actions full-width">
+                  <button type="submit" [disabled]="isSubmittingEvidence() || !canUploadEvidence()">Guardar evidencia</button>
+                  <button type="button" class="ghost" (click)="resetEvidenceForm()" [disabled]="isSubmittingEvidence()">Limpiar</button>
+                  <button type="button" class="ghost" (click)="closeEvidenceModal()" [disabled]="isSubmittingEvidence()">Cancelar</button>
+                </div>
+              </form>
+            </article>
+          }
+        </div>
+      }
 
       @if (activeTab() === 'summary') {
         @if (federationMetrics(); as metrics) {
@@ -236,7 +673,15 @@ interface FederationVisibleMetrics {
             <h3>Gestiones de Federación</h3>
             <p>Convenios, reuniones, entrevistas y gestiones con gobierno con alertas operativas.</p>
           </div>
-          <button type="button" class="ghost" (click)="reloadPage()">Actualizar modulo</button>
+          <div class="section-actions">
+            @if (canWrite()) {
+              <button type="button" (click)="openActionModal()">Registrar gestión</button>
+            }
+            @if (canAddParticipant()) {
+              <button type="button" class="ghost" (click)="openParticipantModal()">Agregar participante</button>
+            }
+            <button type="button" class="ghost" (click)="reloadPage()">Actualizar modulo</button>
+          </div>
         </div>
 
         <div class="page-grid">
@@ -268,70 +713,6 @@ interface FederationVisibleMetrics {
                 <div class="form-actions full-width">
                   <button type="submit">Aplicar filtro</button>
                   <button type="button" class="ghost" (click)="clearActionFilters()">Limpiar</button>
-                </div>
-              </form>
-            </article>
-
-            <article class="form-card">
-              <div class="card-header">
-                <div>
-                  <h3>Registrar gestión</h3>
-                  <p>Tipo, contraparte, fecha, objetivo y estatus base.</p>
-                </div>
-              </div>
-
-              @if (actionFormError()) {
-                <p class="alert error">{{ actionFormError() }}</p>
-              }
-
-              @if (actionFormSuccess()) {
-                <p class="alert success">{{ actionFormSuccess() }}</p>
-              }
-
-              <form class="form-grid" [formGroup]="actionForm" (ngSubmit)="submitAction()">
-                <label>
-                  <span>Tipo</span>
-                  <select formControlName="actionTypeCode">
-                    <option value="">Selecciona un tipo</option>
-                    @for (type of actionTypes; track type.value) {
-                      <option [value]="type.value">{{ type.label }}</option>
-                    }
-                  </select>
-                </label>
-
-                <label>
-                  <span>Fecha</span>
-                  <input type="date" formControlName="actionDate" />
-                </label>
-
-                <label class="full-width">
-                  <span>Contraparte o institucion</span>
-                  <input type="text" formControlName="counterpartyOrInstitution" placeholder="Institucion, dependencia o contraparte" />
-                </label>
-
-                <label>
-                  <span>Estatus</span>
-                  <select formControlName="statusCatalogEntryId">
-                    <option [value]="0">Selecciona un estatus</option>
-                    @for (status of actionStatuses(); track status.id) {
-                      <option [value]="status.id">{{ status.statusName }}</option>
-                    }
-                  </select>
-                </label>
-
-                <label class="full-width">
-                  <span>Objetivo</span>
-                  <textarea formControlName="objective" rows="4" placeholder="Objetivo operativo de la gestión"></textarea>
-                </label>
-
-                <label class="full-width">
-                  <span>Observaciones</span>
-                  <textarea formControlName="notes" rows="3" placeholder="Observaciones de la gestión"></textarea>
-                </label>
-
-                <div class="form-actions full-width">
-                  <button type="submit" [disabled]="isSubmittingAction() || !canWrite()">Registrar gestión</button>
-                  <button type="button" class="ghost" (click)="resetActionForm()">Limpiar</button>
                 </div>
               </form>
             </article>
@@ -461,56 +842,7 @@ interface FederationVisibleMetrics {
                 </div>
               </article>
 
-              <div class="detail-grid">
-                <article class="form-card">
-                  <div class="card-header">
-                    <div>
-                      <h3>Agregar participante</h3>
-                      <p>Relaciona personas internas y externas reutilizando el catalogo compartido.</p>
-                    </div>
-                  </div>
-
-                  @if (participantFormError()) {
-                    <p class="alert error">{{ participantFormError() }}</p>
-                  }
-
-                  @if (participantFormSuccess()) {
-                    <p class="alert success">{{ participantFormSuccess() }}</p>
-                  }
-
-                  <form class="form-grid" [formGroup]="participantForm" (ngSubmit)="submitParticipant()">
-                    <label>
-                      <span>Contacto</span>
-                      <select formControlName="contactId" (change)="syncParticipantSideFromContact()">
-                        <option value="">Selecciona un contacto</option>
-                        @for (contact of contacts(); track contact.id) {
-                          <option [value]="contact.id">{{ contact.name }} · {{ contact.contactTypeName }}</option>
-                        }
-                      </select>
-                    </label>
-
-                    <label>
-                      <span>Lado</span>
-                      <select formControlName="participantSide">
-                        <option value="">Selecciona un lado</option>
-                        @for (side of participantSides; track side.value) {
-                          <option [value]="side.value">{{ side.label }}</option>
-                        }
-                      </select>
-                    </label>
-
-                    <label class="full-width">
-                      <span>Observaciones</span>
-                      <textarea formControlName="notes" rows="3" placeholder="Nota breve del participante en esta gestión"></textarea>
-                    </label>
-
-                    <div class="form-actions full-width">
-                      <button type="submit" [disabled]="isSubmittingParticipant() || !canWrite()">Agregar participante</button>
-                      <button type="button" class="ghost" (click)="resetParticipantForm()">Limpiar</button>
-                    </div>
-                  </form>
-                </article>
-
+              <div class="detail-grid single-column">
                 <article class="list-card">
                   <div class="card-header">
                     <div>
@@ -577,6 +909,20 @@ interface FederationVisibleMetrics {
               <p>Evidencias documentales por aplicación y acceso a descarga.</p>
             }
           </div>
+          <div class="section-actions">
+            @if (activeTab() === 'donations' && canWrite()) {
+              <button type="button" (click)="openDonationModal()">Registrar donación</button>
+            }
+            @if (activeTab() === 'applications' && canRegisterApplication()) {
+              <button type="button" (click)="openApplicationModal()">Registrar aplicación</button>
+            }
+            @if (activeTab() === 'applications' && canRegisterCommission()) {
+              <button type="button" class="ghost" (click)="openCommissionModal()">Registrar comisión</button>
+            }
+            @if (activeTab() === 'evidences' && canUploadEvidence()) {
+              <button type="button" (click)="openEvidenceModal()">Cargar evidencia</button>
+            }
+          </div>
         </div>
 
         <div class="page-grid">
@@ -611,72 +957,6 @@ interface FederationVisibleMetrics {
                 </div>
               </form>
             </article>
-
-            @if (activeTab() === 'donations') {
-            <article class="form-card">
-              <div class="card-header">
-                <div>
-                  <h3>Registrar donación de Federación</h3>
-                  <p>Registro maestro de Federación con referencia y estatus inicial controlado.</p>
-                </div>
-              </div>
-
-              @if (donationFormError()) {
-                <p class="alert error">{{ donationFormError() }}</p>
-              }
-
-              @if (donationFormSuccess()) {
-                <p class="alert success">{{ donationFormSuccess() }}</p>
-              }
-
-              <form class="form-grid" [formGroup]="donationForm" (ngSubmit)="submitDonation()">
-                <label class="full-width">
-                  <span>Donante</span>
-                  <input type="text" formControlName="donorName" placeholder="Donante o entidad donante" />
-                </label>
-
-                <label>
-                  <span>Fecha</span>
-                  <input type="date" formControlName="donationDate" />
-                </label>
-
-                <label>
-                  <span>Tipo de donación</span>
-                  <input type="text" formControlName="donationType" placeholder="Efectivo, especie u otro" />
-                </label>
-
-                <label>
-                  <span>Monto o valor base</span>
-                  <input type="number" min="0.01" step="0.01" formControlName="baseAmount" />
-                </label>
-
-                <label>
-                  <span>Referencia</span>
-                  <input type="text" formControlName="reference" placeholder="Referencia interna o documental" />
-                </label>
-
-                <label>
-                  <span>Estatus inicial</span>
-                  <select formControlName="statusCatalogEntryId">
-                    <option [value]="0">Selecciona un estatus</option>
-                    @for (status of creatableDonationStatuses(); track status.id) {
-                      <option [value]="status.id">{{ status.statusName }}</option>
-                    }
-                  </select>
-                </label>
-
-                <label class="full-width">
-                  <span>Observaciones</span>
-                  <textarea formControlName="notes" rows="3" placeholder="Observaciones de la donación"></textarea>
-                </label>
-
-                <div class="form-actions full-width">
-                  <button type="submit" [disabled]="isSubmittingDonation() || !canWrite()">Registrar donación</button>
-                  <button type="button" class="ghost" (click)="resetDonationForm()">Limpiar</button>
-                </div>
-              </form>
-            </article>
-            }
 
             <article class="list-card">
               <div class="card-header">
@@ -825,66 +1105,7 @@ interface FederationVisibleMetrics {
               </article>
 
               @if (activeTab() === 'applications') {
-              <div class="detail-grid">
-                <article class="form-card">
-                  <div class="card-header">
-                    <div>
-                      <h3>Registrar aplicación</h3>
-                      <p>Beneficiario o destino, monto aplicado, comprobacion y datos de cierre.</p>
-                    </div>
-                  </div>
-
-                  @if (applicationFormError()) {
-                    <p class="alert error">{{ applicationFormError() }}</p>
-                  }
-
-                  @if (applicationFormSuccess()) {
-                    <p class="alert success">{{ applicationFormSuccess() }}</p>
-                  }
-
-                  <form class="form-grid" [formGroup]="applicationForm" (ngSubmit)="submitApplication()">
-                    <label class="full-width">
-                      <span>Beneficiario o destino</span>
-                      <input type="text" formControlName="beneficiaryOrDestinationName" placeholder="Beneficiario o destino" />
-                    </label>
-
-                    <label>
-                      <span>Fecha de aplicación</span>
-                      <input type="date" formControlName="applicationDate" />
-                    </label>
-
-                    <label>
-                      <span>Monto aplicado</span>
-                      <input type="number" min="0.01" step="0.01" formControlName="appliedAmount" />
-                    </label>
-
-                    <label>
-                      <span>Estatus</span>
-                      <select formControlName="statusCatalogEntryId">
-                        <option [value]="0">Selecciona un estatus</option>
-                        @for (status of applicationStatuses(); track status.id) {
-                          <option [value]="status.id">{{ status.statusName }}</option>
-                        }
-                      </select>
-                    </label>
-
-                    <label class="full-width">
-                      <span>Comprobacion / detalle</span>
-                      <textarea formControlName="verificationDetails" rows="4" placeholder="Detalle de comprobacion"></textarea>
-                    </label>
-
-                    <label class="full-width">
-                      <span>Datos de cierre</span>
-                      <textarea formControlName="closingDetails" rows="3" placeholder="Si aplica"></textarea>
-                    </label>
-
-                    <div class="form-actions full-width">
-                      <button type="submit" [disabled]="isSubmittingApplication() || !canWrite()">Registrar aplicación</button>
-                      <button type="button" class="ghost" (click)="resetApplicationForm()">Limpiar</button>
-                    </div>
-                  </form>
-                </article>
-
+              <div class="detail-grid single-column">
                 <article class="list-card">
                   <div class="card-header">
                     <div>
@@ -929,90 +1150,7 @@ interface FederationVisibleMetrics {
                 </article>
               </div>
 
-              <div class="detail-grid">
-                <article class="form-card">
-                  <div class="card-header">
-                    <div>
-                      <h3>Registrar comisión</h3>
-                      <p>La comisión queda asociada a la aplicación seleccionada.</p>
-                    </div>
-                  </div>
-
-                  @if (commissionFormError()) {
-                    <p class="alert error">{{ commissionFormError() }}</p>
-                  }
-
-                  @if (commissionFormSuccess()) {
-                    <p class="alert success">{{ commissionFormSuccess() }}</p>
-                  }
-
-                  @if (selectedApplication(); as selectedApplicationDetail) {
-                    <p class="inline-note">
-                      Aplicación seleccionada: {{ selectedApplicationDetail.beneficiaryOrDestinationName }}
-                      · {{ selectedApplicationDetail.appliedAmount | number: '1.2-2' }}
-                    </p>
-                  } @else {
-                    <p class="empty-state">Selecciona una aplicación para registrar la comisión.</p>
-                  }
-
-                  <form class="form-grid" [formGroup]="commissionForm" (ngSubmit)="submitCommission()">
-                    <label>
-                      <span>Tipo de comisión</span>
-                      <select formControlName="commissionTypeId">
-                        <option [value]="0">Selecciona un tipo</option>
-                        @for (type of commissionTypes(); track type.id) {
-                          <option [value]="type.id">{{ type.name }}</option>
-                        }
-                      </select>
-                    </label>
-
-                    <label>
-                      <span>Categoria destinatario</span>
-                      <select formControlName="recipientCategory">
-                        <option value="">Selecciona una categoria</option>
-                        @for (category of recipientCategories; track category.value) {
-                          <option [value]="category.value">{{ category.label }}</option>
-                        }
-                      </select>
-                    </label>
-
-                    <label>
-                      <span>Contacto destinatario</span>
-                      <select formControlName="recipientContactId" (change)="syncRecipientFromContact()">
-                        <option value="">Sin vincular</option>
-                        @for (contact of contacts(); track contact.id) {
-                          <option [value]="contact.id">{{ contact.name }}</option>
-                        }
-                      </select>
-                    </label>
-
-                    <label>
-                      <span>Destinatario</span>
-                      <input type="text" formControlName="recipientName" placeholder="Nombre del destinatario" />
-                    </label>
-
-                    <label>
-                      <span>Monto base</span>
-                      <input type="number" min="0.01" step="0.01" formControlName="baseAmount" />
-                    </label>
-
-                    <label>
-                      <span>Monto de comisión</span>
-                      <input type="number" min="0.01" step="0.01" formControlName="commissionAmount" />
-                    </label>
-
-                    <label class="full-width">
-                      <span>Observaciones</span>
-                      <textarea formControlName="notes" rows="3" placeholder="Observaciones de la comisión"></textarea>
-                    </label>
-
-                    <div class="form-actions full-width">
-                      <button type="submit" [disabled]="isSubmittingCommission() || !selectedApplication() || !canWrite()">Registrar comisión</button>
-                      <button type="button" class="ghost" (click)="resetCommissionForm()">Limpiar</button>
-                    </div>
-                  </form>
-                </article>
-
+              <div class="detail-grid single-column">
                 <article class="list-card">
                   <div class="card-header">
                     <div>
@@ -1058,64 +1196,7 @@ interface FederationVisibleMetrics {
               }
 
               @if (activeTab() === 'evidences') {
-              <div class="detail-grid">
-                <article class="form-card">
-                  <div class="card-header">
-                    <div>
-                      <h3>Cargar evidencia</h3>
-                      <p>La evidencia se asocia a la aplicación seleccionada, no al maestro.</p>
-                    </div>
-                  </div>
-
-                  @if (evidenceFormError()) {
-                    <p class="alert error">{{ evidenceFormError() }}</p>
-                  }
-
-                  @if (evidenceFormSuccess()) {
-                    <p class="alert success">{{ evidenceFormSuccess() }}</p>
-                  }
-
-                  @if (selectedApplication(); as selectedApplicationDetail) {
-                    <p class="inline-note">
-                      Aplicación seleccionada: {{ selectedApplicationDetail.beneficiaryOrDestinationName }}
-                      · {{ selectedApplicationDetail.appliedAmount | number: '1.2-2' }}
-                    </p>
-                  } @else {
-                    <p class="empty-state">Selecciona una aplicación para cargar evidencia.</p>
-                  }
-
-                  <form class="form-grid" [formGroup]="evidenceForm" (ngSubmit)="submitEvidence()">
-                    <label>
-                      <span>Tipo de evidencia</span>
-                      <select formControlName="evidenceTypeId">
-                        <option [value]="0">Selecciona un tipo</option>
-                        @for (type of evidenceTypes(); track type.id) {
-                          <option [value]="type.id">{{ type.name }}</option>
-                        }
-                      </select>
-                    </label>
-
-                    <label class="full-width">
-                      <span>Descripcion</span>
-                      <textarea formControlName="description" rows="3" placeholder="Descripción breve de la evidencia"></textarea>
-                    </label>
-
-                    <label class="full-width">
-                      <span>Archivo</span>
-                      <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi" (change)="onEvidenceSelected($event)" />
-                    </label>
-
-                    @if (selectedEvidenceFileName()) {
-                      <p class="inline-note full-width">Archivo seleccionado: {{ selectedEvidenceFileName() }}</p>
-                    }
-
-                    <div class="form-actions full-width">
-                      <button type="submit" [disabled]="isSubmittingEvidence() || !selectedApplication() || !canWrite()">Cargar evidencia</button>
-                      <button type="button" class="ghost" (click)="resetEvidenceForm()">Limpiar</button>
-                    </div>
-                  </form>
-                </article>
-
+              <div class="detail-grid single-column">
                 <article class="list-card">
                   <div class="card-header">
                     <div>
@@ -1217,6 +1298,26 @@ interface FederationVisibleMetrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .detail-grid.single-column {
+        grid-template-columns: 1fr;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        background: #1d2d2a6b;
+      }
+
+      .modal-panel {
+        width: min(44rem, 100%);
+        max-height: 90vh;
+        overflow: auto;
+      }
+
       .hero-card,
       .filter-card,
       .form-card,
@@ -1268,6 +1369,13 @@ interface FederationVisibleMetrics {
         justify-content: space-between;
         gap: 1rem;
         align-items: flex-start;
+      }
+
+      .section-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.6rem;
       }
 
       .card-header {
@@ -1565,11 +1673,13 @@ interface FederationVisibleMetrics {
         }
 
         .form-actions,
+        .section-actions,
         .detail-badges {
           width: 100%;
         }
 
         .form-actions button,
+        .section-actions button,
         .detail-badges button {
           width: 100%;
           white-space: normal;
@@ -1606,6 +1716,7 @@ export class FederationPageComponent {
 
   protected readonly isBootstrapping = signal(true);
   protected readonly pageError = signal<string | null>(null);
+  protected readonly pageSuccess = signal<string | null>(null);
 
   protected readonly actionStatuses = signal<ModuleStatusCatalogEntry[]>([]);
   protected readonly donationStatuses = signal<ModuleStatusCatalogEntry[]>([]);
@@ -1632,6 +1743,12 @@ export class FederationPageComponent {
   protected readonly isSubmittingApplication = signal(false);
   protected readonly isSubmittingCommission = signal(false);
   protected readonly isSubmittingEvidence = signal(false);
+  protected readonly isActionModalOpen = signal(false);
+  protected readonly isParticipantModalOpen = signal(false);
+  protected readonly isDonationModalOpen = signal(false);
+  protected readonly isApplicationModalOpen = signal(false);
+  protected readonly isCommissionModalOpen = signal(false);
+  protected readonly isEvidenceModalOpen = signal(false);
 
   protected readonly actionFormError = signal<string | null>(null);
   protected readonly actionFormSuccess = signal<string | null>(null);
@@ -1660,6 +1777,118 @@ export class FederationPageComponent {
     }
 
     return selectedDonation.applications.find((application) => application.id === selectedApplicationId) ?? null;
+  });
+
+  protected readonly canAddParticipant = computed(() => {
+    const action = this.selectedAction();
+    return this.canWrite() && !!action && !action.statusIsClosed;
+  });
+
+  protected readonly participantRegistrationUnavailableMessage = computed(() => {
+    const action = this.selectedAction();
+
+    if (!action) {
+      return 'Selecciona una gestión abierta para agregar participantes.';
+    }
+
+    if (!this.canWrite()) {
+      return 'No tienes permiso de escritura para agregar participantes.';
+    }
+
+    if (action.statusIsClosed) {
+      return 'La gestión ya se encuentra en estado terminal y no admite nuevos participantes.';
+    }
+
+    return null;
+  });
+
+  protected readonly canRegisterApplication = computed(() => {
+    const donation = this.selectedDonation();
+    return this.canWrite() && !!donation && !donation.statusIsClosed;
+  });
+
+  protected readonly applicationRegistrationUnavailableMessage = computed(() => {
+    const donation = this.selectedDonation();
+
+    if (!donation) {
+      return 'Selecciona una donación abierta para registrar aplicaciones.';
+    }
+
+    if (!this.canWrite()) {
+      return 'No tienes permiso de escritura para registrar aplicaciones.';
+    }
+
+    if (donation.statusIsClosed) {
+      return 'La donación ya se encuentra en estado terminal y no admite nuevas aplicaciones.';
+    }
+
+    return null;
+  });
+
+  protected readonly canRegisterCommission = computed(() => {
+    const donation = this.selectedDonation();
+    const application = this.selectedApplication();
+    return this.canWrite() && !!donation && !donation.statusIsClosed && !!application && !application.statusIsClosed;
+  });
+
+  protected readonly commissionRegistrationUnavailableMessage = computed(() => {
+    const donation = this.selectedDonation();
+    const application = this.selectedApplication();
+
+    if (!donation) {
+      return 'Selecciona una donación abierta antes de registrar comisiones.';
+    }
+
+    if (!this.canWrite()) {
+      return 'No tienes permiso de escritura para registrar comisiones.';
+    }
+
+    if (donation.statusIsClosed) {
+      return 'La donación ya se encuentra en estado terminal y no admite nuevas comisiones.';
+    }
+
+    if (!application) {
+      return 'Selecciona una aplicación para registrar la comisión.';
+    }
+
+    if (application.statusIsClosed) {
+      return 'La aplicación ya se encuentra en estado terminal y no admite nuevas comisiones.';
+    }
+
+    return null;
+  });
+
+  protected readonly canUploadEvidence = computed(() => {
+    const donation = this.selectedDonation();
+    const application = this.selectedApplication();
+    return this.canWrite() && !!donation && !donation.statusIsClosed && !!application && !application.statusIsClosed;
+  });
+
+  protected readonly evidenceUploadUnavailableMessage = computed(() => {
+    const donation = this.selectedDonation();
+    const application = this.selectedApplication();
+
+    if (!donation) {
+      return 'Selecciona una donación abierta antes de cargar evidencia.';
+    }
+
+    if (!this.canWrite()) {
+      return 'No tienes permiso de escritura para cargar evidencia.';
+    }
+
+    if (donation.statusIsClosed) {
+      return 'La donación ya se encuentra en estado terminal y no admite nueva evidencia.';
+    }
+
+    if (!application) {
+      return 'Selecciona una aplicación para cargar evidencia.';
+    }
+
+    if (application.statusIsClosed) {
+      return 'La aplicación ya se encuentra en estado terminal y no admite nueva evidencia.';
+    }
+
+    return null;
   });
 
   protected readonly selectedActionInternalCount = computed(() =>
@@ -1791,10 +2020,171 @@ export class FederationPageComponent {
   }
 
   protected async reloadPage(): Promise<void> {
+    this.pageSuccess.set(null);
     await this.bootstrap();
   }
 
+  protected openActionModal(): void {
+    if (!this.canWrite()) {
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.actionFormError.set(null);
+    this.actionFormSuccess.set(null);
+    this.isActionModalOpen.set(true);
+  }
+
+  protected closeActionModal(): void {
+    if (this.isSubmittingAction()) {
+      return;
+    }
+
+    this.isActionModalOpen.set(false);
+    this.actionFormError.set(null);
+    this.actionFormSuccess.set(null);
+    this.resetActionForm();
+  }
+
+  protected openParticipantModal(): void {
+    const unavailableMessage = this.participantRegistrationUnavailableMessage();
+
+    if (unavailableMessage) {
+      this.pageError.set(unavailableMessage);
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.participantFormError.set(null);
+    this.participantFormSuccess.set(null);
+    this.isParticipantModalOpen.set(true);
+  }
+
+  protected closeParticipantModal(): void {
+    if (this.isSubmittingParticipant()) {
+      return;
+    }
+
+    this.isParticipantModalOpen.set(false);
+    this.participantFormError.set(null);
+    this.participantFormSuccess.set(null);
+    this.resetParticipantForm();
+  }
+
+  protected openDonationModal(): void {
+    if (!this.canWrite()) {
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.donationFormError.set(null);
+    this.donationFormSuccess.set(null);
+    this.isDonationModalOpen.set(true);
+  }
+
+  protected closeDonationModal(): void {
+    if (this.isSubmittingDonation()) {
+      return;
+    }
+
+    this.isDonationModalOpen.set(false);
+    this.donationFormError.set(null);
+    this.donationFormSuccess.set(null);
+    this.resetDonationForm();
+  }
+
+  protected openApplicationModal(): void {
+    const unavailableMessage = this.applicationRegistrationUnavailableMessage();
+
+    if (unavailableMessage) {
+      this.pageError.set(unavailableMessage);
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.applicationFormError.set(null);
+    this.applicationFormSuccess.set(null);
+    this.isApplicationModalOpen.set(true);
+  }
+
+  protected closeApplicationModal(): void {
+    if (this.isSubmittingApplication()) {
+      return;
+    }
+
+    this.isApplicationModalOpen.set(false);
+    this.applicationFormError.set(null);
+    this.applicationFormSuccess.set(null);
+    this.resetApplicationForm();
+  }
+
+  protected openCommissionModal(applicationId?: string): void {
+    if (applicationId) {
+      this.selectApplication(applicationId);
+    }
+
+    const unavailableMessage = this.commissionRegistrationUnavailableMessage();
+
+    if (unavailableMessage) {
+      this.pageError.set(unavailableMessage);
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.commissionFormError.set(null);
+    this.commissionFormSuccess.set(null);
+    this.syncCommissionBaseFromSelectedApplication();
+    this.isCommissionModalOpen.set(true);
+  }
+
+  protected closeCommissionModal(): void {
+    if (this.isSubmittingCommission()) {
+      return;
+    }
+
+    this.isCommissionModalOpen.set(false);
+    this.commissionFormError.set(null);
+    this.commissionFormSuccess.set(null);
+    this.resetCommissionForm();
+  }
+
+  protected openEvidenceModal(applicationId?: string): void {
+    if (applicationId) {
+      this.selectApplication(applicationId);
+    }
+
+    const unavailableMessage = this.evidenceUploadUnavailableMessage();
+
+    if (unavailableMessage) {
+      this.pageError.set(unavailableMessage);
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.evidenceFormError.set(null);
+    this.evidenceFormSuccess.set(null);
+    this.isEvidenceModalOpen.set(true);
+  }
+
+  protected closeEvidenceModal(): void {
+    if (this.isSubmittingEvidence()) {
+      return;
+    }
+
+    this.isEvidenceModalOpen.set(false);
+    this.evidenceFormError.set(null);
+    this.evidenceFormSuccess.set(null);
+    this.resetEvidenceForm();
+  }
+
   protected async selectAction(actionId: string): Promise<void> {
+    this.pageSuccess.set(null);
     this.selectedActionId.set(actionId);
     await this.loadActionDetail(actionId);
   }
@@ -1829,6 +2219,7 @@ export class FederationPageComponent {
   }
 
   protected async selectDonation(donationId: string): Promise<void> {
+    this.pageSuccess.set(null);
     this.selectedDonationId.set(donationId);
     this.selectedApplicationId.set(null);
     await this.loadDonationDetail(donationId);
@@ -1876,6 +2267,12 @@ export class FederationPageComponent {
     this.actionFormError.set(null);
     this.actionFormSuccess.set(null);
     this.pageError.set(null);
+    this.pageSuccess.set(null);
+
+    if (!this.canWrite()) {
+      this.actionFormError.set('No tienes permiso de escritura para registrar gestiones.');
+      return;
+    }
 
     if (this.actionForm.invalid) {
       this.actionForm.markAllAsTouched();
@@ -1897,8 +2294,9 @@ export class FederationPageComponent {
       };
 
       const action = await firstValueFrom(this.federationService.createAction(request));
-      this.actionFormSuccess.set('Gestion registrada.');
       this.resetActionForm();
+      this.isActionModalOpen.set(false);
+      this.pageSuccess.set('Gestión registrada.');
       await this.reloadActions(action.id);
       await this.reloadAlerts();
     } catch (error) {
@@ -1914,9 +2312,16 @@ export class FederationPageComponent {
     this.participantFormError.set(null);
     this.participantFormSuccess.set(null);
     this.pageError.set(null);
+    this.pageSuccess.set(null);
 
     if (!selectedActionId) {
       this.participantFormError.set('Selecciona una gestion antes de agregar participantes.');
+      return;
+    }
+
+    const unavailableMessage = this.participantRegistrationUnavailableMessage();
+    if (unavailableMessage) {
+      this.participantFormError.set(unavailableMessage);
       return;
     }
 
@@ -1937,8 +2342,9 @@ export class FederationPageComponent {
       };
 
       await firstValueFrom(this.federationService.addActionParticipant(selectedActionId, request));
-      this.participantFormSuccess.set('Participante agregado.');
       this.resetParticipantForm();
+      this.isParticipantModalOpen.set(false);
+      this.pageSuccess.set('Participante agregado.');
       await this.loadActionDetail(selectedActionId);
       await this.reloadActions(selectedActionId);
       await this.reloadAlerts();
@@ -1953,6 +2359,12 @@ export class FederationPageComponent {
     this.donationFormError.set(null);
     this.donationFormSuccess.set(null);
     this.pageError.set(null);
+    this.pageSuccess.set(null);
+
+    if (!this.canWrite()) {
+      this.donationFormError.set('No tienes permiso de escritura para registrar donaciones.');
+      return;
+    }
 
     if (this.donationForm.invalid) {
       this.donationForm.markAllAsTouched();
@@ -1975,8 +2387,9 @@ export class FederationPageComponent {
       };
 
       const donation = await firstValueFrom(this.federationService.createDonation(request));
-      this.donationFormSuccess.set('Donacion registrada.');
       this.resetDonationForm();
+      this.isDonationModalOpen.set(false);
+      this.pageSuccess.set('Donación registrada.');
       await this.reloadDonations(donation.id);
       await this.reloadAlerts();
     } catch (error) {
@@ -1992,9 +2405,16 @@ export class FederationPageComponent {
     this.applicationFormError.set(null);
     this.applicationFormSuccess.set(null);
     this.pageError.set(null);
+    this.pageSuccess.set(null);
 
     if (!selectedDonationId) {
       this.applicationFormError.set('Selecciona una donacion antes de registrar una aplicacion.');
+      return;
+    }
+
+    const unavailableMessage = this.applicationRegistrationUnavailableMessage();
+    if (unavailableMessage) {
+      this.applicationFormError.set(unavailableMessage);
       return;
     }
 
@@ -2018,8 +2438,9 @@ export class FederationPageComponent {
       };
 
       const application = await firstValueFrom(this.federationService.createDonationApplication(selectedDonationId, request));
-      this.applicationFormSuccess.set('Aplicacion registrada.');
       this.resetApplicationForm();
+      this.isApplicationModalOpen.set(false);
+      this.pageSuccess.set('Aplicación registrada.');
       await this.reloadDonations(selectedDonationId);
       await this.loadDonationDetail(selectedDonationId, application.id);
       await this.reloadAlerts();
@@ -2036,9 +2457,16 @@ export class FederationPageComponent {
     this.commissionFormError.set(null);
     this.commissionFormSuccess.set(null);
     this.pageError.set(null);
+    this.pageSuccess.set(null);
 
     if (!selectedApplication) {
       this.commissionFormError.set('Selecciona una aplicacion antes de registrar la comision.');
+      return;
+    }
+
+    const unavailableMessage = this.commissionRegistrationUnavailableMessage();
+    if (unavailableMessage) {
+      this.commissionFormError.set(unavailableMessage);
       return;
     }
 
@@ -2063,8 +2491,9 @@ export class FederationPageComponent {
       };
 
       await firstValueFrom(this.federationService.createApplicationCommission(selectedApplication.id, request));
-      this.commissionFormSuccess.set('Comision registrada.');
       this.resetCommissionForm();
+      this.isCommissionModalOpen.set(false);
+      this.pageSuccess.set('Comisión registrada.');
 
       const selectedDonationId = this.selectedDonationId();
       if (selectedDonationId) {
@@ -2085,9 +2514,16 @@ export class FederationPageComponent {
     this.evidenceFormError.set(null);
     this.evidenceFormSuccess.set(null);
     this.pageError.set(null);
+    this.pageSuccess.set(null);
 
     if (!selectedApplication) {
       this.evidenceFormError.set('Selecciona una aplicacion antes de cargar evidencia.');
+      return;
+    }
+
+    const unavailableMessage = this.evidenceUploadUnavailableMessage();
+    if (unavailableMessage) {
+      this.evidenceFormError.set(unavailableMessage);
       return;
     }
 
@@ -2112,8 +2548,9 @@ export class FederationPageComponent {
         file: evidenceFile
       }));
 
-      this.evidenceFormSuccess.set('Evidencia cargada.');
       this.resetEvidenceForm();
+      this.isEvidenceModalOpen.set(false);
+      this.pageSuccess.set('Evidencia cargada.');
 
       const selectedDonationId = this.selectedDonationId();
       if (selectedDonationId) {

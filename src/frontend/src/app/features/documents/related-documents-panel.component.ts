@@ -173,6 +173,13 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         align-items: flex-start;
       }
 
+      .related-documents-header > div,
+      .related-document-row > div,
+      .requirement-summary,
+      .remediation-form {
+        min-width: 0;
+      }
+
       h4,
       h5,
       p {
@@ -188,6 +195,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       }
 
       p {
+        overflow-wrap: anywhere;
         color: #66756f;
         font-size: 0.84rem;
         line-height: 1.45;
