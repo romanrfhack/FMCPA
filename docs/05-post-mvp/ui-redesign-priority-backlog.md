@@ -65,7 +65,7 @@
 
 - Modales/drawers para formularios que hoy viven inline.
 - Menus de acciones por fila en usuarios y documentos.
-- Tabs internas para `/federation` y posiblemente `/financials`.
+- Tabs internas para modulos densos pendientes, siguiendo los patrones ya aplicados en `/financials` y `/federation`.
 - Filtros colapsables en `/documents`.
 - Reordenar contenido maestro-detalle en `/markets`, `/financials` y `/federation`.
 
@@ -80,4 +80,4 @@
 
 ## Siguiente fase recomendada
 
-Continuar con `/federation` y `/markets`, ya que `/documents`, `/documents/work-queue`, `/admin/users` y `/financials` recibieron Etapa A. La siguiente fase debe limitarse a frontend visual/interaccion local: copy, responsive, modales, drawers, menus de acciones y compactacion de tarjetas. La validacion minima debe repetir Playwright en `390px`, `768px` y `1366px`, confirmando sin overflow horizontal y sin cambios en `src/backend`.
+Continuar con `/markets` y con Etapa B de `/federation` si operacion confirma la nueva estructura: mover capturas principales a modales o panel contextual sin cambiar backend. `/documents`, `/documents/work-queue`, `/admin/users`, `/financials` y `/federation` ya recibieron Etapa A. La siguiente fase debe limitarse a frontend visual/interaccion local: copy, responsive, modales, drawers, menus de acciones y compactacion de tarjetas. La validacion minima debe repetir Playwright en `390px`, `768px` y `1366px`, confirmando sin overflow horizontal y sin cambios en `src/backend`.

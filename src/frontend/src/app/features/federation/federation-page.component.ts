@@ -26,6 +26,26 @@ import { SharedCatalogsService } from '../../core/services/shared-catalogs.servi
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
 import { RelatedDocumentsPanelComponent } from '../documents/related-documents-panel.component';
 
+type FederationTab = 'summary' | 'actions' | 'donations' | 'applications' | 'evidences';
+
+interface FederationVisibleMetrics {
+  actionCount: number;
+  activeActionCount: number;
+  followUpPendingActionCount: number;
+  concludedActionCount: number;
+  closedActionCount: number;
+  donationCount: number;
+  totalReceived: number;
+  totalApplied: number;
+  pendingBalance: number;
+  appliedPercentage: number;
+  pendingDonationCount: number;
+  applicationCount: number;
+  commissionCount: number;
+  evidenceCount: number;
+  alertCount: number;
+}
+
 @Component({
   selector: 'app-federation-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,11 +53,11 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">STAGE-06</p>
-        <h2>Federacion</h2>
+        <p class="page-kicker">Operación de Federación</p>
+        <h2>Federación</h2>
         <p>
-          Modulo de gestiones con participantes internos y externos, donaciones maestras con multiples
-          aplicaciones, comision por aplicacion y evidencia acotada al contexto de Federacion.
+          Módulo de gestiones con participantes internos y externos, donaciones maestras con múltiples
+          aplicaciones, comisión por aplicación y evidencia acotada al contexto de Federación.
         </p>
       </article>
 
@@ -45,11 +65,175 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
         <p class="alert error">{{ pageError() }}</p>
       }
 
+      <nav class="tab-nav" aria-label="Secciones de Federación">
+        <button type="button" [class.is-active]="activeTab() === 'summary'" (click)="setActiveTab('summary')">
+          Resumen
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'actions'" (click)="setActiveTab('actions')">
+          Gestiones
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'donations'" (click)="setActiveTab('donations')">
+          Donaciones
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'applications'" (click)="setActiveTab('applications')">
+          Aplicaciones / comisiones
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'evidences'" (click)="setActiveTab('evidences')">
+          Evidencias
+        </button>
+      </nav>
+
+      @if (activeTab() === 'summary') {
+        @if (federationMetrics(); as metrics) {
+          <section class="tab-panel">
+            <article class="detail-card executive-summary">
+              <div class="detail-header">
+                <div>
+                  <p class="page-kicker">Resumen operativo</p>
+                  <h3>Federación</h3>
+                  <p>
+                    Lectura ejecutiva con gestiones, donaciones, aplicaciones, comisiones y evidencias visibles
+                    con los filtros actuales.
+                  </p>
+                </div>
+                <button type="button" class="ghost" (click)="reloadPage()">Actualizar módulo</button>
+              </div>
+
+              <div class="summary-grid executive-grid">
+                <article>
+                  <h4>Gestiones visibles</h4>
+                  <p>{{ metrics.actionCount }}</p>
+                </article>
+                <article>
+                  <h4>En proceso</h4>
+                  <p>{{ metrics.activeActionCount }}</p>
+                </article>
+                <article>
+                  <h4>Seguimiento pendiente</h4>
+                  <p>{{ metrics.followUpPendingActionCount }}</p>
+                </article>
+                <article>
+                  <h4>Concluidas</h4>
+                  <p>{{ metrics.concludedActionCount }}</p>
+                </article>
+                <article>
+                  <h4>Cerradas</h4>
+                  <p>{{ metrics.closedActionCount }}</p>
+                </article>
+                <article>
+                  <h4>Donaciones visibles</h4>
+                  <p>{{ metrics.donationCount }}</p>
+                </article>
+                <article>
+                  <h4>Total recibido</h4>
+                  <p>{{ metrics.totalReceived | number: '1.2-2' }}</p>
+                </article>
+                <article>
+                  <h4>Total aplicado</h4>
+                  <p>{{ metrics.totalApplied | number: '1.2-2' }}</p>
+                </article>
+                <article>
+                  <h4>Saldo pendiente</h4>
+                  <p>{{ metrics.pendingBalance | number: '1.2-2' }}</p>
+                </article>
+                <article>
+                  <h4>Porcentaje aplicado</h4>
+                  <p>{{ metrics.appliedPercentage | number: '1.2-2' }}%</p>
+                </article>
+                <article>
+                  <h4>No/partialmente aplicadas</h4>
+                  <p>{{ metrics.pendingDonationCount }}</p>
+                </article>
+                <article>
+                  <h4>Aplicaciones</h4>
+                  <p>{{ metrics.applicationCount }}</p>
+                </article>
+                <article>
+                  <h4>Comisiones</h4>
+                  <p>{{ metrics.commissionCount }}</p>
+                </article>
+                <article>
+                  <h4>Evidencias</h4>
+                  <p>{{ metrics.evidenceCount }}</p>
+                </article>
+                <article>
+                  <h4>Alertas</h4>
+                  <p>{{ metrics.alertCount }}</p>
+                </article>
+              </div>
+            </article>
+
+            <div class="summary-domain-grid">
+              <article class="list-card">
+                <div class="card-header">
+                  <div>
+                    <h3>Alertas principales de gestiones</h3>
+                    <p>Gestiones en proceso o con seguimiento pendiente.</p>
+                  </div>
+                  <button type="button" class="ghost" (click)="setActiveTab('actions')">Ver gestiones</button>
+                </div>
+
+                @if (actionAlerts().length === 0) {
+                  <p class="empty-state">No hay alertas activas de gestiones.</p>
+                } @else {
+                  <div class="entity-list compact-list">
+                    @for (alert of actionAlerts(); track alert.actionId) {
+                      <article class="entity-row">
+                        <div class="row-top">
+                          <div>
+                            <h4>{{ alert.actionTypeName }}</h4>
+                            <p class="meta">{{ alert.counterpartyOrInstitution }} · {{ alert.actionDate }}</p>
+                          </div>
+                          <span class="status-pill" [class]="actionAlertClass(alert.alertState)">
+                            {{ actionAlertLabel(alert.alertState) }}
+                          </span>
+                        </div>
+                      </article>
+                    }
+                  </div>
+                }
+              </article>
+
+              <article class="list-card">
+                <div class="card-header">
+                  <div>
+                    <h3>Alertas principales de donaciones</h3>
+                    <p>Donaciones no aplicadas o con aplicación parcial.</p>
+                  </div>
+                  <button type="button" class="ghost" (click)="setActiveTab('donations')">Ver donaciones</button>
+                </div>
+
+                @if (donationAlerts().length === 0) {
+                  <p class="empty-state">No hay alertas activas de donaciones.</p>
+                } @else {
+                  <div class="entity-list compact-list">
+                    @for (alert of donationAlerts(); track alert.donationId) {
+                      <article class="entity-row">
+                        <div class="row-top">
+                          <div>
+                            <h4>{{ alert.donorName }}</h4>
+                            <p class="meta">{{ alert.donationType }}</p>
+                          </div>
+                          <span class="status-pill" [class]="donationAlertClass(alert.alertState)">
+                            {{ donationAlertLabel(alert.alertState) }}
+                          </span>
+                        </div>
+                      </article>
+                    }
+                  </div>
+                }
+              </article>
+            </div>
+          </section>
+        }
+      }
+
+      @if (activeTab() === 'actions') {
       <section class="module-section">
         <div class="section-heading">
           <div>
             <p class="page-kicker">Gestiones</p>
-            <h3>Gestiones de Federacion</h3>
+            <h3>Gestiones de Federación</h3>
             <p>Convenios, reuniones, entrevistas y gestiones con gobierno con alertas operativas.</p>
           </div>
           <button type="button" class="ghost" (click)="reloadPage()">Actualizar modulo</button>
@@ -91,7 +275,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
             <article class="form-card">
               <div class="card-header">
                 <div>
-                  <h3>Alta de gestion</h3>
+                  <h3>Registrar gestión</h3>
                   <p>Tipo, contraparte, fecha, objetivo y estatus base.</p>
                 </div>
               </div>
@@ -137,16 +321,16 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
                 <label class="full-width">
                   <span>Objetivo</span>
-                  <textarea formControlName="objective" rows="4" placeholder="Objetivo operativo de la gestion"></textarea>
+                  <textarea formControlName="objective" rows="4" placeholder="Objetivo operativo de la gestión"></textarea>
                 </label>
 
                 <label class="full-width">
                   <span>Observaciones</span>
-                  <textarea formControlName="notes" rows="3" placeholder="Observaciones de la gestion"></textarea>
+                  <textarea formControlName="notes" rows="3" placeholder="Observaciones de la gestión"></textarea>
                 </label>
 
                 <div class="form-actions full-width">
-                  <button type="submit" [disabled]="isSubmittingAction() || !canWrite()">Registrar gestion</button>
+                  <button type="submit" [disabled]="isSubmittingAction() || !canWrite()">Registrar gestión</button>
                   <button type="button" class="ghost" (click)="resetActionForm()">Limpiar</button>
                 </div>
               </form>
@@ -161,7 +345,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               </div>
 
               @if (isBootstrapping()) {
-                <p class="empty-state">Cargando gestiones de Federacion...</p>
+                <p class="empty-state">Cargando gestiones de Federación...</p>
               } @else if (actions().length === 0) {
                 <p class="empty-state">No hay gestiones registradas con el filtro actual.</p>
               } @else {
@@ -229,7 +413,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               <article class="detail-card">
                 <div class="detail-header">
                   <div>
-                    <p class="page-kicker">Gestion seleccionada</p>
+                    <p class="page-kicker">Gestión seleccionada</p>
                     <h3>{{ actionDetail.actionTypeName }}</h3>
                     <p class="meta">{{ actionDetail.counterpartyOrInstitution }} · {{ actionDetail.actionDate }}</p>
                   </div>
@@ -317,7 +501,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
                     <label class="full-width">
                       <span>Observaciones</span>
-                      <textarea formControlName="notes" rows="3" placeholder="Nota breve del participante en esta gestion"></textarea>
+                      <textarea formControlName="notes" rows="3" placeholder="Nota breve del participante en esta gestión"></textarea>
                     </label>
 
                     <div class="form-actions full-width">
@@ -331,7 +515,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                   <div class="card-header">
                     <div>
                       <h3>Participantes</h3>
-                      <p>Vista visible de personas internas y externas asociadas a la gestion.</p>
+                      <p>Vista visible de personas internas y externas asociadas a la gestión.</p>
                     </div>
                   </div>
 
@@ -365,9 +549,9 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               </div>
             } @else {
               <article class="empty-card">
-                <h3>Selecciona una gestion</h3>
+                <h3>Selecciona una gestión</h3>
                 <p>
-                  Cuando exista al menos una gestion, su detalle quedara disponible aqui para agregar
+                  Cuando exista al menos una gestión, su detalle quedará disponible aquí para agregar
                   participantes internos y externos reutilizando el catalogo compartido.
                 </p>
               </article>
@@ -375,13 +559,23 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
           </div>
         </div>
       </section>
+      }
 
+      @if (activeTab() === 'donations' || activeTab() === 'applications' || activeTab() === 'evidences') {
       <section class="module-section">
         <div class="section-heading">
           <div>
-            <p class="page-kicker">Donaciones</p>
-            <h3>Donaciones de Federacion</h3>
-            <p>Registro maestro con multiples aplicaciones, comision por aplicacion y evidencia propia.</p>
+            <p class="page-kicker">Donaciones de Federación</p>
+            @if (activeTab() === 'donations') {
+              <h3>Donaciones de Federación</h3>
+              <p>Registro maestro, estatus financiero, saldo pendiente y porcentaje aplicado.</p>
+            } @else if (activeTab() === 'applications') {
+              <h3>Aplicaciones / comisiones</h3>
+              <p>Aplicaciones de la donación seleccionada y comisión asociada a cada aplicación.</p>
+            } @else {
+              <h3>Evidencias</h3>
+              <p>Evidencias documentales por aplicación y acceso a descarga.</p>
+            }
           </div>
         </div>
 
@@ -418,11 +612,12 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               </form>
             </article>
 
+            @if (activeTab() === 'donations') {
             <article class="form-card">
               <div class="card-header">
                 <div>
-                  <h3>Alta de donacion</h3>
-                  <p>Registro maestro de Federacion con referencia y estatus inicial controlado.</p>
+                  <h3>Registrar donación de Federación</h3>
+                  <p>Registro maestro de Federación con referencia y estatus inicial controlado.</p>
                 </div>
               </div>
 
@@ -446,7 +641,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                 </label>
 
                 <label>
-                  <span>Tipo de donacion</span>
+                  <span>Tipo de donación</span>
                   <input type="text" formControlName="donationType" placeholder="Efectivo, especie u otro" />
                 </label>
 
@@ -472,15 +667,16 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
                 <label class="full-width">
                   <span>Observaciones</span>
-                  <textarea formControlName="notes" rows="3" placeholder="Observaciones de la donacion"></textarea>
+                  <textarea formControlName="notes" rows="3" placeholder="Observaciones de la donación"></textarea>
                 </label>
 
                 <div class="form-actions full-width">
-                  <button type="submit" [disabled]="isSubmittingDonation() || !canWrite()">Registrar donacion</button>
+                  <button type="submit" [disabled]="isSubmittingDonation() || !canWrite()">Registrar donación</button>
                   <button type="button" class="ghost" (click)="resetDonationForm()">Limpiar</button>
                 </div>
               </form>
             </article>
+            }
 
             <article class="list-card">
               <div class="card-header">
@@ -491,7 +687,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               </div>
 
               @if (isBootstrapping()) {
-                <p class="empty-state">Cargando donaciones de Federacion...</p>
+                <p class="empty-state">Cargando donaciones de Federación...</p>
               } @else if (donations().length === 0) {
                 <p class="empty-state">No hay donaciones registradas con el filtro actual.</p>
               } @else {
@@ -527,11 +723,12 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               }
             </article>
 
+            @if (activeTab() === 'donations') {
             <article class="list-card">
               <div class="card-header">
                 <div>
                   <h3>Alertas de donaciones</h3>
-                  <p>Donaciones no aplicadas o con aplicacion parcial.</p>
+                  <p>Donaciones no aplicadas o con aplicación parcial.</p>
                 </div>
               </div>
 
@@ -561,6 +758,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                 </div>
               }
             </article>
+            }
           </aside>
 
           <div class="detail-column">
@@ -568,7 +766,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               <article class="detail-card">
                 <div class="detail-header">
                   <div>
-                    <p class="page-kicker">Donacion seleccionada</p>
+                    <p class="page-kicker">Donación seleccionada</p>
                     <h3>{{ donationDetail.donorName }}</h3>
                     <p class="meta">{{ donationDetail.donationType }} · {{ donationDetail.donationDate }} · Ref {{ donationDetail.reference }}</p>
                   </div>
@@ -600,19 +798,19 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
                 <div class="summary-grid">
                   <article>
-                    <h4>Monto base</h4>
+                    <h4>Total recibido</h4>
                     <p>{{ donationDetail.baseAmount | number: '1.2-2' }}</p>
                   </article>
                   <article>
-                    <h4>Monto aplicado</h4>
+                    <h4>Total aplicado</h4>
                     <p>{{ donationDetail.appliedAmountTotal | number: '1.2-2' }}</p>
                   </article>
                   <article>
-                    <h4>Remanente</h4>
+                    <h4>Saldo pendiente</h4>
                     <p>{{ donationDetail.remainingAmount | number: '1.2-2' }}</p>
                   </article>
                   <article>
-                    <h4>Porcentaje</h4>
+                    <h4>Porcentaje aplicado</h4>
                     <p>{{ donationDetail.appliedPercentage | number: '1.2-2' }}%</p>
                   </article>
                   <article>
@@ -626,11 +824,12 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                 </div>
               </article>
 
+              @if (activeTab() === 'applications') {
               <div class="detail-grid">
                 <article class="form-card">
                   <div class="card-header">
                     <div>
-                      <h3>Alta de aplicacion</h3>
+                      <h3>Registrar aplicación</h3>
                       <p>Beneficiario o destino, monto aplicado, comprobacion y datos de cierre.</p>
                     </div>
                   </div>
@@ -650,7 +849,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                     </label>
 
                     <label>
-                      <span>Fecha de aplicacion</span>
+                      <span>Fecha de aplicación</span>
                       <input type="date" formControlName="applicationDate" />
                     </label>
 
@@ -680,7 +879,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                     </label>
 
                     <div class="form-actions full-width">
-                      <button type="submit" [disabled]="isSubmittingApplication() || !canWrite()">Registrar aplicacion</button>
+                      <button type="submit" [disabled]="isSubmittingApplication() || !canWrite()">Registrar aplicación</button>
                       <button type="button" class="ghost" (click)="resetApplicationForm()">Limpiar</button>
                     </div>
                   </form>
@@ -690,7 +889,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                   <div class="card-header">
                     <div>
                       <h3>Aplicaciones</h3>
-                      <p>Cada aplicacion concentra su comision y su evidencia.</p>
+                      <p>Cada aplicación concentra su comisión y su evidencia.</p>
                     </div>
                   </div>
 
@@ -734,8 +933,8 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                 <article class="form-card">
                   <div class="card-header">
                     <div>
-                      <h3>Registrar comision</h3>
-                      <p>La comision queda asociada a la aplicacion seleccionada.</p>
+                      <h3>Registrar comisión</h3>
+                      <p>La comisión queda asociada a la aplicación seleccionada.</p>
                     </div>
                   </div>
 
@@ -749,16 +948,16 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
                   @if (selectedApplication(); as selectedApplicationDetail) {
                     <p class="inline-note">
-                      Aplicacion seleccionada: {{ selectedApplicationDetail.beneficiaryOrDestinationName }}
+                      Aplicación seleccionada: {{ selectedApplicationDetail.beneficiaryOrDestinationName }}
                       · {{ selectedApplicationDetail.appliedAmount | number: '1.2-2' }}
                     </p>
                   } @else {
-                    <p class="empty-state">Selecciona una aplicacion para registrar la comision.</p>
+                    <p class="empty-state">Selecciona una aplicación para registrar la comisión.</p>
                   }
 
                   <form class="form-grid" [formGroup]="commissionForm" (ngSubmit)="submitCommission()">
                     <label>
-                      <span>Tipo de comision</span>
+                      <span>Tipo de comisión</span>
                       <select formControlName="commissionTypeId">
                         <option [value]="0">Selecciona un tipo</option>
                         @for (type of commissionTypes(); track type.id) {
@@ -798,17 +997,17 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                     </label>
 
                     <label>
-                      <span>Monto de comision</span>
+                      <span>Monto de comisión</span>
                       <input type="number" min="0.01" step="0.01" formControlName="commissionAmount" />
                     </label>
 
                     <label class="full-width">
                       <span>Observaciones</span>
-                      <textarea formControlName="notes" rows="3" placeholder="Observaciones de la comision"></textarea>
+                      <textarea formControlName="notes" rows="3" placeholder="Observaciones de la comisión"></textarea>
                     </label>
 
                     <div class="form-actions full-width">
-                      <button type="submit" [disabled]="isSubmittingCommission() || !selectedApplication() || !canWrite()">Registrar comision</button>
+                      <button type="submit" [disabled]="isSubmittingCommission() || !selectedApplication() || !canWrite()">Registrar comisión</button>
                       <button type="button" class="ghost" (click)="resetCommissionForm()">Limpiar</button>
                     </div>
                   </form>
@@ -817,14 +1016,14 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                 <article class="list-card">
                   <div class="card-header">
                     <div>
-                      <h3>Comisiones de la aplicacion</h3>
-                      <p>Vista operativa de las comisiones registradas dentro del modulo.</p>
+                      <h3>Comisiones de la aplicación</h3>
+                      <p>Vista operativa de las comisiones registradas dentro del módulo.</p>
                     </div>
                   </div>
 
                   @if (selectedApplication(); as selectedApplicationDetail) {
                     @if (selectedApplicationDetail.commissions.length === 0) {
-                      <p class="empty-state">La aplicacion seleccionada aun no tiene comisiones.</p>
+                      <p class="empty-state">La aplicación seleccionada aun no tiene comisiones.</p>
                     } @else {
                       <div class="entity-list">
                         @for (commission of selectedApplicationDetail.commissions; track commission.id) {
@@ -852,17 +1051,19 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                       </div>
                     }
                   } @else {
-                    <p class="empty-state">Selecciona una aplicacion para consultar sus comisiones.</p>
+                    <p class="empty-state">Selecciona una aplicación para consultar sus comisiones.</p>
                   }
                 </article>
               </div>
+              }
 
+              @if (activeTab() === 'evidences') {
               <div class="detail-grid">
                 <article class="form-card">
                   <div class="card-header">
                     <div>
-                      <h3>Alta de evidencia</h3>
-                      <p>La evidencia se asocia a la aplicacion seleccionada, no al maestro.</p>
+                      <h3>Cargar evidencia</h3>
+                      <p>La evidencia se asocia a la aplicación seleccionada, no al maestro.</p>
                     </div>
                   </div>
 
@@ -876,11 +1077,11 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
                   @if (selectedApplication(); as selectedApplicationDetail) {
                     <p class="inline-note">
-                      Aplicacion seleccionada: {{ selectedApplicationDetail.beneficiaryOrDestinationName }}
+                      Aplicación seleccionada: {{ selectedApplicationDetail.beneficiaryOrDestinationName }}
                       · {{ selectedApplicationDetail.appliedAmount | number: '1.2-2' }}
                     </p>
                   } @else {
-                    <p class="empty-state">Selecciona una aplicacion para cargar evidencia.</p>
+                    <p class="empty-state">Selecciona una aplicación para cargar evidencia.</p>
                   }
 
                   <form class="form-grid" [formGroup]="evidenceForm" (ngSubmit)="submitEvidence()">
@@ -896,7 +1097,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
                     <label class="full-width">
                       <span>Descripcion</span>
-                      <textarea formControlName="description" rows="3" placeholder="Descripcion breve de la evidencia"></textarea>
+                      <textarea formControlName="description" rows="3" placeholder="Descripción breve de la evidencia"></textarea>
                     </label>
 
                     <label class="full-width">
@@ -919,13 +1120,13 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                   <div class="card-header">
                     <div>
                       <h3>Evidencias</h3>
-                      <p>Metadatos descargables por aplicacion.</p>
+                      <p>Metadatos descargables por aplicación.</p>
                     </div>
                   </div>
 
                   @if (selectedApplication(); as selectedApplicationDetail) {
                     @if (selectedApplicationDetail.evidences.length === 0) {
-                      <p class="empty-state">La aplicacion seleccionada aun no tiene evidencias.</p>
+                      <p class="empty-state">La aplicación seleccionada aun no tiene evidencias.</p>
                     } @else {
                       <div class="entity-list">
                         @for (evidence of selectedApplicationDetail.evidences; track evidence.id) {
@@ -964,21 +1165,22 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                       [entityId]="selectedApplicationDetail.id"
                       [canRemediate]="canWrite()"
                       [remediationEvidenceTypes]="evidenceTypes()"
-                      title="Documentos de la aplicacion"
+                      title="Documentos de la aplicación"
                       subtitle="Evidencias federales vistas desde el catalogo documental transversal."
-                      emptyMessage="No hay documentos transversales asociados a esta aplicacion."
+                      emptyMessage="No hay documentos transversales asociados a esta aplicación."
                       (remediated)="reloadPage()">
                     </app-related-documents-panel>
                   } @else {
-                    <p class="empty-state">Selecciona una aplicacion para consultar sus evidencias.</p>
+                    <p class="empty-state">Selecciona una aplicación para consultar sus evidencias.</p>
                   }
                 </article>
               </div>
+              }
             } @else {
               <article class="empty-card">
-                <h3>Selecciona una donacion</h3>
+                <h3>Selecciona una donación</h3>
                 <p>
-                  Cuando exista al menos una donacion, su detalle quedara disponible aqui para registrar
+                  Cuando exista al menos una donación, su detalle quedará disponible aquí para registrar
                   aplicaciones, consultar porcentaje aplicado, capturar comisiones y cargar evidencias.
                 </p>
               </article>
@@ -986,17 +1188,20 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
           </div>
         </div>
       </section>
+      }
     </section>
   `,
   styles: [
     `
       .page-shell,
       .module-section,
+      .tab-panel,
       .sidebar,
       .detail-column,
       .detail-grid,
       .entity-list,
-      .alert-list {
+      .alert-list,
+      .summary-domain-grid {
         display: grid;
         gap: 1.25rem;
       }
@@ -1018,11 +1223,41 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       .list-card,
       .detail-card,
       .empty-card {
+        min-width: 0;
         padding: 1.5rem;
-        border-radius: 1.35rem;
+        border-radius: 0.9rem;
         background: rgba(255, 255, 255, 0.82);
         border: 1px solid rgba(29, 45, 42, 0.08);
-        box-shadow: 0 16px 30px rgba(32, 44, 41, 0.06);
+        box-shadow: 0 12px 24px rgba(32, 44, 41, 0.05);
+      }
+
+      .tab-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        padding: 0.35rem;
+        border-radius: 0.9rem;
+        background: rgba(18, 63, 59, 0.06);
+      }
+
+      .tab-nav button {
+        border-radius: 999px;
+        padding: 0.65rem 0.85rem;
+        background: transparent;
+        color: #17423d;
+      }
+
+      .tab-nav button.is-active {
+        background: #123f3b;
+        color: #f6f6f2;
+      }
+
+      .summary-domain-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .executive-summary {
+        border-color: rgba(15, 118, 110, 0.18);
       }
 
       .section-heading,
@@ -1037,6 +1272,12 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
       .card-header {
         margin-bottom: 1rem;
+      }
+
+      .card-header > div,
+      .row-top > div,
+      .detail-header > div {
+        min-width: 0;
       }
 
       .page-kicker {
@@ -1075,27 +1316,36 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
       .summary-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.75rem;
-        margin-top: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+        gap: 0.6rem;
+        margin-top: 0.9rem;
+      }
+
+      .executive-grid {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
       }
 
       .summary-grid article {
-        padding: 0.9rem;
-        border-radius: 1rem;
+        min-width: 0;
+        padding: 0.75rem;
+        border-radius: 0.75rem;
         background: #f6f5ef;
       }
 
       .summary-grid h4 {
-        font-size: 0.82rem;
-        letter-spacing: 0.06em;
+        overflow-wrap: anywhere;
+        font-size: 0.74rem;
+        letter-spacing: 0.03em;
+        line-height: 1.25;
         text-transform: uppercase;
         color: #5b6b68;
       }
 
       .summary-grid p {
+        overflow-wrap: anywhere;
         margin-top: 0.4rem;
-        font-size: 1.05rem;
+        font-size: 1rem;
+        line-height: 1.2;
         font-weight: 700;
         color: #203734;
       }
@@ -1108,6 +1358,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
       label {
         display: grid;
+        min-width: 0;
         gap: 0.4rem;
         font-size: 0.92rem;
         font-weight: 600;
@@ -1118,8 +1369,9 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       select,
       textarea {
         width: 100%;
-        padding: 0.8rem 0.9rem;
-        border-radius: 0.9rem;
+        min-width: 0;
+        padding: 0.7rem 0.8rem;
+        border-radius: 0.75rem;
         border: 1px solid rgba(29, 45, 42, 0.14);
         background: #fbfbf8;
         color: #1d2d2a;
@@ -1134,8 +1386,8 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
         grid-template-columns: auto 1fr;
         align-items: center;
         gap: 0.7rem;
-        padding: 0.8rem 0.9rem;
-        border-radius: 0.9rem;
+        padding: 0.7rem 0.8rem;
+        border-radius: 0.75rem;
         background: #f6f5ef;
       }
 
@@ -1151,14 +1403,22 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       .form-actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.75rem;
+        gap: 0.6rem;
+      }
+
+      .filter-card {
+        padding: 0.85rem;
+      }
+
+      .filter-card .card-header {
+        margin-bottom: 0.6rem;
       }
 
       button,
       .entity-button {
         border: none;
-        border-radius: 0.9rem;
-        padding: 0.8rem 1rem;
+        border-radius: 0.75rem;
+        padding: 0.7rem 0.9rem;
         font: inherit;
       }
 
@@ -1183,10 +1443,18 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       .entity-button,
       .alert-row {
         display: grid;
-        gap: 0.7rem;
-        padding: 1rem;
-        border-radius: 1rem;
+        min-width: 0;
+        gap: 0.55rem;
+        padding: 0.85rem;
+        border-radius: 0.8rem;
         background: #f6f5ef;
+      }
+
+      .entity-list,
+      .alert-list,
+      .compact-list {
+        max-height: 42rem;
+        overflow: auto;
       }
 
       .entity-button {
@@ -1213,12 +1481,16 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 0.5rem 0.72rem;
+        max-width: 100%;
+        padding: 0.42rem 0.62rem;
         border-radius: 999px;
         font-size: 0.82rem;
+        line-height: 1.2;
         font-weight: 700;
         background: rgba(15, 118, 110, 0.08);
         color: #17423d;
+        overflow-wrap: anywhere;
+        text-align: center;
       }
 
       .status-pill.action-open,
@@ -1271,9 +1543,36 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       @media (max-width: 1080px) {
         .page-grid,
         .detail-grid,
+        .summary-domain-grid,
         .summary-grid,
         .form-grid {
           grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .hero-card,
+        .section-heading,
+        .card-header,
+        .row-top,
+        .detail-header {
+          flex-direction: column;
+        }
+
+        .tab-nav {
+          display: grid;
+          grid-template-columns: 1fr;
+        }
+
+        .form-actions,
+        .detail-badges {
+          width: 100%;
+        }
+
+        .form-actions button,
+        .detail-badges button {
+          width: 100%;
+          white-space: normal;
         }
       }
     `
@@ -1314,6 +1613,7 @@ export class FederationPageComponent {
   protected readonly contacts = signal<Contact[]>([]);
   protected readonly evidenceTypes = signal<CatalogItem[]>([]);
   protected readonly commissionTypes = signal<CatalogItem[]>([]);
+  protected readonly activeTab = signal<FederationTab>('summary');
 
   protected readonly actions = signal<FederationActionSummary[]>([]);
   protected readonly actionAlerts = signal<FederationActionAlert[]>([]);
@@ -1367,6 +1667,35 @@ export class FederationPageComponent {
 
   protected readonly selectedActionExternalCount = computed(() =>
     this.selectedAction()?.participants.filter((participant) => participant.participantSide === 'EXTERNAL').length ?? 0);
+
+  protected readonly federationMetrics = computed<FederationVisibleMetrics>(() => {
+    const actions = this.actions();
+    const donations = this.donations();
+    const totalReceived = donations.reduce((total, donation) => total + donation.baseAmount, 0);
+    const totalApplied = donations.reduce((total, donation) => total + donation.appliedAmountTotal, 0);
+    const pendingBalance = donations.reduce((total, donation) => total + donation.remainingAmount, 0);
+
+    return {
+      actionCount: actions.length,
+      activeActionCount: actions.filter((action) => action.alertState === 'IN_PROCESS' || action.statusCode === 'IN_PROCESS').length,
+      followUpPendingActionCount: actions.filter((action) => action.alertState === 'FOLLOW_UP_PENDING').length,
+      concludedActionCount: actions.filter((action) => action.statusCode === 'CONCLUDED').length,
+      closedActionCount: actions.filter((action) => action.statusIsClosed || action.statusCode === 'CLOSED').length,
+      donationCount: donations.length,
+      totalReceived,
+      totalApplied,
+      pendingBalance,
+      appliedPercentage: totalReceived > 0 ? (totalApplied / totalReceived) * 100 : 0,
+      pendingDonationCount: donations.filter((donation) =>
+        donation.alertState === 'NOT_APPLIED'
+        || donation.alertState === 'PARTIALLY_APPLIED'
+        || donation.remainingAmount > 0).length,
+      applicationCount: donations.reduce((total, donation) => total + donation.applicationCount, 0),
+      commissionCount: donations.reduce((total, donation) => total + donation.commissionCount, 0),
+      evidenceCount: donations.reduce((total, donation) => total + donation.evidenceCount, 0),
+      alertCount: this.actionAlerts().length + this.donationAlerts().length
+    };
+  });
 
   protected readonly actionFiltersForm = this.formBuilder.nonNullable.group({
     statusCode: [''],
@@ -1429,6 +1758,10 @@ export class FederationPageComponent {
 
   constructor() {
     void this.bootstrap();
+  }
+
+  protected setActiveTab(tab: FederationTab): void {
+    this.activeTab.set(tab);
   }
 
   protected async applyActionFilters(): Promise<void> {

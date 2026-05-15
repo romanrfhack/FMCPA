@@ -14,11 +14,23 @@ import {
 import { DocumentCatalogService } from '../../core/services/document-catalog.service';
 import { AuthService } from '../../core/services/auth.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
+import { DocumentsCatalogTableComponent } from './documents-catalog-table.component';
+import { DocumentsKpiStripComponent } from './documents-kpi-strip.component';
+import { DocumentsPendingTableComponent } from './documents-pending-table.component';
+import { DocumentsSummaryPanelComponent } from './documents-summary-panel.component';
 
 @Component({
   selector: 'app-documents-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, ReactiveFormsModule],
+  imports: [
+    DatePipe,
+    DecimalPipe,
+    ReactiveFormsModule,
+    DocumentsCatalogTableComponent,
+    DocumentsKpiStripComponent,
+    DocumentsPendingTableComponent,
+    DocumentsSummaryPanelComponent
+  ],
   template: `
     <section class="page-shell">
       <header class="page-header">
@@ -50,98 +62,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           </div>
         </div>
 
-        @if (summary(); as documentSummary) {
-          <div class="kpi-grid">
-            <div>
-              <span>Total</span>
-              <strong>{{ documentSummary.totalDocuments | number }}</strong>
-            </div>
-            <div>
-              <span>Vigentes</span>
-              <strong>{{ documentSummary.activeDocuments | number }}</strong>
-            </div>
-            <div>
-              <span>Archivados</span>
-              <strong>{{ documentSummary.archivedDocuments | number }}</strong>
-            </div>
-            <div>
-              <span>Integridad</span>
-              <strong>{{ documentSummary.integrityIssuesCount | number }}</strong>
-            </div>
-            <div>
-              <span>Incompletos</span>
-              <strong>{{ documentSummary.incompleteEntitiesCount | number }}</strong>
-            </div>
-            <div>
-              <span>Por revisar</span>
-              <strong>{{ documentSummary.reviewDueCount | number }}</strong>
-            </div>
-            <div>
-              <span>Retencion vencida</span>
-              <strong>{{ documentSummary.expiredRetentionCount | number }}</strong>
-            </div>
-            <div>
-              <span>En resguardo</span>
-              <strong>{{ documentSummary.administrativeHoldCount | number }}</strong>
-            </div>
-          </div>
-
-          <div class="summary-grid">
-            <section>
-              <h4>Por modulo</h4>
-              <div class="summary-table">
-                @for (module of documentSummary.modules; track module.moduleCode) {
-                  <div>
-                    <strong>{{ module.moduleName }}</strong>
-                    <span>{{ module.totalDocuments | number }} documentos</span>
-                    <span>{{ module.incompleteEntitiesCount | number }} incompletos</span>
-                    <span>{{ module.integrityIssuesCount | number }} integridad</span>
-                    <span>{{ module.reviewDueCount | number }} por revisar</span>
-                    <span>{{ module.expiredRetentionCount | number }} vencidos</span>
-                    <span>{{ module.administrativeHoldCount | number }} en resguardo</span>
-                  </div>
-                }
-              </div>
-            </section>
-
-            <section>
-              <h4>Estado operativo</h4>
-              @if (documentSummary.operationalStatuses.length === 0) {
-                <p class="empty-state">Sin estados operativos calculados.</p>
-              } @else {
-                <div class="summary-table">
-                  @for (status of documentSummary.operationalStatuses; track status.documentOperationalStatusCode) {
-                    <div>
-                      <strong>{{ operationalStatusLabel(status.documentOperationalStatusCode) }}</strong>
-                      <span>{{ severityLabel(status.documentOperationalSeverityCode) }}</span>
-                      <span>{{ status.totalCount | number }} documentos</span>
-                    </div>
-                  }
-                </div>
-              }
-            </section>
-
-            <section>
-              <h4>Trabajo pendiente</h4>
-              @if (documentSummary.workQueueCategories.length === 0) {
-                <p class="empty-state">Sin categorias pendientes.</p>
-              } @else {
-                <div class="summary-table">
-                  @for (category of documentSummary.workQueueCategories; track category.workItemType + category.reasonCode + category.severityCode) {
-                    <div>
-                      <strong>{{ workItemTypeLabel(category.workItemType) }}</strong>
-                      <span>{{ reasonLabel(category.reasonCode) }}</span>
-                      <span>{{ severityLabel(category.severityCode) }}</span>
-                      <span>{{ category.totalCount | number }} pendientes</span>
-                    </div>
-                  }
-                </div>
-              }
-            </section>
-          </div>
-        } @else {
-          <p class="empty-state">No se pudo cargar el resumen documental.</p>
-        }
+        <app-documents-kpi-strip [summary]="summary()" [isLoading]="isSummaryLoading()" />
+        <app-documents-summary-panel [summary]="summary()" />
       </article>
 
       <form class="filters-panel" [formGroup]="filtersForm" (ngSubmit)="reload()" aria-label="Filtros documentales">
@@ -274,111 +196,22 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           </form>
         </div>
 
-        @if (isPendingLoading()) {
-          <p class="empty-state">Cargando pendientes documentales...</p>
-        } @else if (pendingItems().length === 0) {
-          <p class="empty-state">No hay pendientes documentales con el filtro actual.</p>
-        } @else {
-          <div class="pending-list">
-            @for (item of pendingItems(); track item.moduleCode + item.entityId) {
-              <article class="pending-row">
-                <div>
-                  <span class="badge">{{ item.moduleName }}</span>
-                  <h4>{{ item.originContext.displayName }}</h4>
-                  <p>{{ entityTypeLabel(item.originContext.entityType) }} · {{ item.originContext.entityId }}</p>
-                  <p>{{ item.missingReasonDescription || item.requiredDocumentDescription }}</p>
-                  <p>
-                    Minimo requerido {{ item.minimumRequiredCount }}
-                    · {{ documentClassListLabel(item.requiredDocumentClassCodes) }}
-                  </p>
-                  @if (item.remediationHint) {
-                    <p>{{ item.remediationHint }}</p>
-                  }
-                </div>
-                <div class="pending-row-actions">
-                  <span class="pending-status">{{ completenessStatusLabel(item.statusCode) }}</span>
-                  <button type="button" class="ghost compact" (click)="filterByPendingEntity(item)">
-                    Ver documentos
-                  </button>
-                  @if (item.originContext.routeHint) {
-                    <a class="origin-link" [href]="item.originContext.routeHint">
-                      {{ canRemediatePending(item) ? 'Resolver en origen' : 'Abrir origen' }}
-                    </a>
-                  }
-                </div>
-              </article>
-            }
-          </div>
-        }
+        <app-documents-pending-table
+          [pendingItems]="pendingItems()"
+          [isLoading]="isPendingLoading()"
+          [canRemediateItem]="canRemediatePending"
+          (filterByEntity)="filterByPendingEntity($event)" />
       </article>
 
       <div class="content-grid">
-        <article class="panel">
-          <div class="panel-header">
-            <h3>Documentos</h3>
-            @if (resultCount() !== null) {
-              <span>{{ resultCount() }} de {{ totalCount() }}</span>
-            }
-          </div>
-
-          @if (isLoading()) {
-            <p class="empty-state">Cargando documentos...</p>
-          } @else if (documents().length === 0) {
-            <p class="empty-state">No hay documentos con los filtros actuales.</p>
-          } @else {
-            <div class="document-list">
-              @for (document of documents(); track document.id) {
-                <article
-                  class="document-row"
-                  [class.selected]="selectedDocument()?.id === document.id">
-                  <button type="button" class="row-main" (click)="selectDocument(document)">
-                    <span class="badge">{{ document.moduleName }}</span>
-                    <strong>{{ document.originalFileName }}</strong>
-                    <small>{{ documentClassLabel(document.documentClassCode) }} · {{ document.originContext.displayName }}</small>
-                    <small>{{ entityTypeLabel(document.originContext.entityType) }} · {{ document.originContext.entityId }}</small>
-                  </button>
-                  <div class="row-meta">
-                    <span
-                      class="operational"
-                      [class.high]="document.documentOperationalSeverityCode === 'HIGH'"
-                      [class.medium]="document.documentOperationalSeverityCode === 'MEDIUM'"
-                      [class.low]="document.documentOperationalSeverityCode === 'LOW'">
-                      {{ operationalStatusLabel(document.documentOperationalStatusCode) }}
-                    </span>
-                    @if (document.isPrimaryDocument) {
-                      <span class="primary">Principal</span>
-                    }
-                    @if (document.isSuperseded) {
-                      <span class="superseded">Reemplazado</span>
-                    } @else if (document.replacedDocumentId) {
-                      <span class="replacement">Vigente reemplazo</span>
-                    }
-                    <span class="retention" [class.expired]="document.retentionStatusCode === 'EXPIRED_RETENTION'" [class.review]="document.retentionStatusCode === 'REVIEW_DUE'">
-                      {{ retentionStatusLabel(document.retentionStatusCode) }}
-                    </span>
-                    @if (document.hasRetentionOverride) {
-                      <span class="retention">Retencion ajustada</span>
-                    }
-                    @if (document.isAdministrativeHold) {
-                      <span class="hold">En resguardo</span>
-                    }
-                    <span class="status" [class.archived]="document.statusCode === 'ARCHIVED'">
-                      {{ documentStatusLabel(document.statusCode) }}
-                    </span>
-                    <span [class.issue]="document.integrityState !== 'VALID'">
-                      {{ integrityLabel(document.integrityState) }}
-                    </span>
-                    <span>{{ document.sizeBytes | number }} bytes</span>
-                    <span>{{ document.createdUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</span>
-                  </div>
-                  <button type="button" class="ghost compact" (click)="download(document)">
-                    Descargar
-                  </button>
-                </article>
-              }
-            </div>
-          }
-        </article>
+        <app-documents-catalog-table
+          [documents]="documents()"
+          [isLoading]="isLoading()"
+          [resultCount]="resultCount()"
+          [totalCount]="totalCount()"
+          [selectedDocumentId]="selectedDocument()?.id ?? null"
+          (selectDocument)="selectDocument($event)"
+          (downloadDocument)="download($event)" />
 
         <aside class="panel detail-panel">
           <div class="panel-header">
@@ -747,7 +580,6 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   styles: [
     `
       .page-shell,
-      .document-list,
       dl {
         display: grid;
         gap: 1rem;
@@ -881,93 +713,6 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         justify-content: flex-end;
       }
 
-      .summary-grid,
-      .kpi-grid {
-        display: grid;
-        gap: 0.75rem;
-      }
-
-      .kpi-grid {
-        grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
-        margin-bottom: 1rem;
-      }
-
-      .kpi-grid div,
-      .summary-table div {
-        min-width: 0;
-        border-radius: 8px;
-        background: #f6f5ef;
-      }
-
-      .kpi-grid div {
-        padding: 0.75rem;
-      }
-
-      .kpi-grid span,
-      .summary-table span {
-        color: #60716d;
-        overflow-wrap: anywhere;
-      }
-
-      .kpi-grid strong {
-        display: block;
-        margin-top: 0.25rem;
-        color: #123f3b;
-        font-size: 1.35rem;
-      }
-
-      .summary-table {
-        display: grid;
-        gap: 0.5rem;
-      }
-
-      .summary-table div {
-        display: grid;
-        gap: 0.25rem;
-        padding: 0.65rem;
-      }
-
-      .pending-list {
-        display: grid;
-        gap: 0.75rem;
-      }
-
-      .pending-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 1rem;
-        min-width: 0;
-        padding: 0.95rem 0;
-        border-top: 1px solid rgba(35, 51, 47, 0.08);
-      }
-
-      .pending-row:first-child {
-        border-top: 0;
-        padding-top: 0;
-      }
-
-      .pending-row h4,
-      .pending-row p {
-        margin: 0.25rem 0 0;
-      }
-
-      .pending-row-actions {
-        display: grid;
-        gap: 0.5rem;
-        justify-items: end;
-        align-content: start;
-      }
-
-      .pending-status {
-        width: fit-content;
-        border-radius: 999px;
-        padding: 0.2rem 0.5rem;
-        color: #92400e;
-        background: rgba(146, 64, 14, 0.1);
-        font-size: 0.76rem;
-        font-weight: 800;
-      }
-
       .panel-header span,
       .empty-state,
       small,
@@ -975,47 +720,11 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         color: #60716d;
       }
 
-      .document-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1.4fr) minmax(12rem, 0.8fr) auto;
-        gap: 0.9rem;
-        align-items: center;
-        padding: 1rem;
-        border: 1px solid rgba(35, 51, 47, 0.1);
-        border-radius: 8px;
-        background: #fff;
-      }
-
-      .document-row.selected {
-        border-color: rgba(15, 118, 110, 0.45);
-      }
-
-      .row-main {
-        display: grid;
-        gap: 0.35rem;
-        min-width: 0;
-        padding: 0;
-        color: inherit;
-        text-align: left;
-        background: transparent;
-      }
-
-      .row-main strong,
-      .row-main small,
       dd {
         overflow-wrap: anywhere;
       }
 
-      .row-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.3rem;
-        font-size: 0.85rem;
-        color: #60716d;
-      }
-
-      .badge,
-      .row-meta span {
+      .badge {
         width: fit-content;
         border-radius: 999px;
         padding: 0.2rem 0.5rem;
@@ -1023,46 +732,6 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         font-weight: 800;
         color: #0f766e;
         background: rgba(15, 118, 110, 0.1);
-      }
-
-      .row-meta span.archived {
-        color: #6d28d9;
-        background: rgba(109, 40, 217, 0.08);
-      }
-
-      .row-meta span.primary {
-        color: #1d4ed8;
-        background: rgba(29, 78, 216, 0.08);
-      }
-
-      .row-meta span.superseded {
-        color: #7c2d12;
-        background: rgba(124, 45, 18, 0.08);
-      }
-
-      .row-meta span.replacement {
-        color: #047857;
-        background: rgba(4, 120, 87, 0.08);
-      }
-
-      .row-meta span.retention {
-        color: #365314;
-        background: rgba(77, 124, 15, 0.1);
-      }
-
-      .row-meta span.retention.review {
-        color: #92400e;
-        background: rgba(146, 64, 14, 0.1);
-      }
-
-      .row-meta span.retention.expired {
-        color: #9f1239;
-        background: rgba(159, 18, 57, 0.08);
-      }
-
-      .row-meta span.issue {
-        color: #9f1239;
-        background: rgba(159, 18, 57, 0.08);
       }
 
       dl div {
@@ -1194,8 +863,6 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       @media (max-width: 980px) {
         .filters-panel,
         .content-grid,
-        .document-row,
-        .pending-row,
         .pending-actions {
           grid-template-columns: 1fr;
           display: grid;
@@ -1385,10 +1052,6 @@ export class DocumentsPageComponent {
     }
   }
 
-  protected documentClassListLabel(documentClassCodes: string[]): string {
-    return documentClassCodes.map((documentClassCode) => this.documentClassLabel(documentClassCode)).join(', ');
-  }
-
   protected documentAreaLabel(documentAreaCode: string): string {
     switch (documentAreaCode) {
       case 'MARKETS_TENANT_CERTIFICATES':
@@ -1506,34 +1169,6 @@ export class DocumentsPageComponent {
     }
   }
 
-  protected workItemTypeLabel(workItemType: string): string {
-    switch (workItemType) {
-      case 'COMPLETENESS_PENDING':
-        return 'Evidencia pendiente';
-      case 'DOCUMENT_INTEGRITY_ISSUE':
-        return 'Integridad documental';
-      case 'RETENTION_REVIEW':
-        return 'Revision de retencion';
-      default:
-        return workItemType;
-    }
-  }
-
-  protected reasonLabel(reasonCode: string): string {
-    switch (reasonCode) {
-      case 'MISSING_REQUIRED_DOCUMENT':
-      case 'MISSING_EVIDENCE':
-        return 'Falta evidencia';
-      case 'INTEGRITY_ISSUE':
-        return 'Revisar archivo';
-      case 'RETENTION_REVIEW':
-      case 'REVIEW_DUE':
-        return 'Revision pendiente';
-      default:
-        return reasonCode;
-    }
-  }
-
   protected entityTypeLabel(entityType: string): string {
     switch (entityType) {
       case 'MARKET_TENANT':
@@ -1547,18 +1182,7 @@ export class DocumentsPageComponent {
     }
   }
 
-  protected completenessStatusLabel(statusCode: string): string {
-    switch (statusCode) {
-      case 'COMPLETE':
-        return 'Completo';
-      case 'INCOMPLETE':
-        return 'Pendiente';
-      default:
-        return statusCode;
-    }
-  }
-
-  protected canRemediatePending(item: DocumentCompleteness): boolean {
+  protected readonly canRemediatePending = (item: DocumentCompleteness): boolean => {
     switch (item.moduleCode) {
       case 'MARKETS':
         return this.authService.canWriteMarkets();
@@ -1569,7 +1193,7 @@ export class DocumentsPageComponent {
       default:
         return false;
     }
-  }
+  };
 
   protected filterByPendingEntity(item: DocumentCompleteness): void {
     this.filtersForm.patchValue({
