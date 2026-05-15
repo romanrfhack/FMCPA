@@ -26,6 +26,8 @@ import { FinancialsService } from '../../core/services/financials.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
+type FinancialsTab = 'summary' | 'permits' | 'credits' | 'commissions' | 'renewals';
+
 @Component({
   selector: 'app-financials-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,21 +35,52 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">STAGE-05</p>
-        <h2>Financieras</h2>
-        <p>
-          Modulo de oficios y autorizaciones con vigencia, creditos individuales y comisiones por credito,
-          sin abrir aun la vista transversal global de comisiones.
-        </p>
+        <div>
+          <p class="page-kicker">Operación financiera</p>
+          <h2>Oficios, créditos y comisiones</h2>
+          <p>
+            Consulta primero la ficha operativa, ubica el oficio vigente y ejecuta acciones puntuales
+            sobre oficios, renovaciones, créditos y comisiones.
+          </p>
+        </div>
+
+        <div class="hero-actions">
+          <button type="button" (click)="startContextualCreditCapture()" [disabled]="isPreparingContextualCredit()">
+            Buscar vigente
+          </button>
+          <button type="button" class="ghost" (click)="openPermitModal()" [disabled]="!canWrite()">
+            Registrar oficio
+          </button>
+          <button type="button" class="ghost" (click)="reloadPage()">Actualizar</button>
+        </div>
       </article>
 
       @if (pageError()) {
         <p class="alert error">{{ pageError() }}</p>
       }
 
+      <nav class="tab-nav" aria-label="Secciones financieras">
+        <button type="button" [class.is-active]="activeTab() === 'summary'" (click)="setActiveTab('summary')">
+          Resumen / contexto
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'permits'" (click)="setActiveTab('permits')">
+          Oficios / autorizaciones
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'credits'" (click)="setActiveTab('credits')">
+          Créditos
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'commissions'" (click)="setActiveTab('commissions')">
+          Comisiones
+        </button>
+        <button type="button" [class.is-active]="activeTab() === 'renewals'" (click)="setActiveTab('renewals')">
+          Renovaciones / cadena
+        </button>
+      </nav>
+
       <div class="page-grid">
         <aside class="sidebar">
-          <article class="filter-card">
+          @if (activeTab() === 'permits') {
+            <article class="filter-card">
             <div class="card-header">
               <div>
                 <h3>Filtro</h3>
@@ -76,9 +109,10 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 <button type="button" class="ghost" (click)="clearFilters()">Limpiar</button>
               </div>
             </form>
-          </article>
+            </article>
+          }
 
-          <article class="form-card">
+          <article class="form-card context-focus">
             <div class="card-header">
               <div>
                 <h3>Ficha operativa financiera</h3>
@@ -94,7 +128,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               @if (blocked.currentPermitId) {
                 <div class="form-actions contextual-action">
                   <button type="button" class="ghost" (click)="openCurrentPermit(blocked.currentPermitId)">
-                    Ir al permiso vigente
+                    Ir al oficio vigente
                   </button>
                 </div>
               }
@@ -202,11 +236,11 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   }
                   @if (contextActionAvailable(contextCard, 'VIEW_CURRENT_PERMIT')) {
                     <button type="button" class="ghost" (click)="viewPermitFromContextCard(contextCard)">
-                      Ver permiso
+                      Ver oficio
                     </button>
                   }
                   @if (contextActionAvailable(contextCard, 'VIEW_CHAIN')) {
-                    <button type="button" class="ghost" (click)="viewPermitFromContextCard(contextCard)">
+                    <button type="button" class="ghost" (click)="viewChainFromContextCard(contextCard)">
                       Ver cadena
                     </button>
                   }
@@ -237,12 +271,22 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
             </form>
           </article>
 
-          <article class="form-card">
+          @if (isPermitModalOpen()) {
+            <div class="modal" (click)="closePermitModal()" (document:keydown.escape)="closePermitModal()">
+              <article
+                class="form-card modal-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="financial-permit-modal-title"
+                (click)="$event.stopPropagation()">
             <div class="card-header">
               <div>
-                <h3>Alta de oficio o autorización</h3>
+                <h3 id="financial-permit-modal-title">Registrar oficio / autorización</h3>
                 <p>Registro base de vigencia, stand y términos negociados.</p>
               </div>
+              <button type="button" class="ghost" (click)="closePermitModal()" [disabled]="isSubmittingPermit()">
+                Cerrar
+              </button>
             </div>
 
             @if (permitFormError()) {
@@ -262,7 +306,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               <div class="alert success conflict-action">
                 @if (resolution.currentPermit; as currentPermit) {
                   <button type="button" class="ghost" (click)="openCurrentPermit(currentPermit.permitId)">
-                    Ir al permiso vigente
+                    Ir al oficio vigente
                   </button>
                   <span>
                     {{ resolution.suggestionMessage }}
@@ -271,7 +315,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   </span>
                 } @else if (resolution.lastKnownPermit; as lastKnownPermit) {
                   <button type="button" class="ghost" (click)="openCurrentPermit(lastKnownPermit.permitId)">
-                    Abrir último permiso / cadena
+                    Abrir último oficio / cadena
                   </button>
                   @if (resolution.suggestionCode === 'RENEW_LAST_PERMIT') {
                     <button
@@ -373,11 +417,15 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 </button>
                 <button type="submit" [disabled]="isSubmittingPermit() || !canWrite()">Registrar oficio</button>
                 <button type="button" class="ghost" (click)="resetPermitForm()">Limpiar</button>
+                <button type="button" class="ghost" (click)="closePermitModal()" [disabled]="isSubmittingPermit()">Cancelar</button>
               </div>
             </form>
-          </article>
+              </article>
+            </div>
+          }
 
-          <article class="list-card">
+          @if (activeTab() === 'permits') {
+            <article class="list-card">
             <div class="card-header">
               <div>
                 <h3>Oficios y autorizaciones</h3>
@@ -424,7 +472,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 }
               </div>
             }
-          </article>
+            </article>
+          }
 
           <article class="list-card">
             <div class="card-header">
@@ -489,7 +538,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                       : !permitDetail.isCurrentVersion
                         ? 'Solo se puede renovar el oficio vigente de la cadena.'
                         : permitDetail.statusIsClosed
-                          ? 'El oficio ya se encuentra en estado terminal.'
+                          ? 'El oficio ya se encuentra cerrado / terminal.'
                           : 'Renovar este oficio.'">
                     Renovar
                   </button>
@@ -501,9 +550,9 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     [attr.title]="!canAdminister()
                       ? 'Solo ADMIN puede registrar cierre formal.'
                       : permitDetail.statusIsClosed
-                        ? 'El oficio ya se encuentra en estado terminal.'
-                        : 'Registrar cierre formal.'">
-                    {{ permitDetail.statusIsClosed ? 'Ya terminal' : 'Cerrar formalmente' }}
+                          ? 'El oficio ya se encuentra cerrado / terminal.'
+                          : 'Registrar cierre formal.'">
+                    {{ permitDetail.statusIsClosed ? 'Cerrado / terminal' : 'Cerrar formalmente' }}
                   </button>
                 </div>
               </div>
@@ -528,7 +577,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   @if (selectedPermitChain(); as permitChain) {
                     @if (permitChain.currentPermitId !== permitDetail.id) {
                       <button type="button" class="ghost" (click)="selectPermit(permitChain.currentPermitId)">
-                        Ir al permiso vigente
+                        Ir al oficio vigente
                       </button>
                     }
                   }
@@ -555,13 +604,13 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               </div>
             </article>
 
-            @if (selectedPermitChain(); as permitChain) {
+            @if (activeTab() === 'renewals' && selectedPermitChain(); as permitChain) {
               <div class="detail-grid">
                 <article class="list-card">
                   <div class="card-header">
                     <div>
                       <h3>Resumen de cadena</h3>
-                      <p>Continuidad operativa desde el permiso origen hasta el vigente.</p>
+                    <p>Continuidad operativa desde el oficio origen hasta el vigente.</p>
                     </div>
                   </div>
 
@@ -572,7 +621,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
                   <div class="summary-grid chain-summary-grid">
                     <article>
-                      <h4>Permisos</h4>
+                      <h4>Oficios</h4>
                       <p>{{ permitChain.summary.permitsCount }}</p>
                     </article>
                     <article>
@@ -610,7 +659,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   <div class="card-header">
                     <div>
                       <h3>Créditos de la cadena</h3>
-                      <p>Créditos del permiso vigente y sus permisos históricos renovados.</p>
+                      <p>Créditos del oficio vigente y sus oficios históricos renovados.</p>
                     </div>
                   </div>
 
@@ -644,13 +693,22 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               </div>
             }
 
-            <div class="detail-grid">
-              <article class="form-card">
+            @if (isRenewalModalOpen()) {
+              <div class="modal" (click)="closeRenewalModal()" (document:keydown.escape)="closeRenewalModal()">
+                <article
+                  class="form-card modal-panel"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="financial-renewal-modal-title"
+                  (click)="$event.stopPropagation()">
                 <div class="card-header">
                   <div>
-                    <h3>Renovar oficio</h3>
+                    <h3 id="financial-renewal-modal-title">Renovar oficio</h3>
                     <p>Alta del nuevo periodo sin sobrescribir el oficio original.</p>
                   </div>
+                  <button type="button" class="ghost" (click)="closeRenewalModal()" [disabled]="isSubmittingRenewal()">
+                    Cerrar
+                  </button>
                 </div>
 
                 @if (renewalFormError()) {
@@ -715,14 +773,19 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
                     <div class="form-actions full-width">
                       <button type="submit" [disabled]="isSubmittingRenewal() || !canWrite()">Crear renovación</button>
-                      <button type="button" class="ghost" (click)="cancelRenewal()">Cancelar</button>
+                      <button type="button" class="ghost" (click)="cancelRenewal(); closeRenewalModal()">Cancelar</button>
+                      <button type="button" class="ghost" (click)="closeRenewalModal()" [disabled]="isSubmittingRenewal()">Cerrar</button>
                     </div>
                   </form>
                 } @else {
                   <p class="empty-state">Selecciona Renovar para preparar el nuevo periodo del oficio vigente.</p>
                 }
-              </article>
+                </article>
+              </div>
+            }
 
+            @if (activeTab() === 'renewals') {
+              <div class="detail-grid">
               <article class="list-card">
                 <div class="card-header">
                   <div>
@@ -759,16 +822,28 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   </div>
                 }
               </article>
-            </div>
+              </div>
+            }
 
-            <div class="detail-grid">
+            @if (activeTab() === 'credits') {
+              <div class="detail-grid">
               @if (selectedPermitAllowsCapture()) {
-                <article class="form-card">
+                @if (isCreditModalOpen()) {
+                  <div class="modal" (click)="closeCreditModal()" (document:keydown.escape)="closeCreditModal()">
+                    <article
+                      class="form-card modal-panel"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="financial-credit-modal-title"
+                      (click)="$event.stopPropagation()">
                   <div class="card-header">
                     <div>
-                      <h3>Alta de crédito</h3>
+                      <h3 id="financial-credit-modal-title">Capturar crédito</h3>
                       <p>Registro individual con promotor, beneficiario y monto autorizado.</p>
                     </div>
+                    <button type="button" class="ghost" (click)="closeCreditModal()" [disabled]="isSubmittingCredit()">
+                      Cerrar
+                    </button>
                   </div>
 
                   @if (creditFormError()) {
@@ -779,7 +854,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     @if (blocked.currentPermitId && blocked.currentPermitId !== permitDetail.id) {
                       <div class="form-actions contextual-action">
                         <button type="button" class="ghost" (click)="openCurrentPermit(blocked.currentPermitId)">
-                          Ir al permiso vigente
+                          Ir al oficio vigente
                         </button>
                       </div>
                     }
@@ -856,15 +931,18 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     <div class="form-actions full-width">
                       <button type="submit" [disabled]="isSubmittingCredit() || !canWrite()">Registrar crédito</button>
                       <button type="button" class="ghost" (click)="resetCreditForm()">Limpiar</button>
+                      <button type="button" class="ghost" (click)="closeCreditModal()" [disabled]="isSubmittingCredit()">Cancelar</button>
                     </div>
                   </form>
-                </article>
+                    </article>
+                  </div>
+                }
               } @else {
                 <article class="form-card">
                   <div class="card-header">
                     <div>
-                      <h3>Alta de crédito</h3>
-                      <p>Permiso en modo consulta.</p>
+                      <h3>Captura de crédito</h3>
+                      <p>Oficio en modo consulta.</p>
                     </div>
                   </div>
                   <p class="empty-state">{{ selectedPermitReadOnlyMessage() }}</p>
@@ -872,7 +950,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     @if (permitChain.currentPermitId !== permitDetail.id) {
                       <div class="form-actions">
                         <button type="button" class="ghost" (click)="selectPermit(permitChain.currentPermitId)">
-                          Ir al permiso vigente
+                          Ir al oficio vigente
                         </button>
                       </div>
                     }
@@ -886,6 +964,9 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     <h3>Créditos del oficio</h3>
                     <p>Listado individual con sus comisiones asociadas.</p>
                   </div>
+                  <button type="button" class="ghost" (click)="openCreditModal()" [disabled]="!selectedPermitAllowsCapture() || !canWrite()">
+                    Capturar crédito
+                  </button>
                 </div>
 
                 @if (permitDetail.credits.length === 0) {
@@ -921,16 +1002,28 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   </div>
                 }
               </article>
-            </div>
+              </div>
+            }
 
-            <div class="detail-grid">
+            @if (activeTab() === 'commissions') {
+              <div class="detail-grid">
               @if (selectedPermitAllowsCapture()) {
-                <article class="form-card">
+                @if (isCommissionModalOpen()) {
+                  <div class="modal" (click)="closeCommissionModal()" (document:keydown.escape)="closeCommissionModal()">
+                    <article
+                      class="form-card modal-panel"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="financial-commission-modal-title"
+                      (click)="$event.stopPropagation()">
                   <div class="card-header">
                     <div>
-                      <h3>Alta de comisión por crédito</h3>
+                      <h3 id="financial-commission-modal-title">Registrar comisión por crédito</h3>
                       <p>Registro local por crédito sin abrir aún el consolidado transversal.</p>
                     </div>
+                    <button type="button" class="ghost" (click)="closeCommissionModal()" [disabled]="isSubmittingCommission()">
+                      Cerrar
+                    </button>
                   </div>
 
                   @if (commissionFormError()) {
@@ -1004,15 +1097,18 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     <div class="form-actions full-width">
                       <button type="submit" [disabled]="isSubmittingCommission() || !selectedCredit() || !canWrite()">Registrar comisión</button>
                       <button type="button" class="ghost" (click)="resetCommissionForm()">Limpiar</button>
+                      <button type="button" class="ghost" (click)="closeCommissionModal()" [disabled]="isSubmittingCommission()">Cancelar</button>
                     </div>
                   </form>
-                </article>
+                    </article>
+                  </div>
+                }
               } @else {
                 <article class="form-card">
                   <div class="card-header">
                     <div>
-                      <h3>Alta de comisión por crédito</h3>
-                      <p>Permiso en modo consulta.</p>
+                      <h3>Registro de comisión por crédito</h3>
+                      <p>Oficio en modo consulta.</p>
                     </div>
                   </div>
                   <p class="empty-state">{{ selectedPermitReadOnlyMessage() }}</p>
@@ -1020,7 +1116,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     @if (permitChain.currentPermitId !== permitDetail.id) {
                       <div class="form-actions">
                         <button type="button" class="ghost" (click)="selectPermit(permitChain.currentPermitId)">
-                          Ir al permiso vigente
+                          Ir al oficio vigente
                         </button>
                       </div>
                     }
@@ -1034,6 +1130,9 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                     <h3>Comisiones del crédito</h3>
                     <p>Detalle de tipo, destinatario y monto por crédito.</p>
                   </div>
+                  <button type="button" class="ghost" (click)="openCommissionModal()" [disabled]="!selectedPermitAllowsCapture() || !selectedCredit() || !canWrite()">
+                    Registrar comisión
+                  </button>
                 </div>
 
                 @if (selectedCredit(); as selectedCreditDetail) {
@@ -1069,7 +1168,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                   <p class="empty-state">Selecciona un crédito para consultar sus comisiones.</p>
                 }
               </article>
-            </div>
+              </div>
+            }
           } @else {
             <article class="empty-card">
               <h3>Selecciona un oficio</h3>
@@ -1113,11 +1213,71 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .list-card,
       .detail-card,
       .empty-card {
-        padding: 1.5rem;
-        border-radius: 1.35rem;
+        min-width: 0;
+        padding: 1.15rem;
+        border-radius: 0.9rem;
         background: rgba(255, 255, 255, 0.82);
         border: 1px solid rgba(29, 45, 42, 0.08);
-        box-shadow: 0 16px 30px rgba(32, 44, 41, 0.06);
+        box-shadow: 0 12px 24px rgba(32, 44, 41, 0.05);
+      }
+
+      .hero-card {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.7rem;
+        justify-content: flex-end;
+      }
+
+      .context-focus {
+        order: -1;
+        border-color: rgba(15, 118, 110, 0.22);
+        box-shadow: 0 18px 36px rgba(18, 63, 59, 0.1);
+      }
+
+      .tab-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        padding: 0.35rem;
+        border-radius: 0.9rem;
+        background: rgba(18, 63, 59, 0.06);
+      }
+
+      .tab-nav button {
+        border-radius: 999px;
+        padding: 0.65rem 0.85rem;
+        background: transparent;
+        color: #17423d;
+      }
+
+      .tab-nav button.is-active {
+        background: #123f3b;
+        color: #f6f6f2;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        background: rgba(29, 45, 42, 0.42);
+      }
+
+      .modal-panel {
+        width: min(100%, 46rem);
+        max-height: min(92vh, 48rem);
+        overflow: auto;
+        background: #fffdf8;
+        box-shadow: 0 24px 60px rgba(18, 63, 59, 0.2);
       }
 
       .page-kicker {
@@ -1135,6 +1295,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       p,
       dd {
         margin: 0;
+        overflow-wrap: anywhere;
       }
 
       .hero-card p:last-child,
@@ -1224,7 +1385,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .form-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.9rem;
+        gap: 0.75rem;
       }
 
       label {
@@ -1233,14 +1394,16 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         font-size: 0.92rem;
         font-weight: 600;
         color: #29403b;
+        min-width: 0;
       }
 
       input,
       select,
       textarea {
         width: 100%;
-        padding: 0.8rem 0.9rem;
-        border-radius: 0.9rem;
+        min-width: 0;
+        padding: 0.7rem 0.8rem;
+        border-radius: 0.75rem;
         border: 1px solid rgba(29, 45, 42, 0.14);
         background: #fbfbf8;
         color: #1d2d2a;
@@ -1255,8 +1418,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         grid-template-columns: auto 1fr;
         align-items: center;
         gap: 0.7rem;
-        padding: 0.8rem 0.9rem;
-        border-radius: 0.9rem;
+        padding: 0.7rem 0.8rem;
+        border-radius: 0.75rem;
         background: #f6f5ef;
       }
 
@@ -1279,8 +1442,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .permit-card,
       .entity-button {
         border: none;
-        border-radius: 0.9rem;
-        padding: 0.8rem 1rem;
+        border-radius: 0.75rem;
+        padding: 0.72rem 0.9rem;
         font: inherit;
       }
 
@@ -1306,10 +1469,18 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .entity-button,
       .alert-row {
         display: grid;
-        gap: 0.7rem;
-        padding: 1rem;
-        border-radius: 1rem;
+        gap: 0.55rem;
+        padding: 0.85rem;
+        border-radius: 0.85rem;
         background: #f6f5ef;
+        min-width: 0;
+      }
+
+      .permit-list,
+      .entity-list,
+      .alert-list {
+        max-height: 42rem;
+        overflow: auto;
       }
 
       .permit-card,
@@ -1406,12 +1577,45 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         gap: 0.65rem;
       }
 
-      @media (max-width: 1080px) {
+      @media (max-width: 1180px) {
         .page-grid,
         .detail-grid,
         .summary-grid,
         .form-grid {
           grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .hero-card,
+        .card-header,
+        .row-top,
+        .detail-header,
+        .readonly-banner {
+          flex-direction: column;
+        }
+
+        .hero-actions,
+        .form-actions,
+        .detail-badges {
+          width: 100%;
+        }
+
+        .hero-actions button,
+        .form-actions button,
+        .detail-badges button {
+          width: 100%;
+          white-space: normal;
+        }
+
+        .tab-nav {
+          display: grid;
+          grid-template-columns: 1fr;
+        }
+
+        .modal {
+          place-items: stretch;
+          padding: 0.75rem;
         }
       }
     `
@@ -1433,6 +1637,11 @@ export class FinancialsPageComponent {
 
   protected readonly isBootstrapping = signal(true);
   protected readonly pageError = signal<string | null>(null);
+  protected readonly activeTab = signal<FinancialsTab>('summary');
+  protected readonly isPermitModalOpen = signal(false);
+  protected readonly isRenewalModalOpen = signal(false);
+  protected readonly isCreditModalOpen = signal(false);
+  protected readonly isCommissionModalOpen = signal(false);
 
   protected readonly permitStatuses = signal<ModuleStatusCatalogEntry[]>([]);
   protected readonly contacts = signal<Contact[]>([]);
@@ -1503,7 +1712,7 @@ export class FinancialsPageComponent {
     }
 
     if (permit.statusIsClosed) {
-      return 'Solo lectura / terminal';
+      return 'Solo lectura / cerrado';
     }
 
     return 'Captura activa';
@@ -1516,11 +1725,11 @@ export class FinancialsPageComponent {
     }
 
     if (!permit.isCurrentVersion) {
-      return 'Este oficio pertenece al histórico de una renovación. Los nuevos créditos y comisiones deben capturarse en el permiso vigente de la cadena.';
+      return 'Este oficio pertenece al histórico de una renovación. Los nuevos créditos y comisiones deben capturarse en el oficio vigente de la cadena.';
     }
 
     if (permit.statusIsClosed) {
-      return 'Este oficio ya está en estado terminal. Los créditos y comisiones permanecen disponibles para consulta.';
+      return 'Este oficio ya está cerrado / terminal. Los créditos y comisiones permanecen disponibles para consulta.';
     }
 
     return 'Este oficio admite captura de créditos y comisiones.';
@@ -1584,6 +1793,53 @@ export class FinancialsPageComponent {
     void this.bootstrap();
   }
 
+  protected setActiveTab(tab: FinancialsTab): void {
+    this.activeTab.set(tab);
+  }
+
+  protected openPermitModal(): void {
+    this.isPermitModalOpen.set(true);
+  }
+
+  protected closePermitModal(): void {
+    if (!this.isSubmittingPermit()) {
+      this.isPermitModalOpen.set(false);
+    }
+  }
+
+  protected openRenewalModal(): void {
+    this.activeTab.set('renewals');
+    this.isRenewalModalOpen.set(true);
+  }
+
+  protected closeRenewalModal(): void {
+    if (!this.isSubmittingRenewal()) {
+      this.isRenewalModalOpen.set(false);
+    }
+  }
+
+  protected openCreditModal(): void {
+    this.activeTab.set('credits');
+    this.isCreditModalOpen.set(true);
+  }
+
+  protected closeCreditModal(): void {
+    if (!this.isSubmittingCredit()) {
+      this.isCreditModalOpen.set(false);
+    }
+  }
+
+  protected openCommissionModal(): void {
+    this.activeTab.set('commissions');
+    this.isCommissionModalOpen.set(true);
+  }
+
+  protected closeCommissionModal(): void {
+    if (!this.isSubmittingCommission()) {
+      this.isCommissionModalOpen.set(false);
+    }
+  }
+
   protected async applyFilters(): Promise<void> {
     await this.reloadPermits();
   }
@@ -1640,7 +1896,7 @@ export class FinancialsPageComponent {
     };
 
     if (!request.financialName || !request.institutionOrDependency || !request.placeOrStand) {
-      this.currentPermitLookupMessage.set('Captura financiera, dependencia o institucion y lugar/stand para buscar el permiso vigente.');
+      this.currentPermitLookupMessage.set('Captura financiera, dependencia o institucion y lugar/stand para buscar el oficio vigente.');
       return;
     }
 
@@ -1651,7 +1907,7 @@ export class FinancialsPageComponent {
       this.currentPermitLookupResult.set(resolution);
     } catch (error) {
       const lookupMessage = this.extractCurrentPermitLookupMessage(error);
-      this.currentPermitLookupMessage.set(lookupMessage ?? getApiErrorMessage(error, 'No fue posible buscar el permiso vigente.'));
+      this.currentPermitLookupMessage.set(lookupMessage ?? getApiErrorMessage(error, 'No fue posible buscar el oficio vigente.'));
     } finally {
       this.isResolvingCurrentPermit.set(false);
     }
@@ -1730,12 +1986,13 @@ export class FinancialsPageComponent {
     this.permitFormError.set(null);
     this.pageError.set(null);
     this.permitFormSuccess.set('Alta contextual preparada. Completa vigencia, horario, términos y estatus antes de registrar.');
+    this.openPermitModal();
   }
 
   protected async prepareRenewalFromContextResolution(resolution: FinancialPermitContextResolution): Promise<void> {
     const lastKnownPermit = resolution.lastKnownPermit;
     if (resolution.suggestionCode !== 'RENEW_LAST_PERMIT' || !lastKnownPermit) {
-      this.pageError.set('La resolucion contextual no contiene un ultimo permiso renovable.');
+      this.pageError.set('La resolucion contextual no contiene un ultimo oficio renovable.');
       return;
     }
 
@@ -1749,6 +2006,7 @@ export class FinancialsPageComponent {
       const draft = await firstValueFrom(this.financialsService.getPermitRenewalDraft(lastKnownPermit.permitId));
       await this.openPermitFromContext(draft.sourcePermitId);
       this.applyRenewalDraft(draft);
+      this.openRenewalModal();
     } catch (error) {
       this.pageError.set(getApiErrorMessage(error, 'No fue posible preparar la renovacion contextual.'));
     } finally {
@@ -1763,12 +2021,13 @@ export class FinancialsPageComponent {
   protected async captureCreditFromContextCard(contextCard: FinancialContextCard): Promise<void> {
     const currentPermitId = contextCard.resolution.currentPermit?.permitId;
     if (!currentPermitId) {
-      this.contextualCreditError.set('La ficha no contiene un permiso vigente para capturar crédito.');
+      this.contextualCreditError.set('La ficha no contiene un oficio vigente para capturar crédito.');
       return;
     }
 
     this.contextualCreditResolution.set(contextCard.resolution);
     await this.openPermitFromContext(currentPermitId);
+    this.openCreditModal();
   }
 
   protected preparePermitFromContextCard(contextCard: FinancialContextCard): void {
@@ -1785,6 +2044,11 @@ export class FinancialsPageComponent {
       ?? null;
 
     await this.openCurrentPermit(permitId);
+  }
+
+  protected async viewChainFromContextCard(contextCard: FinancialContextCard): Promise<void> {
+    this.activeTab.set('renewals');
+    await this.viewPermitFromContextCard(contextCard);
   }
 
   private async openPermitFromContext(permitId: string): Promise<void> {
@@ -1811,7 +2075,7 @@ export class FinancialsPageComponent {
     }
 
     if (permit.statusIsClosed) {
-      this.pageError.set('El oficio ya se encuentra en estado terminal y no admite un nuevo cierre formal.');
+      this.pageError.set('El oficio ya se encuentra cerrado / terminal y no admite un nuevo cierre formal.');
       return;
     }
 
@@ -1848,6 +2112,7 @@ export class FinancialsPageComponent {
       negotiatedTerms: permit.negotiatedTerms,
       notes: ''
     });
+    this.openRenewalModal();
   }
 
   protected cancelRenewal(): void {
@@ -1902,6 +2167,7 @@ export class FinancialsPageComponent {
       this.renewalFormSuccess.set('Oficio renovado.');
       this.renewalTargetPermitId.set(null);
       this.renewalDraft.set(null);
+      this.isRenewalModalOpen.set(false);
       await this.reloadPermits(renewedPermit.id);
       await this.reloadAlerts();
     } catch (error) {
@@ -1970,6 +2236,7 @@ export class FinancialsPageComponent {
       this.permitFormSuccess.set('Oficio registrado.');
       this.contextualPermitCreateResolution.set(null);
       this.resetPermitForm();
+      this.isPermitModalOpen.set(false);
       await this.reloadPermits(permit.id);
       await this.reloadAlerts();
     } catch (error) {
@@ -2024,6 +2291,7 @@ export class FinancialsPageComponent {
       const credit = await firstValueFrom(this.financialsService.createCredit(selectedPermitId, request));
       this.creditFormSuccess.set('Crédito registrado.');
       this.resetCreditForm();
+      this.isCreditModalOpen.set(false);
       await this.reloadPermits(selectedPermitId);
       await this.loadPermitDetail(selectedPermitId, credit.id);
     } catch (error) {
@@ -2075,6 +2343,7 @@ export class FinancialsPageComponent {
       await firstValueFrom(this.financialsService.createCreditCommission(selectedCredit.id, request));
       this.commissionFormSuccess.set('Comisión registrada.');
       this.resetCommissionForm();
+      this.isCommissionModalOpen.set(false);
 
       const selectedPermitId = this.selectedPermitId();
       if (selectedPermitId) {
@@ -2217,7 +2486,7 @@ export class FinancialsPageComponent {
       case 'CREATE_NEW_PERMIT':
         return 'Sin antecedente';
       case 'REVIEW_TERMINAL_CHAIN':
-        return 'Terminal';
+        return 'Cerrado / terminal';
       default:
         return suggestionCode;
     }
@@ -2304,7 +2573,7 @@ export class FinancialsPageComponent {
   protected chainPermitLabel(financialPermitId: string): string {
     const permit = this.selectedPermitChain()?.permits.find((item) => item.id === financialPermitId);
     if (!permit) {
-      return 'Permiso de la cadena';
+      return 'Oficio de la cadena';
     }
 
     return `Secuencia ${permit.renewalSequence} · ${this.currentVersionLabel(permit.isCurrentVersion)}`;

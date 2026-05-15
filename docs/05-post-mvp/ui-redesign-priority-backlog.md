@@ -18,7 +18,7 @@
 | P0 | `/documents/work-queue` | Etapa A implementada: corregir overflow desktop y clarificar severidad. | Layout/copy/responsive | Bajo | No | Cumplido en Etapa A: 390/768/1366 sin overflow global; `Exportar CSV` queda en area secundaria; severidades se leen como Alta/Media/Baja y tipos de pendiente usan lenguaje operativo. |
 | P0 | `/admin/users` | Etapa A implementada: eliminar overflow desktop y comprimir acciones por usuario. | Layout/interaccion local | Medio | No | Cumplido en Etapa A: 390/768/1366 sin overflow global; alta abre en dialog; acciones de rol, contraseña y bloqueo quedan en panel `Gestionar`; activacion queda visible por fila. |
 | P0 | `/federation` | Reducir scroll extremo y separar focos operativos. | Layout/interaccion local | Medio | No | En movil la vista inicial muestra resumen, tabs y una accion primaria; altas de gestion/donacion/aplicacion/comision/evidencia no quedan inline permanentes. |
-| P1 | `/financials` | Convertir captura financiera en flujo guiado, no formulario permanente. | Layout/interaccion local | Medio | No | Ficha contextual compacta; alta de oficio, credito, comision y renovacion en modales/drawers; primera pantalla prioriza permisos y alertas. |
+| P1 | `/financials` | Etapa A implementada: convertir captura financiera en flujo guiado, no formulario permanente. | Layout/interaccion local | Medio | No | Cumplido en Etapa A: ficha operativa destacada; tabs para contexto/oficios/creditos/comisiones/renovaciones; alta de oficio, credito, comision y renovacion en modales; 390/768/1366 sin overflow global. |
 | P1 | `/markets` | Reducir sidebar largo y hacer el detalle mas operativo. | Layout/interaccion local | Medio | No | Alta de mercado/locatario/incidencia en modales; listado y detalle visibles sin recorrer todos los formularios; scroll movil reducido. |
 
 ### Fase 2 - Limpieza de lenguaje tecnico
@@ -80,4 +80,4 @@
 
 ## Siguiente fase recomendada
 
-Continuar con `/federation`, `/financials` y `/markets`, ya que `/documents`, `/documents/work-queue` y `/admin/users` recibieron Etapa A. La siguiente fase debe limitarse a frontend visual/interaccion local: copy, responsive, modales, drawers, menus de acciones y compactacion de tarjetas. La validacion minima debe repetir Playwright en `390px`, `768px` y `1366px`, confirmando sin overflow horizontal y sin cambios en `src/backend`.
+Continuar con `/federation` y `/markets`, ya que `/documents`, `/documents/work-queue`, `/admin/users` y `/financials` recibieron Etapa A. La siguiente fase debe limitarse a frontend visual/interaccion local: copy, responsive, modales, drawers, menus de acciones y compactacion de tarjetas. La validacion minima debe repetir Playwright en `390px`, `768px` y `1366px`, confirmando sin overflow horizontal y sin cambios en `src/backend`.
