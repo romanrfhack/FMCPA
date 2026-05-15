@@ -91,7 +91,7 @@ describe('App', () => {
     expect(compiled.textContent).not.toContain('admin · Admin');
   });
 
-  it('should filter shell navigation from session permissions', async () => {
+  it('should group and filter shell navigation from session permissions', async () => {
     sessionStorage.setItem(
       'fmcpa.auth.session',
       JSON.stringify({
@@ -113,14 +113,18 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     const visibleLabels = Array.from(compiled.querySelectorAll('nav a'))
       .map((item) => item.textContent?.trim());
+    const visibleGroups = Array.from(compiled.querySelectorAll('.shell-nav-heading'))
+      .map((item) => item.textContent?.trim());
 
     expect(visibleLabels).toContain('Dashboard');
-    expect(visibleLabels).toContain('Operaciones');
+    expect(visibleLabels).toContain('Centro operativo');
     expect(visibleLabels).toContain('Mercados');
     expect(visibleLabels).toContain('Documentos');
     expect(visibleLabels).toContain('Bandeja documental');
     expect(visibleLabels).not.toContain('Usuarios');
     expect(visibleLabels).not.toContain('Seguridad');
-    expect(visibleLabels).not.toContain('Tipos de comision');
+    expect(visibleLabels).not.toContain('Tipos de comisión');
+    expect(visibleGroups).toEqual(['Inicio', 'Operación', 'Control']);
+    expect(visibleGroups).not.toContain('Administración');
   });
 });

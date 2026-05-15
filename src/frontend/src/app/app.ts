@@ -4,6 +4,20 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ApplicationPermissionCode } from './core/models/auth.models';
 import { AuthService } from './core/services/auth.service';
 
+type NavigationItem = {
+  path: string;
+  label: string;
+  exact?: boolean;
+  requiredPermission?: ApplicationPermissionCode;
+  requiredAnyPermissions?: ApplicationPermissionCode[];
+};
+
+type NavigationGroup = {
+  id: string;
+  label: string;
+  items: NavigationItem[];
+};
+
 @Component({
   selector: 'app-root',
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
@@ -13,46 +27,69 @@ import { AuthService } from './core/services/auth.service';
 export class App {
   private readonly authService = inject(AuthService);
 
-  protected readonly navigation: {
-    path: string;
-    label: string;
-    exact?: boolean;
-    requiredPermission?: ApplicationPermissionCode;
-    requiredAnyPermissions?: ApplicationPermissionCode[];
-  }[] = [
-    { path: '/dashboard', label: 'Dashboard', exact: true, requiredPermission: 'DASHBOARD_READ' },
-    { path: '/operations', label: 'Operaciones', requiredPermission: 'DASHBOARD_READ' },
-    { path: '/history', label: 'Historico', requiredPermission: 'HISTORY_READ' },
-    { path: '/commissions', label: 'Comisiones', requiredPermission: 'HISTORY_READ' },
-    { path: '/bitacora', label: 'Bitacora', requiredPermission: 'HISTORY_READ' },
+  protected readonly navigationGroups: NavigationGroup[] = [
     {
-      path: '/documents',
-      label: 'Documentos',
-      requiredAnyPermissions: ['MARKETS_READ', 'DONATIONS_READ', 'FEDERATION_READ']
+      id: 'shell-nav-inicio',
+      label: 'Inicio',
+      items: [
+        { path: '/dashboard', label: 'Dashboard', exact: true, requiredPermission: 'DASHBOARD_READ' },
+        { path: '/operations', label: 'Centro operativo', requiredPermission: 'DASHBOARD_READ' }
+      ]
     },
     {
-      path: '/documents/work-queue',
-      label: 'Bandeja documental',
-      requiredAnyPermissions: ['MARKETS_READ', 'DONATIONS_READ', 'FEDERATION_READ']
+      id: 'shell-nav-operacion',
+      label: 'Operación',
+      items: [
+        { path: '/markets', label: 'Mercados', requiredPermission: 'MARKETS_READ' },
+        { path: '/donatarias', label: 'Donatarias', requiredPermission: 'DONATIONS_READ' },
+        { path: '/financials', label: 'Financieras', requiredPermission: 'FINANCIALS_READ' },
+        { path: '/federation', label: 'Federación', requiredPermission: 'FEDERATION_READ' }
+      ]
     },
-    { path: '/documents/review', label: 'Revision documental', requiredPermission: 'USERS_ADMIN' },
-    { path: '/contacts', label: 'Contactos', requiredPermission: 'CONTACTS_READ' },
-    { path: '/admin/users', label: 'Usuarios', requiredPermission: 'USERS_ADMIN' },
-    { path: '/admin/security', label: 'Seguridad', requiredPermission: 'USERS_ADMIN' },
-    { path: '/catalogs/commission-types', label: 'Tipos de comision', requiredPermission: 'CATALOGS_ADMIN' },
-    { path: '/catalogs/evidence-types', label: 'Tipos de evidencia', requiredPermission: 'CATALOGS_ADMIN' },
-    { path: '/catalogs/module-statuses', label: 'Estatus por modulo', requiredPermission: 'CATALOGS_ADMIN' },
-    { path: '/markets', label: 'Mercados', requiredPermission: 'MARKETS_READ' },
-    { path: '/donatarias', label: 'Donatarias', requiredPermission: 'DONATIONS_READ' },
-    { path: '/financials', label: 'Financieras', requiredPermission: 'FINANCIALS_READ' },
-    { path: '/federation', label: 'Federacion', requiredPermission: 'FEDERATION_READ' }
+    {
+      id: 'shell-nav-control',
+      label: 'Control',
+      items: [
+        {
+          path: '/documents',
+          label: 'Documentos',
+          requiredAnyPermissions: ['MARKETS_READ', 'DONATIONS_READ', 'FEDERATION_READ']
+        },
+        {
+          path: '/documents/work-queue',
+          label: 'Bandeja documental',
+          requiredAnyPermissions: ['MARKETS_READ', 'DONATIONS_READ', 'FEDERATION_READ']
+        },
+        { path: '/documents/review', label: 'Revisión documental', requiredPermission: 'USERS_ADMIN' },
+        { path: '/commissions', label: 'Comisiones', requiredPermission: 'HISTORY_READ' },
+        { path: '/history', label: 'Histórico', requiredPermission: 'HISTORY_READ' },
+        { path: '/bitacora', label: 'Bitácora', requiredPermission: 'HISTORY_READ' }
+      ]
+    },
+    {
+      id: 'shell-nav-administracion',
+      label: 'Administración',
+      items: [
+        { path: '/contacts', label: 'Contactos', requiredPermission: 'CONTACTS_READ' },
+        { path: '/admin/users', label: 'Usuarios', requiredPermission: 'USERS_ADMIN' },
+        { path: '/admin/security', label: 'Seguridad', requiredPermission: 'USERS_ADMIN' },
+        { path: '/catalogs/commission-types', label: 'Tipos de comisión', requiredPermission: 'CATALOGS_ADMIN' },
+        { path: '/catalogs/evidence-types', label: 'Tipos de evidencia', requiredPermission: 'CATALOGS_ADMIN' },
+        { path: '/catalogs/module-statuses', label: 'Estatus por módulo', requiredPermission: 'CATALOGS_ADMIN' }
+      ]
+    }
   ];
 
   protected readonly currentUser = this.authService.currentUser;
   protected readonly isAuthenticated = this.authService.isAuthenticated;
   protected readonly isUserMenuOpen = signal(false);
-  protected readonly visibleNavigation = computed(() =>
-    this.navigation.filter((item) => this.hasNavigationAccess(item)));
+  protected readonly visibleNavigationGroups = computed(() =>
+    this.navigationGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => this.hasNavigationAccess(item))
+      }))
+      .filter((group) => group.items.length > 0));
   protected readonly currentUserDisplayName = computed(() => {
     const user = this.currentUser();
     return user?.displayName?.trim() || user?.userName?.trim() || 'Usuario';
@@ -95,10 +132,7 @@ export class App {
     this.authService.logout();
   }
 
-  private hasNavigationAccess(item: {
-    requiredPermission?: ApplicationPermissionCode;
-    requiredAnyPermissions?: ApplicationPermissionCode[];
-  }): boolean {
+  private hasNavigationAccess(item: NavigationItem): boolean {
     if (item.requiredPermission && this.authService.hasPermission(item.requiredPermission)) {
       return true;
     }

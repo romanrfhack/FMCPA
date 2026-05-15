@@ -35,14 +35,22 @@
     </header>
 
     <div class="shell-main">
-      <nav class="shell-nav" aria-label="Navegacion principal">
-        @for (item of visibleNavigation(); track item.path) {
-          <a
-            [routerLink]="item.path"
-            routerLinkActive="is-active"
-            [routerLinkActiveOptions]="{ exact: item.exact ?? false }">
-            {{ item.label }}
-          </a>
+      <nav class="shell-nav" aria-label="Navegación principal">
+        @for (group of visibleNavigationGroups(); track group.id) {
+          <section class="shell-nav-group" [attr.aria-labelledby]="group.id + '-heading'">
+            <h2 class="shell-nav-heading" [id]="group.id + '-heading'">{{ group.label }}</h2>
+
+            <div class="shell-nav-links">
+              @for (item of group.items; track item.path) {
+                <a
+                  [routerLink]="item.path"
+                  routerLinkActive="is-active"
+                  [routerLinkActiveOptions]="{ exact: item.exact ?? false }">
+                  {{ item.label }}
+                </a>
+              }
+            </div>
+          </section>
         }
       </nav>
 
