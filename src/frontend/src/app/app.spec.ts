@@ -30,7 +30,7 @@ describe('App', () => {
         user: {
           id: '2ca1b93e-2b72-4a29-b942-18de39c1a2e4',
           userName: 'operator',
-          displayName: 'Operator',
+          displayName: 'Operadora Interna',
           roleCode: 'OPERATOR',
           permissions: ['DASHBOARD_READ']
         }
@@ -42,6 +42,53 @@ describe('App', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('FMCPA Platform');
+    expect(compiled.querySelector<HTMLImageElement>('.shell-logo')?.src).toContain('/assets/brand/logo-fmcpa.webp');
+    expect(compiled.textContent).toContain('Gestión operativa');
+    expect(compiled.textContent).toContain('Operadora Interna');
+    expect(compiled.textContent).not.toContain('Track 2 Seguridad');
+    expect(compiled.textContent).not.toContain('Angular 21');
+    expect(compiled.textContent).not.toContain('.NET 10');
+    expect(compiled.textContent).not.toContain('JWT Local');
+    expect(compiled.textContent).not.toContain('MVP operativo');
+    expect(compiled.textContent).not.toContain('OPERATOR');
+  });
+
+  it('should expose account actions from the compact user menu', async () => {
+    sessionStorage.setItem(
+      'fmcpa.auth.session',
+      JSON.stringify({
+        accessToken: 'test-token',
+        expiresAtUtc: new Date(Date.now() + 60 * 60_000).toISOString(),
+        user: {
+          id: '2ca1b93e-2b72-4a29-b942-18de39c1a2e4',
+          userName: 'admin',
+          displayName: 'Administración FMCPA',
+          roleCode: 'ADMIN',
+          permissions: ['DASHBOARD_READ']
+        }
+      }));
+
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const trigger = compiled.querySelector<HTMLButtonElement>('.user-menu-trigger');
+    expect(trigger?.getAttribute('aria-expanded')).toBe('false');
+    expect(compiled.textContent).not.toContain('Cambiar contraseña');
+    expect(compiled.textContent).not.toContain('Cerrar sesión');
+
+    trigger?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const passwordLink = compiled.querySelector<HTMLAnchorElement>('.user-menu-panel a');
+    const logoutButton = compiled.querySelector<HTMLButtonElement>('.user-menu-panel button');
+    expect(trigger?.getAttribute('aria-expanded')).toBe('true');
+    expect(passwordLink?.getAttribute('href')).toBe('/account/password');
+    expect(passwordLink?.textContent).toContain('Cambiar contraseña');
+    expect(logoutButton?.textContent).toContain('Cerrar sesión');
+    expect(compiled.textContent).not.toContain('admin · Admin');
   });
 
   it('should filter shell navigation from session permissions', async () => {

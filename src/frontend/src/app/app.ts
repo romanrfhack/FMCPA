@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { ApplicationPermissionCode } from './core/models/auth.models';
@@ -49,24 +49,49 @@ export class App {
   ];
 
   protected readonly currentUser = this.authService.currentUser;
-  protected readonly currentRole = this.authService.currentRole;
   protected readonly isAuthenticated = this.authService.isAuthenticated;
+  protected readonly isUserMenuOpen = signal(false);
   protected readonly visibleNavigation = computed(() =>
     this.navigation.filter((item) => this.hasNavigationAccess(item)));
-  protected readonly currentRoleLabel = computed(() => {
-    switch (this.currentRole()) {
-      case 'ADMIN':
-        return 'Admin';
-      case 'OPERATOR':
-        return 'Operator';
-      case 'READONLY':
-        return 'Readonly';
-      default:
-        return 'Sin rol';
-    }
+  protected readonly currentUserDisplayName = computed(() => {
+    const user = this.currentUser();
+    return user?.displayName?.trim() || user?.userName?.trim() || 'Usuario';
+  });
+  protected readonly currentUserInitials = computed(() => {
+    const displayName = this.currentUserDisplayName();
+    const parts = displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2);
+
+    return (parts.length ? parts.map((part) => part[0]).join('') : 'U').toUpperCase();
   });
 
-  protected logout() {
+  @HostListener('document:click')
+  protected closeUserMenu(): void {
+    this.isUserMenuOpen.set(false);
+  }
+
+  @HostListener('document:keydown.escape')
+  protected closeUserMenuWithEscape(): void {
+    this.isUserMenuOpen.set(false);
+  }
+
+  protected toggleUserMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.isUserMenuOpen.update((isOpen) => !isOpen);
+  }
+
+  protected keepUserMenuOpen(event: MouseEvent): void {
+    event.stopPropagation();
+  }
+
+  protected closeUserMenuFromAction(): void {
+    this.isUserMenuOpen.set(false);
+  }
+
+  protected logout(): void {
+    this.closeUserMenuFromAction();
     this.authService.logout();
   }
 

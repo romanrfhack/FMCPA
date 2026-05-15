@@ -1,31 +1,37 @@
 @if (isAuthenticated()) {
   <div class="app-shell">
     <header class="shell-header">
-      <div class="shell-heading">
-        <p class="shell-kicker">Track 2 Seguridad · Autenticación y autorización mínima por módulo</p>
-        <h1>FMCPA Platform</h1>
-        <p class="shell-copy">
-          MVP operativo con JWT local, sesión autenticada, rutas protegidas y una separación mínima
-          entre lectura, operación normal, administración funcional por superficie y gestión interna mínima de usuarios.
-        </p>
-      </div>
-
-      <div class="shell-status">
-        <div class="shell-badges">
-          <span>Angular 21</span>
-          <span>.NET 10</span>
-          <span>JWT Local</span>
+      <div class="shell-brand">
+        <img src="/assets/brand/logo-fmcpa.webp" alt="FMCPA" class="shell-logo" />
+        <div class="shell-heading">
+          <h1>FMCPA Platform</h1>
+          <p>Gestión operativa</p>
         </div>
-
-        @if (currentUser(); as user) {
-          <div class="shell-session">
-            <p>{{ user.displayName }}</p>
-            <small>{{ user.userName }} · {{ currentRoleLabel() }}</small>
-            <a routerLink="/account/password">Cambiar contraseña</a>
-            <button type="button" (click)="logout()">Cerrar sesion</button>
-          </div>
-        }
       </div>
+
+      @if (currentUser()) {
+        <div class="user-menu" (click)="keepUserMenuOpen($event)">
+          <button
+            type="button"
+            class="user-menu-trigger"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="isUserMenuOpen()"
+            (click)="toggleUserMenu($event)">
+            <span class="user-avatar" aria-hidden="true">{{ currentUserInitials() }}</span>
+            <span class="user-name">{{ currentUserDisplayName() }}</span>
+            <span class="user-caret" aria-hidden="true">⌄</span>
+          </button>
+
+          @if (isUserMenuOpen()) {
+            <div class="user-menu-panel" role="menu" aria-label="Cuenta de usuario">
+              <a routerLink="/account/password" role="menuitem" (click)="closeUserMenuFromAction()">
+                Cambiar contraseña
+              </a>
+              <button type="button" role="menuitem" (click)="logout()">Cerrar sesión</button>
+            </div>
+          }
+        </div>
+      }
     </header>
 
     <div class="shell-main">
