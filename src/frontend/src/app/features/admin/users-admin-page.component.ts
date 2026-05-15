@@ -16,12 +16,18 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">TRACK 2 SEGURIDAD</p>
-        <h2>Administración mínima de usuarios internos</h2>
-        <p>
-          Alta controlada, rol base, activación lógica, reset administrativo de password y lockout
-          temporal sobre la capa de autenticación/autorización ya existente.
-        </p>
+        <div>
+          <p class="page-kicker">Administración</p>
+          <h2>Usuarios internos</h2>
+          <p>
+            Gestiona altas, roles, estado, contraseñas temporales y bloqueos operativos de las cuentas internas.
+          </p>
+        </div>
+
+        <div class="hero-actions">
+          <button type="button" (click)="openCreateDialog()">Crear usuario</button>
+          <button type="button" class="ghost" (click)="reload()">Actualizar</button>
+        </div>
       </article>
 
       @if (pageError()) {
@@ -32,204 +38,236 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         <p class="alert success">{{ pageSuccess() }}</p>
       }
 
-      <div class="page-grid">
-        <article class="form-card">
-          <div class="card-header">
-            <div>
-              <h3>Alta mínima</h3>
-              <p>El nuevo usuario se crea activo y con password inicial controlado por ADMIN.</p>
-            </div>
-            @if (isSubmitting()) {
-              <span class="badge neutral">Guardando...</span>
+      <article class="list-card">
+        <div class="card-header">
+          <div>
+            <h3>Usuarios registrados</h3>
+            <p>Administración de cuentas internas sin invitaciones ni borrado físico.</p>
+          </div>
+          <span class="badge neutral">{{ users().length }} usuarios</span>
+        </div>
+
+        @if (isLoading()) {
+          <p class="empty-state">Cargando usuarios internos...</p>
+        } @else if (users().length === 0) {
+          <p class="empty-state">No hay usuarios registrados.</p>
+        } @else {
+          <div class="user-list">
+            @for (user of users(); track user.id) {
+              <article class="user-row">
+                <div class="row-top">
+                  <div class="identity">
+                    <h4>{{ user.displayName }}</h4>
+                    <p class="meta">{{ user.userName }}</p>
+                  </div>
+
+                  <div class="row-badges" aria-label="Estado del usuario">
+                    @if (currentUserId() === user.id) {
+                      <span class="badge neutral">Tu sesión</span>
+                    }
+                    <span class="badge">{{ getRoleLabel(user.roleCode) }}</span>
+                    <span class="badge" [class.inactive]="!user.isActive">
+                      {{ user.isActive ? 'Activo' : 'Inactivo' }}
+                    </span>
+                    @if (user.isLockedOut) {
+                      <span class="badge inactive">Bloqueado</span>
+                    }
+                  </div>
+                </div>
+
+                <dl class="detail-grid">
+                  <div>
+                    <dt>Alta</dt>
+                    <dd>{{ user.createdUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Actualización</dt>
+                    <dd>{{ user.updatedUtc ? (user.updatedUtc | date: 'yyyy-MM-dd HH:mm':'UTC') : 'Sin cambios' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Último acceso</dt>
+                    <dd>{{ user.lastLoginUtc ? (user.lastLoginUtc | date: 'yyyy-MM-dd HH:mm':'UTC') : 'Sin acceso registrado' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Fallos</dt>
+                    <dd>{{ user.accessFailedCount }}</dd>
+                  </div>
+                  <div>
+                    <dt>Bloqueado hasta</dt>
+                    <dd>{{ user.lockoutEndUtc ? (user.lockoutEndUtc | date: 'yyyy-MM-dd HH:mm':'UTC') : 'Sin bloqueo' }}</dd>
+                  </div>
+                </dl>
+
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="ghost compact-button"
+                    [attr.aria-expanded]="isUserActionsOpen(user.id)"
+                    (click)="toggleUserActions(user.id)">
+                    {{ isUserActionsOpen(user.id) ? 'Cerrar gestión' : 'Gestionar' }}
+                  </button>
+
+                  <button
+                    type="button"
+                    class="ghost compact-button"
+                    [disabled]="isRowBusy(user.id)"
+                    (click)="toggleActivation(user)">
+                    {{ user.isActive ? 'Desactivar' : 'Reactivar' }}
+                  </button>
+                </div>
+
+                @if (isUserActionsOpen(user.id)) {
+                  <div class="actions-panel" role="group" [attr.aria-label]="'Acciones para ' + user.displayName">
+                    <div class="action-group">
+                      <label>
+                        <span>Rol</span>
+                        <select
+                          [value]="getRoleDraft(user)"
+                          [disabled]="isRowBusy(user.id)"
+                          (change)="setRoleDraft(user.id, $any($event.target).value)">
+                          @for (roleCode of roleOptions; track roleCode) {
+                            <option [value]="roleCode">{{ getRoleLabel(roleCode) }}</option>
+                          }
+                        </select>
+                      </label>
+
+                      <button
+                        type="button"
+                        [disabled]="isRowBusy(user.id) || getRoleDraft(user) === user.roleCode"
+                        (click)="applyRoleChange(user)">
+                        Guardar rol
+                      </button>
+                    </div>
+
+                    <div class="action-group password-action">
+                      <label class="password-field">
+                        <span>Contraseña temporal</span>
+                        <input
+                          type="password"
+                          [value]="getPasswordDraft(user.id)"
+                          [disabled]="isRowBusy(user.id)"
+                          placeholder="12+ con mayúscula, minúscula y número"
+                          (input)="setPasswordDraft(user.id, $any($event.target).value)" />
+                      </label>
+
+                      <button
+                        type="button"
+                        [disabled]="isRowBusy(user.id) || !passwordMeetsPolicy(getPasswordDraft(user.id))"
+                        (click)="resetPassword(user)">
+                        Restablecer contraseña
+                      </button>
+                    </div>
+
+                    <div class="action-group lockout-action">
+                      <p>
+                        Bloqueo:
+                        <strong>{{ user.isLockedOut ? 'activo' : 'sin bloqueo activo' }}</strong>
+                      </p>
+                      <button
+                        type="button"
+                        class="ghost"
+                        [disabled]="isRowBusy(user.id) || (user.accessFailedCount === 0 && !user.lockoutEndUtc)"
+                        (click)="unlockUser(user)">
+                        Limpiar bloqueo
+                      </button>
+                    </div>
+                  </div>
+                }
+              </article>
             }
           </div>
+        }
+      </article>
 
-          <form class="form-grid" [formGroup]="form" (ngSubmit)="submitCreateUser()">
-            <label>
-              <span>UserName</span>
-              <input type="text" formControlName="userName" placeholder="operador-interno" />
-            </label>
-
-            <label>
-              <span>Nombre visible</span>
-              <input type="text" formControlName="displayName" placeholder="Operador interno" />
-            </label>
-
-            <label>
-              <span>Rol base</span>
-              <select formControlName="roleCode">
-                @for (roleCode of roleOptions; track roleCode) {
-                  <option [value]="roleCode">{{ getRoleLabel(roleCode) }}</option>
-                }
-              </select>
-            </label>
-
-            <label>
-              <span>Password inicial</span>
-              <input type="password" formControlName="password" placeholder="12+ con mayúscula, minúscula y número" />
-            </label>
-
-            <div class="form-actions">
-              <button type="submit" [disabled]="isSubmitting()">Crear usuario</button>
-              <button type="button" class="ghost" (click)="resetCreateForm()">Limpiar</button>
-            </div>
-          </form>
-
-          <p class="card-note">
-            Los cambios de rol, activación o password invalidan tokens previos del usuario afectado.
-            Los passwords temporales deben cumplir la política mínima documentada.
-          </p>
-        </article>
-
-        <article class="list-card">
-          <div class="card-header">
-            <div>
-              <h3>Usuarios registrados</h3>
-              <p>Vista administrativa mínima sin self-service, invitaciones ni borrado físico.</p>
-            </div>
-            <button type="button" class="ghost" (click)="reload()">Actualizar</button>
-          </div>
-
-          @if (isLoading()) {
-            <p class="empty-state">Cargando usuarios internos...</p>
-          } @else if (users().length === 0) {
-            <p class="empty-state">No hay usuarios registrados.</p>
-          } @else {
-            <div class="user-list">
-              @for (user of users(); track user.id) {
-                <article class="user-row">
-                  <div class="row-top">
-                    <div>
-                      <h4>{{ user.displayName }}</h4>
-                      <p class="meta">{{ user.userName }}</p>
-                    </div>
-
-                    <div class="row-badges">
-                      @if (currentUserId() === user.id) {
-                        <span class="badge neutral">Tu sesión</span>
-                      }
-                      <span class="badge">{{ getRoleLabel(user.roleCode) }}</span>
-                      <span class="badge" [class.inactive]="!user.isActive">
-                        {{ user.isActive ? 'Activo' : 'Inactivo' }}
-                      </span>
-                      @if (user.isLockedOut) {
-                        <span class="badge inactive">Lockout</span>
-                      }
-                    </div>
-                  </div>
-
-                  <dl class="detail-grid">
-                    <div>
-                      <dt>Creado UTC</dt>
-                      <dd>{{ user.createdUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</dd>
-                    </div>
-                    <div>
-                      <dt>Actualizado UTC</dt>
-                      <dd>{{ user.updatedUtc ? (user.updatedUtc | date: 'yyyy-MM-dd HH:mm':'UTC') : 'Sin cambios administrativos' }}</dd>
-                    </div>
-                    <div>
-                      <dt>Último login UTC</dt>
-                      <dd>{{ user.lastLoginUtc ? (user.lastLoginUtc | date: 'yyyy-MM-dd HH:mm':'UTC') : 'Sin login registrado' }}</dd>
-                    </div>
-                    <div>
-                      <dt>Intentos fallidos</dt>
-                      <dd>{{ user.accessFailedCount }}</dd>
-                    </div>
-                    <div>
-                      <dt>Lockout hasta UTC</dt>
-                      <dd>{{ user.lockoutEndUtc ? (user.lockoutEndUtc | date: 'yyyy-MM-dd HH:mm':'UTC') : 'Sin bloqueo' }}</dd>
-                    </div>
-                  </dl>
-
-                  <div class="actions-grid">
-                    <label>
-                      <span>Rol</span>
-                      <select
-                        [value]="getRoleDraft(user)"
-                        [disabled]="isRowBusy(user.id)"
-                        (change)="setRoleDraft(user.id, $any($event.target).value)">
-                        @for (roleCode of roleOptions; track roleCode) {
-                          <option [value]="roleCode">{{ getRoleLabel(roleCode) }}</option>
-                        }
-                      </select>
-                    </label>
-
-                    <button
-                      type="button"
-                      [disabled]="isRowBusy(user.id) || getRoleDraft(user) === user.roleCode"
-                      (click)="applyRoleChange(user)">
-                      Guardar rol
-                    </button>
-
-                    <button
-                      type="button"
-                      class="ghost"
-                      [disabled]="isRowBusy(user.id)"
-                      (click)="toggleActivation(user)">
-                      {{ user.isActive ? 'Desactivar' : 'Reactivar' }}
-                    </button>
-
-                    <label class="password-field">
-                      <span>Reset password</span>
-                      <input
-                        type="password"
-                        [value]="getPasswordDraft(user.id)"
-                        [disabled]="isRowBusy(user.id)"
-                        placeholder="12+ con mayúscula, minúscula y número"
-                        (input)="setPasswordDraft(user.id, $any($event.target).value)" />
-                    </label>
-
-                    <button
-                      type="button"
-                      [disabled]="isRowBusy(user.id) || !passwordMeetsPolicy(getPasswordDraft(user.id))"
-                      (click)="resetPassword(user)">
-                      Resetear password
-                    </button>
-
-                    <button
-                      type="button"
-                      class="ghost"
-                      [disabled]="isRowBusy(user.id) || (user.accessFailedCount === 0 && !user.lockoutEndUtc)"
-                      (click)="unlockUser(user)">
-                      Limpiar lockout
-                    </button>
-                  </div>
-                </article>
+      @if (isCreateDialogOpen()) {
+        <div class="dialog-backdrop" (click)="closeCreateDialog()">
+          <section
+            class="dialog-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-user-title"
+            (click)="$event.stopPropagation()"
+            (keydown.escape)="closeCreateDialog()">
+            <div class="card-header">
+              <div>
+                <h3 id="create-user-title">Crear usuario</h3>
+                <p>El usuario se crea activo y con contraseña temporal definida por administración.</p>
+              </div>
+              @if (isSubmitting()) {
+                <span class="badge neutral">Guardando...</span>
               }
             </div>
-          }
-        </article>
-      </div>
+
+            <form class="form-grid" [formGroup]="form" (ngSubmit)="submitCreateUser()">
+              <label>
+                <span>Usuario</span>
+                <input type="text" formControlName="userName" placeholder="operador-interno" />
+              </label>
+
+              <label>
+                <span>Nombre visible</span>
+                <input type="text" formControlName="displayName" placeholder="Operador interno" />
+              </label>
+
+              <label>
+                <span>Rol</span>
+                <select formControlName="roleCode">
+                  @for (roleCode of roleOptions; track roleCode) {
+                    <option [value]="roleCode">{{ getRoleLabel(roleCode) }}</option>
+                  }
+                </select>
+              </label>
+
+              <label>
+                <span>Contraseña inicial</span>
+                <input type="password" formControlName="password" placeholder="12+ con mayúscula, minúscula y número" />
+              </label>
+
+              <div class="form-actions">
+                <button type="submit" [disabled]="isSubmitting()">Crear usuario</button>
+                <button type="button" class="ghost" (click)="resetCreateForm()">Limpiar</button>
+                <button type="button" class="ghost" (click)="closeCreateDialog()">Cancelar</button>
+              </div>
+            </form>
+
+            <p class="card-note">
+              Los cambios de rol, estado o contraseña invalidan accesos previos del usuario afectado.
+            </p>
+          </section>
+        </div>
+      }
     </section>
   `,
   styles: [
     `
       .page-shell,
-      .page-grid,
       .form-grid,
       .user-list {
         display: grid;
-        gap: 1.25rem;
-      }
-
-      .page-grid {
-        grid-template-columns: minmax(21rem, 24rem) minmax(0, 1fr);
-        align-items: start;
+        gap: 1rem;
+        min-width: 0;
       }
 
       .hero-card,
-      .form-card,
       .list-card {
-        padding: 1.5rem;
-        border-radius: 1.35rem;
-        background: rgba(255, 255, 255, 0.82);
+        padding: 1.15rem;
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.86);
         border: 1px solid rgba(29, 45, 42, 0.08);
-        box-shadow: 0 16px 30px rgba(32, 44, 41, 0.06);
+        box-shadow: 0 14px 26px rgba(32, 44, 41, 0.06);
+        min-width: 0;
+      }
+
+      .hero-card {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
       }
 
       .page-kicker {
         margin: 0 0 0.5rem;
-        letter-spacing: 0.12em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         font-size: 0.78rem;
         font-weight: 700;
@@ -242,6 +280,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       p,
       dd {
         margin: 0;
+        overflow-wrap: anywhere;
       }
 
       .hero-card p:last-child,
@@ -249,13 +288,15 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .meta,
       .empty-state,
       .card-note {
-        margin-top: 0.75rem;
-        line-height: 1.6;
+        margin-top: 0.5rem;
+        line-height: 1.5;
         color: #4d615c;
       }
 
+      .hero-actions,
       .card-header,
-      .row-top {
+      .row-top,
+      .row-actions {
         display: flex;
         justify-content: space-between;
         gap: 1rem;
@@ -263,13 +304,13 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       }
 
       .card-header {
-        margin-bottom: 1rem;
+        margin-bottom: 0.9rem;
       }
 
       .alert,
       .badge {
-        padding: 0.75rem 0.9rem;
-        border-radius: 0.9rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: 999px;
         font-weight: 700;
       }
 
@@ -287,6 +328,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         background: rgba(15, 118, 110, 0.08);
         color: #17423d;
         font-size: 0.8rem;
+        line-height: 1;
       }
 
       .badge.neutral {
@@ -312,13 +354,15 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         font-size: 0.92rem;
         font-weight: 600;
         color: #29403b;
+        min-width: 0;
       }
 
       input,
       select {
         width: 100%;
-        padding: 0.8rem 0.9rem;
-        border-radius: 0.9rem;
+        min-width: 0;
+        padding: 0.7rem 0.8rem;
+        border-radius: 0.75rem;
         border: 1px solid rgba(29, 45, 42, 0.14);
         background: #fbfbf8;
         color: #1d2d2a;
@@ -327,13 +371,14 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
       button {
         border: none;
-        border-radius: 0.9rem;
-        padding: 0.8rem 1rem;
+        border-radius: 0.75rem;
+        padding: 0.72rem 0.95rem;
         font: inherit;
         font-weight: 700;
         cursor: pointer;
         background: #123f3b;
         color: #f6f6f2;
+        white-space: nowrap;
       }
 
       button.ghost {
@@ -341,35 +386,47 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         color: #17423d;
       }
 
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 3px solid rgba(15, 118, 110, 0.35);
+        outline-offset: 2px;
+      }
+
       button:disabled {
         opacity: 0.7;
         cursor: wait;
       }
 
+      .hero-actions,
       .form-actions {
         display: flex;
         gap: 0.75rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
       }
 
       .user-row {
         display: grid;
-        gap: 1rem;
+        gap: 0.85rem;
         padding: 1rem;
         border-radius: 1rem;
         background: #f6f5ef;
+        border: 1px solid rgba(29, 45, 42, 0.07);
+        min-width: 0;
       }
 
       .detail-grid {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 0.9rem;
+        grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+        gap: 0.75rem;
         margin: 0;
       }
 
       dt {
         font-size: 0.75rem;
         font-weight: 700;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
         color: #5d736f;
       }
@@ -380,41 +437,106 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         line-height: 1.5;
       }
 
-      .actions-grid {
+      .row-actions {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+      }
+
+      .compact-button {
+        padding-inline: 0.85rem;
+      }
+
+      .actions-panel {
         display: grid;
-        grid-template-columns: minmax(10rem, 12rem) auto auto minmax(12rem, 1fr) auto auto;
+        grid-template-columns: minmax(13rem, 0.8fr) minmax(16rem, 1fr) minmax(12rem, 0.85fr);
         gap: 0.75rem;
+        align-items: stretch;
+        padding: 0.85rem;
+        border-radius: 0.85rem;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(15, 118, 110, 0.12);
+      }
+
+      .action-group {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.65rem;
         align-items: end;
+        min-width: 0;
+      }
+
+      .lockout-action {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+      }
+
+      .lockout-action p {
+        color: #4d615c;
       }
 
       .password-field {
         min-width: 0;
       }
 
+      .dialog-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        background: rgba(10, 23, 20, 0.42);
+      }
+
+      .dialog-panel {
+        width: min(100%, 39rem);
+        max-height: min(92vh, 46rem);
+        overflow: auto;
+        padding: 1.15rem;
+        border-radius: 1rem;
+        background: #fffdf8;
+        border: 1px solid rgba(29, 45, 42, 0.1);
+        box-shadow: 0 24px 60px rgba(18, 63, 59, 0.2);
+      }
+
       @media (max-width: 1180px) {
-        .page-grid {
+        .actions-panel {
           grid-template-columns: 1fr;
         }
 
-        .actions-grid {
-          grid-template-columns: 1fr 1fr;
-        }
-
-        .detail-grid {
-          grid-template-columns: 1fr;
+        .action-group {
+          grid-template-columns: minmax(0, 1fr) max-content;
         }
       }
 
       @media (max-width: 720px) {
+        .hero-card,
+        .card-header,
+        .row-top {
+          flex-direction: column;
+        }
+
+        .hero-actions,
+        .row-actions {
+          width: 100%;
+          justify-content: stretch;
+        }
+
+        .hero-actions button,
+        .row-actions button,
+        .form-actions button {
+          width: 100%;
+        }
+
         .form-actions,
-        .actions-grid {
+        .action-group,
+        .lockout-action {
           grid-template-columns: 1fr;
           display: grid;
         }
 
-        .row-top,
-        .card-header {
-          flex-direction: column;
+        button {
+          white-space: normal;
         }
 
         .row-badges {
@@ -439,6 +561,8 @@ export class UsersAdminPageComponent {
   protected readonly rowBusyState = signal<Record<string, boolean>>({});
   protected readonly roleDrafts = signal<Record<string, ApplicationRoleCode>>({});
   protected readonly passwordDrafts = signal<Record<string, string>>({});
+  protected readonly isCreateDialogOpen = signal(false);
+  protected readonly expandedUserActionsId = signal<string | null>(null);
   protected readonly currentUserId = computed(() => this.authService.currentUser()?.id ?? null);
 
   protected readonly form = this.formBuilder.nonNullable.group({
@@ -485,13 +609,34 @@ export class UsersAdminPageComponent {
     }
   }
 
+  protected openCreateDialog(): void {
+    this.resetCreateForm();
+    this.isCreateDialogOpen.set(true);
+  }
+
+  protected closeCreateDialog(): void {
+    if (this.isSubmitting()) {
+      return;
+    }
+
+    this.isCreateDialogOpen.set(false);
+  }
+
+  protected isUserActionsOpen(userId: string): boolean {
+    return this.expandedUserActionsId() === userId;
+  }
+
+  protected toggleUserActions(userId: string): void {
+    this.expandedUserActionsId.update((currentUserId) => (currentUserId === userId ? null : userId));
+  }
+
   protected async submitCreateUser(): Promise<void> {
     this.pageError.set(null);
     this.pageSuccess.set(null);
 
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.pageError.set('Completa userName, nombre visible, rol y un password inicial de 12+ caracteres con mayúscula, minúscula y número.');
+      this.pageError.set('Completa usuario, nombre visible, rol y una contraseña inicial de 12+ caracteres con mayúscula, minúscula y número.');
       return;
     }
 
@@ -500,6 +645,7 @@ export class UsersAdminPageComponent {
     try {
       const createdUser = await firstValueFrom(this.userManagementService.createUser(this.form.getRawValue()));
       this.resetCreateForm(false);
+      this.isCreateDialogOpen.set(false);
       this.pageSuccess.set(`Usuario ${createdUser.userName} creado con rol ${this.getRoleLabel(createdUser.roleCode)}.`);
       await this.reload();
     } catch (error) {
@@ -512,11 +658,11 @@ export class UsersAdminPageComponent {
   protected getRoleLabel(roleCode: ApplicationRoleCode): string {
     switch (roleCode) {
       case 'ADMIN':
-        return 'ADMIN';
+        return 'Administrador';
       case 'OPERATOR':
-        return 'OPERATOR';
+        return 'Operador';
       case 'READONLY':
-        return 'READONLY';
+        return 'Consulta';
     }
   }
 
@@ -582,7 +728,7 @@ export class UsersAdminPageComponent {
   protected async resetPassword(user: ApplicationUserAdmin): Promise<void> {
     const newPassword = this.getPasswordDraft(user.id).trim();
     if (!this.passwordMeetsPolicy(newPassword)) {
-      this.pageError.set('El password temporal debe tener 12+ caracteres e incluir mayúscula, minúscula y número.');
+      this.pageError.set('La contraseña temporal debe tener 12+ caracteres e incluir mayúscula, minúscula y número.');
       return;
     }
 
@@ -594,10 +740,10 @@ export class UsersAdminPageComponent {
           ...current,
           [user.id]: ''
         }));
-        this.pageSuccess.set(`Password restablecido para ${user.userName}.`);
+        this.pageSuccess.set(`Contraseña restablecida para ${user.userName}.`);
         await this.reload();
       },
-      'No se pudo restablecer el password del usuario.');
+      'No se pudo restablecer la contraseña del usuario.');
   }
 
   protected async unlockUser(user: ApplicationUserAdmin): Promise<void> {
@@ -605,10 +751,10 @@ export class UsersAdminPageComponent {
       user.id,
       async () => {
         const updatedUser = await firstValueFrom(this.userManagementService.unlockUser(user.id));
-        this.pageSuccess.set(`Lockout limpiado para ${updatedUser.userName}.`);
+        this.pageSuccess.set(`Bloqueo limpiado para ${updatedUser.userName}.`);
         await this.reload();
       },
-      'No se pudo limpiar el lockout del usuario.');
+      'No se pudo limpiar el bloqueo del usuario.');
   }
 
   protected passwordMeetsPolicy(value: string): boolean {
