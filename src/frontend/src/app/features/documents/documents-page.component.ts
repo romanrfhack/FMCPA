@@ -33,9 +33,18 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
   ],
   template: `
     <section class="page-shell">
-      <header class="page-header">
-        <p class="page-kicker">Control documental</p>
-        <h2>Documentos</h2>
+      <header class="page-header compact-header">
+        <div>
+          <p class="page-kicker">Control documental</p>
+          <h2>Documentos</h2>
+        </div>
+        <div class="header-actions">
+          <a class="origin-link" href="/documents/work-queue">Cola</a>
+          <a class="origin-link" href="/documents/review">Revision</a>
+          <button type="button" class="ghost compact" [disabled]="isSummaryLoading()" (click)="reloadSummary()">
+            Actualizar KPIs
+          </button>
+        </div>
       </header>
 
       @if (pageError()) {
@@ -46,164 +55,142 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
         <p class="alert success">{{ pageSuccess() }}</p>
       }
 
-      <article class="panel summary-panel">
-        <div class="panel-header">
-          <div>
-            <h3>Resumen ejecutivo documental</h3>
-            @if (isSummaryLoading()) {
-              <span>Actualizando...</span>
-            }
-          </div>
-          <div class="summary-actions">
-            <a class="origin-link" href="/documents/work-queue">Ver pendientes</a>
-            <button type="button" class="ghost compact" [disabled]="isSummaryLoading()" (click)="reloadSummary()">
-              Actualizar
-            </button>
-          </div>
-        </div>
-
+      <article class="panel kpi-panel">
         <app-documents-kpi-strip [summary]="summary()" [isLoading]="isSummaryLoading()" />
-        <app-documents-summary-panel [summary]="summary()" />
       </article>
 
-      <form class="filters-panel" [formGroup]="filtersForm" (ngSubmit)="reload()" aria-label="Filtros documentales">
-        <label>
-          <span>Modulo</span>
-          <select formControlName="moduleCode">
-            <option value="">Todos permitidos</option>
-            <option value="MARKETS">Mercados</option>
-            <option value="DONATARIAS">Donatarias</option>
-            <option value="FEDERATION">Federacion</option>
-          </select>
-        </label>
+      <nav class="tabs" aria-label="Secciones documentales">
+        <button type="button" [class.active]="activeTab() === 'catalog'" (click)="activeTab.set('catalog')">
+          Catalogo
+        </button>
+        <button type="button" [class.active]="activeTab() === 'pending'" (click)="activeTab.set('pending')">
+          Pendientes
+        </button>
+        <button type="button" [class.active]="activeTab() === 'summary'" (click)="activeTab.set('summary')">
+          Resumen
+        </button>
+      </nav>
 
-        <label>
-          <span>Area documental</span>
-          <select formControlName="documentAreaCode">
-            <option value="">Todas</option>
-            <option value="MARKETS_TENANT_CERTIFICATES">Cedulas de mercados</option>
-            <option value="DONATIONS_APPLICATION_EVIDENCES">Evidencias donatarias</option>
-            <option value="FEDERATION_APPLICATION_EVIDENCES">Evidencias federacion</option>
-          </select>
-        </label>
+      @if (activeTab() === 'catalog') {
+        <form class="filters-panel" [formGroup]="filtersForm" (ngSubmit)="reload()" aria-label="Filtros documentales">
+          <div class="basic-filters">
+            <label>
+              <span>Modulo</span>
+              <select formControlName="moduleCode">
+                <option value="">Todos permitidos</option>
+                <option value="MARKETS">Mercados</option>
+                <option value="DONATARIAS">Donatarias</option>
+                <option value="FEDERATION">Federacion</option>
+              </select>
+            </label>
 
-        <label>
-          <span>Integridad</span>
-          <select formControlName="integrityState">
-            <option value="">Todos</option>
-            <option value="VALID">Correcta</option>
-            <option value="MISSING_FILE">Archivo no localizado</option>
-            <option value="SIZE_MISMATCH">Tamano distinto</option>
-            <option value="INVALID_PATH">Ruta no valida</option>
-          </select>
-        </label>
+            <label>
+              <span>Estado</span>
+              <select formControlName="statusCode">
+                <option value="ACTIVE">Vigentes</option>
+                <option value="ARCHIVED">Archivados</option>
+                <option value="ALL">Todos</option>
+              </select>
+            </label>
 
-        <label>
-          <span>Estado operativo</span>
-          <select formControlName="documentOperationalStatusCode">
-            <option value="">Todos</option>
-            <option value="ACTIVE_OK">Disponible</option>
-            <option value="INTEGRITY_ISSUE">Revisar integridad</option>
-            <option value="ON_HOLD">En resguardo</option>
-            <option value="REVIEW_DUE">Requiere revision</option>
-            <option value="RETENTION_EXPIRED">Retencion vencida</option>
-            <option value="ARCHIVED">Archivado</option>
-            <option value="SUPERSEDED">Reemplazado</option>
-          </select>
-        </label>
+            <label>
+              <span>Estado operativo</span>
+              <select formControlName="documentOperationalStatusCode">
+                <option value="">Todos</option>
+                <option value="ACTIVE_OK">Disponible</option>
+                <option value="INTEGRITY_ISSUE">Revisar integridad</option>
+                <option value="ON_HOLD">En resguardo</option>
+                <option value="REVIEW_DUE">Requiere revision</option>
+                <option value="RETENTION_EXPIRED">Retencion vencida</option>
+                <option value="ARCHIVED">Archivado</option>
+                <option value="SUPERSEDED">Reemplazado</option>
+              </select>
+            </label>
 
-        <label>
-          <span>Clase</span>
-          <select formControlName="documentClassCode">
-            <option value="">Todas</option>
-            <option value="CERTIFICATE">Cedula o certificado</option>
-            <option value="SIGNED_DOCUMENT">Documento firmado</option>
-            <option value="SUPPORTING_DOCUMENT">Soporte documental</option>
-            <option value="PHOTO_EVIDENCE">Evidencia fotografica</option>
-            <option value="VIDEO_EVIDENCE">Evidencia en video</option>
-            <option value="OTHER">Otro</option>
-          </select>
-        </label>
+            <label>
+              <span>Limite</span>
+              <input type="number" min="1" max="200" formControlName="take" />
+            </label>
 
-        <label>
-          <span>Politica de retencion</span>
-          <select formControlName="retentionPolicyCode">
-            <option value="">Todas</option>
-            <option value="CERTIFICATE_REVIEW">Revision de cedulas</option>
-            <option value="SIGNED_LONG_TERM">Resguardo largo</option>
-            <option value="EVIDENCE_MEDIUM_TERM">Evidencia operativa</option>
-            <option value="GENERIC_REVIEW">Revision general</option>
-          </select>
-        </label>
-
-        <label>
-          <span>Estado de retencion</span>
-          <select formControlName="retentionStatusCode">
-            <option value="">Todos</option>
-            <option value="ACTIVE_RETENTION">Dentro de periodo</option>
-            <option value="REVIEW_DUE">Por revisar</option>
-            <option value="EXPIRED_RETENTION">Vencida</option>
-          </select>
-        </label>
-
-        <label>
-          <span>Estado</span>
-          <select formControlName="statusCode">
-            <option value="ACTIVE">Vigentes</option>
-            <option value="ARCHIVED">Archivados</option>
-            <option value="ALL">Todos</option>
-          </select>
-        </label>
-
-        <label>
-          <span>Tipo de origen</span>
-          <input type="text" formControlName="entityType" placeholder="Tipo de origen" />
-        </label>
-
-        <label>
-          <span>ID de origen</span>
-          <input type="text" formControlName="entityId" placeholder="Identificador" />
-        </label>
-
-        <label>
-          <span>Limite</span>
-          <input type="number" min="1" max="200" formControlName="take" />
-        </label>
-
-        <div class="filter-actions">
-          <button type="submit" [disabled]="isLoading()">Buscar</button>
-          <button type="button" class="ghost" (click)="resetFilters()">Limpiar</button>
-          <button type="button" class="ghost compact" [disabled]="isExporting()" (click)="exportCatalog()">Exportar</button>
-        </div>
-      </form>
-
-      <article class="panel pending-panel">
-        <div class="panel-header">
-          <div>
-            <h3>Pendientes documentales</h3>
-            @if (pendingResultCount() !== null) {
-              <span>{{ pendingResultCount() }} de {{ pendingTotalCount() }}</span>
-            }
+            <div class="filter-actions">
+              <button type="submit" [disabled]="isLoading()">Buscar</button>
+              <button type="button" class="ghost" (click)="resetFilters()">Limpiar</button>
+              <button type="button" class="ghost compact" [disabled]="isExporting()" (click)="exportCatalog()">Exportar</button>
+            </div>
           </div>
-          <form class="pending-actions" [formGroup]="pendingFiltersForm" (ngSubmit)="reloadPending()">
-            <select formControlName="moduleCode">
-              <option value="">Todos permitidos</option>
-              <option value="MARKETS">Mercados</option>
-              <option value="DONATARIAS">Donatarias</option>
-              <option value="FEDERATION">Federacion</option>
-            </select>
-            <button type="submit" class="ghost compact" [disabled]="isPendingLoading()">Actualizar</button>
-          </form>
-        </div>
 
-        <app-documents-pending-table
-          [pendingItems]="pendingItems()"
-          [isLoading]="isPendingLoading()"
-          [canRemediateItem]="canRemediatePending"
-          (filterByEntity)="filterByPendingEntity($event)" />
-      </article>
+          <details class="advanced-filters">
+            <summary>Filtros avanzados</summary>
+            <div class="advanced-grid">
+              <label>
+                <span>Area documental</span>
+                <select formControlName="documentAreaCode">
+                  <option value="">Todas</option>
+                  <option value="MARKETS_TENANT_CERTIFICATES">Cedulas de mercados</option>
+                  <option value="DONATIONS_APPLICATION_EVIDENCES">Evidencias donatarias</option>
+                  <option value="FEDERATION_APPLICATION_EVIDENCES">Evidencias federacion</option>
+                </select>
+              </label>
 
-      <div class="content-grid">
+              <label>
+                <span>Integridad</span>
+                <select formControlName="integrityState">
+                  <option value="">Todos</option>
+                  <option value="VALID">Correcta</option>
+                  <option value="MISSING_FILE">Archivo no localizado</option>
+                  <option value="SIZE_MISMATCH">Tamano distinto</option>
+                  <option value="INVALID_PATH">Ruta no valida</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Clase</span>
+                <select formControlName="documentClassCode">
+                  <option value="">Todas</option>
+                  <option value="CERTIFICATE">Cedula o certificado</option>
+                  <option value="SIGNED_DOCUMENT">Documento firmado</option>
+                  <option value="SUPPORTING_DOCUMENT">Soporte documental</option>
+                  <option value="PHOTO_EVIDENCE">Evidencia fotografica</option>
+                  <option value="VIDEO_EVIDENCE">Evidencia en video</option>
+                  <option value="OTHER">Otro</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Politica de retencion</span>
+                <select formControlName="retentionPolicyCode">
+                  <option value="">Todas</option>
+                  <option value="CERTIFICATE_REVIEW">Revision de cedulas</option>
+                  <option value="SIGNED_LONG_TERM">Resguardo largo</option>
+                  <option value="EVIDENCE_MEDIUM_TERM">Evidencia operativa</option>
+                  <option value="GENERIC_REVIEW">Revision general</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Estado de retencion</span>
+                <select formControlName="retentionStatusCode">
+                  <option value="">Todos</option>
+                  <option value="ACTIVE_RETENTION">Dentro de periodo</option>
+                  <option value="REVIEW_DUE">Por revisar</option>
+                  <option value="EXPIRED_RETENTION">Vencida</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Tipo de origen</span>
+                <input type="text" formControlName="entityType" placeholder="Tipo de origen" />
+              </label>
+
+              <label>
+                <span>ID de origen</span>
+                <input type="text" formControlName="entityId" placeholder="Identificador" />
+              </label>
+            </div>
+          </details>
+        </form>
+
+        <div class="content-grid">
         <app-documents-catalog-table
           [documents]="documents()"
           [isLoading]="isLoading()"
@@ -213,9 +200,16 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
           (selectDocument)="selectDocument($event)"
           (downloadDocument)="download($event)" />
 
-        <aside class="panel detail-panel">
+        @if (isDetailDrawerOpen()) {
+          <button type="button" class="drawer-backdrop" aria-label="Cerrar detalle" (click)="closeDetailDrawer()"></button>
+        }
+
+        <aside class="panel detail-panel" [class.open]="isDetailDrawerOpen()">
           <div class="panel-header">
             <h3>Detalle</h3>
+            <button type="button" class="ghost compact close-drawer" (click)="closeDetailDrawer()">
+              Cerrar
+            </button>
           </div>
 
           @if (selectedDocument(); as document) {
@@ -575,6 +569,52 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
           }
         </aside>
       </div>
+      } @else if (activeTab() === 'pending') {
+        <article class="panel pending-panel">
+          <div class="panel-header">
+            <div>
+              <h3>Pendientes documentales</h3>
+              @if (pendingResultCount() !== null) {
+                <span>{{ pendingResultCount() }} de {{ pendingTotalCount() }}</span>
+              }
+            </div>
+            <form class="pending-actions" [formGroup]="pendingFiltersForm" (ngSubmit)="reloadPending()">
+              <select formControlName="moduleCode">
+                <option value="">Todos permitidos</option>
+                <option value="MARKETS">Mercados</option>
+                <option value="DONATARIAS">Donatarias</option>
+                <option value="FEDERATION">Federacion</option>
+              </select>
+              <button type="submit" class="ghost compact" [disabled]="isPendingLoading()">Actualizar</button>
+            </form>
+          </div>
+
+          <app-documents-pending-table
+            [pendingItems]="pendingItems()"
+            [isLoading]="isPendingLoading()"
+            [canRemediateItem]="canRemediatePending"
+            (filterByEntity)="filterByPendingEntity($event)" />
+        </article>
+      } @else {
+        <article class="panel summary-panel">
+          <div class="panel-header">
+            <div>
+              <h3>Resumen ejecutivo documental</h3>
+              @if (isSummaryLoading()) {
+                <span>Actualizando...</span>
+              }
+            </div>
+            <div class="summary-actions">
+              <a class="origin-link" href="/documents/work-queue">Ver cola</a>
+              <button type="button" class="ghost compact" [disabled]="isSummaryLoading()" (click)="reloadSummary()">
+                Actualizar
+              </button>
+            </div>
+          </div>
+
+          <app-documents-summary-panel [summary]="summary()" />
+        </article>
+      }
     </section>
   `,
   styles: [
@@ -604,6 +644,27 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
         padding: 1.25rem;
       }
 
+      .compact-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: center;
+        padding: 0.85rem 1rem;
+      }
+
+      .compact-header h2 {
+        font-size: 1.35rem;
+        line-height: 1.1;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 0.55rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        align-items: center;
+      }
+
       .page-kicker,
       h2,
       h3,
@@ -614,19 +675,65 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
       }
 
       .page-kicker {
-        margin-bottom: 0.4rem;
+        margin-bottom: 0.18rem;
         font-size: 0.78rem;
         font-weight: 800;
         letter-spacing: 0.08em;
         color: #0f766e;
       }
 
+      .kpi-panel {
+        padding: 0.9rem;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+        border-bottom: 1px solid rgba(35, 51, 47, 0.12);
+      }
+
+      .tabs button {
+        border-radius: 8px 8px 0 0;
+        padding: 0.62rem 1rem;
+        color: #334641;
+        background: transparent;
+      }
+
+      .tabs button.active {
+        color: #0f766e;
+        background: rgba(15, 118, 110, 0.1);
+        box-shadow: inset 0 -2px 0 #0f766e;
+      }
+
       .filters-panel {
+        display: grid;
+        gap: 0.75rem;
+        padding: 0.9rem;
+      }
+
+      .basic-filters,
+      .advanced-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
         gap: 0.7rem;
-        padding: 0.9rem;
         align-items: end;
+      }
+
+      .advanced-filters {
+        border-top: 1px solid rgba(35, 51, 47, 0.08);
+        padding-top: 0.7rem;
+      }
+
+      .advanced-filters summary {
+        width: fit-content;
+        color: #0f5f58;
+        cursor: pointer;
+        font-weight: 900;
+      }
+
+      .advanced-filters[open] .advanced-grid {
+        margin-top: 0.75rem;
       }
 
       label {
@@ -687,8 +794,7 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
 
       .content-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(280px, 0.35fr);
-        gap: 1rem;
+        grid-template-columns: minmax(0, 1fr);
         align-items: start;
       }
 
@@ -763,6 +869,41 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
         border-bottom: 1px solid rgba(35, 51, 47, 0.1);
       }
 
+      .drawer-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        border-radius: 0;
+        background: rgba(18, 31, 28, 0.32);
+      }
+
+      .detail-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 40;
+        width: min(35rem, calc(100vw - 1.5rem));
+        overflow-y: auto;
+        border-radius: 8px 0 0 8px;
+        transform: translateX(105%);
+        transition: transform 160ms ease;
+      }
+
+      .detail-panel.open {
+        transform: translateX(0);
+      }
+
+      .detail-panel .panel-header {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        margin: -1.25rem -1.25rem 1rem;
+        padding: 0.85rem 1.25rem;
+        border-bottom: 1px solid rgba(35, 51, 47, 0.1);
+        background: rgba(255, 255, 255, 0.96);
+      }
+
       .detail-summary h4 {
         margin: 0;
         color: #123f3b;
@@ -809,6 +950,11 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
       .detail-panel button {
         margin-top: 1rem;
         width: 100%;
+      }
+
+      .detail-panel .close-drawer {
+        width: auto;
+        margin-top: 0;
       }
 
       .document-actions {
@@ -861,15 +1007,20 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
       }
 
       @media (max-width: 980px) {
-        .filters-panel,
-        .content-grid,
+        .compact-header,
+        .basic-filters,
+        .advanced-grid,
         .pending-actions {
           grid-template-columns: 1fr;
           display: grid;
         }
 
         .filter-actions {
-          flex-wrap: wrap;
+          justify-content: stretch;
+        }
+
+        .filter-actions button {
+          flex: 1;
         }
       }
     `
@@ -915,6 +1066,8 @@ export class DocumentsPageComponent {
   protected readonly summary = signal<DocumentSummary | null>(null);
   protected readonly documents = signal<DocumentCatalogItem[]>([]);
   protected readonly pendingItems = signal<DocumentCompleteness[]>([]);
+  protected readonly activeTab = signal<'catalog' | 'pending' | 'summary'>('catalog');
+  protected readonly isDetailDrawerOpen = signal(false);
   protected readonly selectedDocument = signal<DocumentCatalogItem | DocumentCatalogDetail | null>(null);
   protected readonly selectedTimeline = signal<DocumentTimelineEvent[]>([]);
   protected readonly pageError = signal<string | null>(null);
@@ -1196,6 +1349,7 @@ export class DocumentsPageComponent {
   };
 
   protected filterByPendingEntity(item: DocumentCompleteness): void {
+    this.activeTab.set('catalog');
     this.filtersForm.patchValue({
       moduleCode: item.moduleCode,
       documentAreaCode: '',
@@ -1215,6 +1369,7 @@ export class DocumentsPageComponent {
   protected async selectDocument(document: DocumentCatalogItem): Promise<void> {
     this.pageError.set(null);
     this.pageSuccess.set(null);
+    this.isDetailDrawerOpen.set(true);
 
     try {
       const [detail, timeline] = await Promise.all([
@@ -1240,6 +1395,10 @@ export class DocumentsPageComponent {
     } catch (error) {
       this.pageError.set(getApiErrorMessage(error, 'No se pudo descargar el documento.'));
     }
+  }
+
+  protected closeDetailDrawer(): void {
+    this.isDetailDrawerOpen.set(false);
   }
 
   protected async archive(document: DocumentCatalogItem): Promise<void> {

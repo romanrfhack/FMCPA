@@ -198,17 +198,24 @@ async function renderDocumentsPage(canAdministerUsers = false) {
 describe('DocumentsPageComponent', () => {
   it('renders summary KPIs and secondary summary content', async () => {
     const { fixture } = await renderDocumentsPage();
-    const visibleText = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const compiled = fixture.nativeElement as HTMLElement;
 
-    expect(visibleText).toContain('Total');
-    expect(visibleText).toContain('Incompletos');
-    expect(visibleText).toContain('Por modulo');
-    expect(visibleText).toContain('Por clase');
+    expect(compiled.textContent).toContain('Total');
+    expect(compiled.textContent).toContain('Incompletos');
+
+    compiled.querySelectorAll<HTMLButtonElement>('.tabs button')[2]?.click();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Por modulo');
+    expect(compiled.textContent).toContain('Por clase');
   });
 
   it('renders pending documents and filters the catalog from the pending action', async () => {
     const { fixture, documentCatalogService } = await renderDocumentsPage();
     const compiled = fixture.nativeElement as HTMLElement;
+
+    compiled.querySelectorAll<HTMLButtonElement>('.tabs button')[1]?.click();
+    fixture.detectChanges();
 
     expect(compiled.textContent).toContain('Falta cedula');
 

@@ -21,56 +21,89 @@ import { DocumentCatalogItem } from '../../core/models/document-catalog.models';
       } @else if (documents.length === 0) {
         <p class="empty-state">No hay documentos con los filtros actuales.</p>
       } @else {
-        <div class="document-list">
-          @for (document of documents; track document.id) {
-            <article
-              class="document-row"
-              [class.selected]="selectedDocumentId === document.id">
-              <button type="button" class="row-main" (click)="selectDocument.emit(document)">
-                <span class="badge">{{ document.moduleName }}</span>
-                <strong>{{ document.originalFileName }}</strong>
-                <small>{{ documentClassLabel(document.documentClassCode) }} · {{ document.originContext.displayName }}</small>
-                <small>{{ entityTypeLabel(document.originContext.entityType) }} · {{ document.originContext.entityId }}</small>
-              </button>
-              <div class="row-meta">
-                <span
-                  class="operational"
-                  [class.high]="document.documentOperationalSeverityCode === 'HIGH'"
-                  [class.medium]="document.documentOperationalSeverityCode === 'MEDIUM'"
-                  [class.low]="document.documentOperationalSeverityCode === 'LOW'">
-                  {{ operationalStatusLabel(document.documentOperationalStatusCode) }}
-                </span>
-                @if (document.isPrimaryDocument) {
-                  <span class="primary">Principal</span>
-                }
-                @if (document.isSuperseded) {
-                  <span class="superseded">Reemplazado</span>
-                } @else if (document.replacedDocumentId) {
-                  <span class="replacement">Vigente reemplazo</span>
-                }
-                <span class="retention" [class.expired]="document.retentionStatusCode === 'EXPIRED_RETENTION'" [class.review]="document.retentionStatusCode === 'REVIEW_DUE'">
-                  {{ retentionStatusLabel(document.retentionStatusCode) }}
-                </span>
-                @if (document.hasRetentionOverride) {
-                  <span class="retention">Retencion ajustada</span>
-                }
-                @if (document.isAdministrativeHold) {
-                  <span class="hold">En resguardo</span>
-                }
-                <span class="status" [class.archived]="document.statusCode === 'ARCHIVED'">
-                  {{ documentStatusLabel(document.statusCode) }}
-                </span>
-                <span [class.issue]="document.integrityState !== 'VALID'">
-                  {{ integrityLabel(document.integrityState) }}
-                </span>
-                <span>{{ document.sizeBytes | number }} bytes</span>
-                <span>{{ document.createdUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</span>
-              </div>
-              <button type="button" class="ghost compact" (click)="downloadDocument.emit(document)">
-                Descargar
-              </button>
-            </article>
-          }
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Documento</th>
+                <th>Origen</th>
+                <th>Modulo</th>
+                <th>Estado</th>
+                <th>Retencion</th>
+                <th>Integridad</th>
+                <th>Fecha</th>
+                <th class="numeric">Tamano</th>
+                <th class="actions-column">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (document of documents; track document.id) {
+                <tr [class.selected]="selectedDocumentId === document.id">
+                  <td>
+                    <button type="button" class="text-link" (click)="selectDocument.emit(document)">
+                      <strong>{{ document.originalFileName }}</strong>
+                      <span>{{ documentClassLabel(document.documentClassCode) }}</span>
+                    </button>
+                  </td>
+                  <td>
+                    <strong>{{ document.originContext.displayName }}</strong>
+                    <span>{{ entityTypeLabel(document.originContext.entityType) }} · {{ document.originContext.entityId }}</span>
+                  </td>
+                  <td>
+                    <span class="badge">{{ document.moduleName }}</span>
+                  </td>
+                  <td>
+                    <span
+                      class="pill"
+                      [class.high]="document.documentOperationalSeverityCode === 'HIGH'"
+                      [class.medium]="document.documentOperationalSeverityCode === 'MEDIUM'"
+                      [class.low]="document.documentOperationalSeverityCode === 'LOW'">
+                      {{ operationalStatusLabel(document.documentOperationalStatusCode) }}
+                    </span>
+                    <div class="flag-row">
+                      @if (document.isPrimaryDocument) {
+                        <span class="flag primary">Principal</span>
+                      }
+                      @if (document.isSuperseded) {
+                        <span class="flag superseded">Reemplazado</span>
+                      } @else if (document.replacedDocumentId) {
+                        <span class="flag replacement">Reemplazo</span>
+                      }
+                      @if (document.isAdministrativeHold) {
+                        <span class="flag hold">Resguardo</span>
+                      }
+                    </div>
+                  </td>
+                  <td>
+                    <span
+                      class="pill retention"
+                      [class.expired]="document.retentionStatusCode === 'EXPIRED_RETENTION'"
+                      [class.review]="document.retentionStatusCode === 'REVIEW_DUE'">
+                      {{ retentionStatusLabel(document.retentionStatusCode) }}
+                    </span>
+                    @if (document.hasRetentionOverride) {
+                      <span class="flag">Ajustada</span>
+                    }
+                  </td>
+                  <td>
+                    <span class="pill" [class.issue]="document.integrityState !== 'VALID'">
+                      {{ integrityLabel(document.integrityState) }}
+                    </span>
+                  </td>
+                  <td>{{ document.createdUtc | date: 'yyyy-MM-dd':'UTC' }}</td>
+                  <td class="numeric">{{ document.sizeBytes | number }}</td>
+                  <td class="row-actions">
+                    <button type="button" class="ghost compact" (click)="selectDocument.emit(document)">
+                      Detalle
+                    </button>
+                    <button type="button" class="ghost compact" (click)="downloadDocument.emit(document)">
+                      Descargar
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       }
     </article>
@@ -104,94 +137,141 @@ import { DocumentCatalogItem } from '../../core/models/document-catalog.models';
         color: #60716d;
       }
 
-      .document-list {
-        display: grid;
-        gap: 1rem;
+      .table-scroll {
+        overflow-x: auto;
       }
 
-      .document-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1.4fr) minmax(12rem, 0.8fr) auto;
-        gap: 0.9rem;
-        align-items: center;
-        padding: 1rem;
-        border: 1px solid rgba(35, 51, 47, 0.1);
-        border-radius: 8px;
+      table {
+        width: 100%;
+        min-width: 920px;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid rgba(35, 51, 47, 0.08);
+        padding: 0.58rem 0.55rem;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: #60716d;
+        font-size: 0.72rem;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      tbody tr {
         background: #fff;
       }
 
-      .document-row.selected {
-        border-color: rgba(15, 118, 110, 0.45);
+      tbody tr.selected {
+        background: rgba(15, 118, 110, 0.06);
+        box-shadow: inset 3px 0 0 #0f766e;
       }
 
-      .row-main {
+      td strong,
+      td span {
+        display: block;
+      }
+
+      td span {
+        color: #60716d;
+      }
+
+      .text-link {
         display: grid;
-        gap: 0.35rem;
-        min-width: 0;
+        gap: 0.15rem;
+        width: 100%;
         padding: 0;
         color: inherit;
         text-align: left;
         background: transparent;
       }
 
-      .row-main strong,
-      .row-main small {
+      .text-link strong,
+      td strong,
+      td span {
         overflow-wrap: anywhere;
       }
 
-      .row-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.3rem;
-        color: #60716d;
-        font-size: 0.85rem;
-      }
-
       .badge,
-      .row-meta span {
+      .pill,
+      .flag {
+        display: inline-block;
         width: fit-content;
         border-radius: 999px;
-        padding: 0.2rem 0.5rem;
+        padding: 0.18rem 0.45rem;
         color: #0f766e;
         background: rgba(15, 118, 110, 0.1);
-        font-size: 0.76rem;
+        font-size: 0.72rem;
         font-weight: 800;
       }
 
-      .row-meta span.archived {
-        color: #6d28d9;
-        background: rgba(109, 40, 217, 0.08);
+      .flag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        margin-top: 0.3rem;
       }
 
-      .row-meta span.primary {
+      .flag.primary {
         color: #1d4ed8;
         background: rgba(29, 78, 216, 0.08);
       }
 
-      .row-meta span.superseded {
+      .flag.superseded {
         color: #7c2d12;
         background: rgba(124, 45, 18, 0.08);
       }
 
-      .row-meta span.replacement {
+      .flag.replacement {
         color: #047857;
         background: rgba(4, 120, 87, 0.08);
       }
 
-      .row-meta span.retention {
+      .pill.retention {
         color: #365314;
         background: rgba(77, 124, 15, 0.1);
       }
 
-      .row-meta span.retention.review {
+      .pill.retention.review {
         color: #92400e;
         background: rgba(146, 64, 14, 0.1);
       }
 
-      .row-meta span.retention.expired,
-      .row-meta span.issue {
+      .pill.retention.expired,
+      .pill.issue,
+      .pill.high {
         color: #9f1239;
         background: rgba(159, 18, 57, 0.08);
+      }
+
+      .pill.medium {
+        color: #92400e;
+        background: rgba(146, 64, 14, 0.1);
+      }
+
+      .pill.low {
+        color: #365314;
+        background: rgba(77, 124, 15, 0.1);
+      }
+
+      .numeric {
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .actions-column {
+        width: 9.5rem;
+      }
+
+      .row-actions {
+        display: flex;
+        gap: 0.35rem;
+        justify-content: flex-end;
       }
 
       button {
@@ -215,8 +295,12 @@ import { DocumentCatalogItem } from '../../core/models/document-catalog.models';
       }
 
       @media (max-width: 980px) {
-        .document-row {
-          grid-template-columns: 1fr;
+        .panel {
+          padding: 0.9rem;
+        }
+
+        table {
+          min-width: 760px;
         }
       }
     `
