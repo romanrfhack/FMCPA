@@ -2,8 +2,8 @@
 
 ## Guía rápida de operación
 
-**Versión de guía:** Final 1.1
-**Corte de contenido:** 13 de mayo de 2026
+**Versión de guía:** Final 1.2
+**Corte de contenido:** 16 de mayo de 2026
 **Alcance del manual:** guía rápida para operación diaria del sistema, basada en las pantallas, rutas, permisos y documentación disponibles en el repositorio.
 
 Esta guía está redactada para usuarios operativos y administrativos de FMCPA Platform. Su objetivo es ayudar a ubicar módulos, entender qué permite hacer cada pantalla y reconocer qué funciones están disponibles, acotadas, en validación o previstas para una fase posterior.
@@ -26,15 +26,15 @@ Esta guía está redactada para usuarios operativos y administrativos de FMCPA P
 
 ## Objetivo del sistema
 
-[Disponible] FMCPA Platform centraliza la operación de Mercados, Donatarias, Financieras y Federación. También integra consulta documental, alertas, bitácora, histórico, comisiones, centro operativo y administración básica de usuarios y seguridad.
+[Disponible] FMCPA Platform centraliza la operación de Mercados, Donatarias, Financieras y Federación. También integra consulta documental, alertas, bitácora, histórico, comisiones, centro operativo y administración básica de usuarios y seguridad, con el rediseño visual global ya validado.
 
 [Disponible con alcance acotado] El sistema cuenta con una base operativa amplia, pero algunas capacidades avanzadas, como reportes formales, notificaciones externas, seguridad avanzada, auditoría forense y cumplimiento documental especializado, no están incluidas en esta versión.
 
 ## Acceso e inicio de sesión
 
-[Disponible] El acceso principal se realiza desde `/login`.
+[Disponible] El acceso principal se realiza desde `/login`, mediante una pantalla institucional con logo FMCPA y lenguaje orientado a usuario final.
 
-[Disponible] Una vez iniciada la sesión, el sistema muestra información del usuario y del rol activo. Desde la sesión se puede cerrar sesión y acceder al cambio de contraseña en `/account/password`.
+[Disponible] Una vez iniciada la sesión, el sistema muestra un header autenticado con logo FMCPA, nombre de plataforma y menú de usuario compacto. Desde ese menú se puede cerrar sesión y acceder al cambio de contraseña.
 
 [Disponible] Los roles visibles en la documentación y en el sistema son:
 
@@ -48,7 +48,7 @@ Esta guía está redactada para usuarios operativos y administrativos de FMCPA P
 
 ## Navegación general
 
-[Disponible] La navegación principal se presenta dentro del entorno autenticado del sistema. El menú se adapta a los permisos efectivos del usuario.
+[Disponible] La navegación principal se presenta dentro del entorno autenticado del sistema. El menú se adapta a los permisos efectivos del usuario y se agrupa en `Inicio`, `Operación`, `Control` y `Administración`.
 
 Pantallas reales identificadas:
 
@@ -115,16 +115,16 @@ El usuario puede:
 
 ## Mercados
 
-[Disponible] La pantalla `/markets` permite administrar mercados, locatarios, cédulas digitalizadas, incidencias y mejoras.
+[Disponible] La pantalla `/markets` permite administrar mercados, locatarios, cédulas digitalizadas, incidencias y mejoras con resumen operativo, tabs locales, listados compactos y modales contextuales.
 
 El usuario puede:
 
 - Filtrar mercados por estatus o alertas activas.
-- Registrar mercados con datos generales y observaciones.
+- Registrar mercados desde modal contextual con datos generales y observaciones.
 - Seleccionar un mercado para consultar detalle.
-- Registrar locatarios con datos de contacto, giro, número de cédula, vigencia y archivo digitalizado.
+- Registrar locatarios desde modal contextual con datos de contacto, giro, número de cédula, vigencia y archivo digitalizado.
 - Descargar cédulas digitalizadas cuando existen.
-- Registrar incidencias o mejoras con seguimiento, avance y estatus.
+- Registrar incidencias o mejoras desde modal contextual con seguimiento, avance y estatus.
 - Revisar alertas de cédulas por vencer o vencidas.
 - Consultar documentos relacionados.
 
@@ -134,7 +134,7 @@ El usuario puede:
 
 ## Donatarias
 
-[Disponible] La pantalla `/donatarias` administra la transparencia del recurso donado. El módulo está organizado en tabs para separar revisión ejecutiva, captura, distribución, evidencias y reporte.
+[Disponible] La pantalla `/donatarias` administra la transparencia del recurso donado. El módulo está organizado en tabs para separar revisión ejecutiva, captura, distribución, evidencias y reporte, con modales contextuales para registrar donaciones, aplicaciones y evidencias.
 
 Tabs disponibles:
 
@@ -156,11 +156,11 @@ KPIs principales:
 El usuario puede:
 
 - Filtrar donaciones por estatus o alertas.
-- Registrar donaciones con donante, fecha, tipo, monto, referencia y observaciones.
+- Registrar donaciones desde modal contextual con donante, fecha, tipo, monto, referencia y observaciones.
 - Consultar total recibido, total aplicado, saldo pendiente y porcentaje aplicado.
 - Revisar la distribución por aplicación, incluyendo beneficiario, fecha, responsable, monto aplicado, porcentaje del total recibido, saldo restante, estatus y detalle de comprobación.
-- Registrar aplicaciones con beneficiario, responsable, monto, estatus, comprobación y datos de cierre.
-- Cargar y descargar evidencias por aplicación.
+- Registrar aplicaciones desde modal contextual con beneficiario, responsable, monto, estatus, comprobación y datos de cierre.
+- Cargar evidencias desde modal contextual y descargar evidencias por aplicación.
 - Revisar alertas de donaciones no aplicadas o parcialmente aplicadas.
 - Consultar documentos relacionados.
 - Revisar semáforos financiero, documental y operativo.
@@ -175,25 +175,25 @@ El usuario puede:
 - `PARTIAL`: útil para revisión operativa, pero con pendientes financieros o documentales.
 - `NOT_READY`: falta información mínima, por ejemplo aplicaciones o evidencia suficiente para una presentación operativa.
 
-[Disponible] La vista imprimible oculta navegación, formularios y botones de captura. Conserva encabezado, KPIs, estados, aplicaciones, evidencias, faltantes y notas de alcance. No genera PDF oficial desde backend.
+[Disponible] La vista imprimible oculta navegación, formularios y botones de captura. Conserva encabezado, KPIs, estados, aplicaciones, evidencias, faltantes y notas de alcance. Es una vista operativa y no genera PDF oficial.
 
 [Solo ADMIN] El cierre formal de una donación requiere permisos administrativos.
 
 [Disponible con alcance acotado] La evidencia mínima registrada no sustituye revisión legal, fiscal o contable. El reporte es una vista operativa de transparencia, no un dictamen ni documento oficial.
 
-[Pendiente de fase posterior] Siguen fuera de esta versión: CSV específico de Donatarias, PDF oficial, folio, firma, versionamiento del reporte, validación legal/fiscal/contable, checklist documental avanzado y catálogo formal de donantes.
+[Pendiente de fase posterior] Siguen fuera de esta versión: PDF oficial, folio, firma, versionamiento del reporte, validación legal/fiscal/contable, checklist documental avanzado y catálogo formal de donantes. Cualquier CSV o exportación ligera debe tratarse como apoyo operativo, no como reporte oficial.
 
 ## Financieras
 
-[Disponible] La pantalla `/financials` administra oficios o autorizaciones, vigencias, créditos y comisiones por crédito.
+[Disponible] La pantalla `/financials` administra oficios o autorizaciones, vigencias, créditos y comisiones por crédito con tabs, ficha operativa, búsqueda de vigente, cadena y modales contextuales.
 
 El usuario puede:
 
 - Filtrar oficios por estatus o alertas.
-- Registrar oficios/autorizaciones con financiera, institución o dependencia, lugar o stand, horario, vigencia, estatus, términos y observaciones.
+- Registrar oficios/autorizaciones desde modal contextual con financiera, institución o dependencia, lugar o stand, horario, vigencia, estatus, términos y observaciones.
 - Buscar el permiso vigente por financiera, institución o dependencia y lugar o stand.
-- Registrar créditos individuales con promotor, beneficiario, contacto, fecha, monto y notas.
-- Registrar comisiones por crédito con tipo, destinatario, base y monto.
+- Registrar créditos individuales desde modal contextual con promotor, beneficiario, contacto, fecha, monto y notas.
+- Registrar comisiones por crédito desde modal contextual con tipo, destinatario, base y monto.
 - Consultar alertas de oficios vencidos, por vencer o en renovación.
 
 [En validación] La renovación de oficios está implementada como renovación mínima. Conserva el oficio anterior como histórico, crea uno nuevo vigente y muestra una cadena de renovación.
@@ -208,21 +208,21 @@ El usuario puede:
 
 ## Federación
 
-[Disponible] La pantalla `/federation` concentra gestiones de Federación y donaciones de Federación.
+[Disponible] La pantalla `/federation` concentra gestiones de Federación y donaciones de Federación en tabs internos, con resumen, listados compactos y modales contextuales.
 
 En gestiones, el usuario puede:
 
 - Filtrar por estatus o alertas.
-- Registrar gestiones con tipo, fecha, contraparte, estatus, objetivo y observaciones.
-- Agregar participantes internos o externos desde contactos compartidos.
+- Registrar gestiones desde modal contextual con tipo, fecha, contraparte, estatus, objetivo y observaciones.
+- Agregar participantes internos o externos desde contactos compartidos mediante modal contextual.
 - Consultar participantes y alertas de seguimiento.
 
 En donaciones de Federación, el usuario puede:
 
-- Registrar donaciones con donante, fecha, tipo, monto, referencia, estatus y notas.
-- Registrar aplicaciones con beneficiario o destino, fecha, monto, estatus, comprobación y datos de cierre.
-- Registrar comisiones por aplicación.
-- Cargar y descargar evidencias.
+- Registrar donaciones desde modal contextual con donante, fecha, tipo, monto, referencia, estatus y notas.
+- Registrar aplicaciones desde modal contextual con beneficiario o destino, fecha, monto, estatus, comprobación y datos de cierre.
+- Registrar comisiones por aplicación desde modal contextual.
+- Cargar evidencias desde modal contextual y descargar evidencias existentes.
 - Consultar documentos relacionados.
 
 [Solo ADMIN] Los cierres formales de gestiones y donaciones requieren permisos administrativos.
@@ -248,7 +248,7 @@ El usuario puede:
 
 ## Documentos
 
-[Disponible] La pantalla `/documents` funciona como catálogo documental transversal.
+[Disponible] La pantalla `/documents` funciona como catálogo documental transversal compacto, con labels operativos, filtros, detalle y acciones secundarias.
 
 El usuario puede:
 
@@ -261,7 +261,7 @@ El usuario puede:
 - Abrir o resolver en origen cuando tiene permisos del módulo.
 - Ver historia documental del documento seleccionado.
 
-[Disponible] La pantalla `/documents/work-queue` muestra una bandeja documental con pendientes de completitud, integridad y revisión de retención. Permite filtrar por módulo, tipo, severidad y exportar CSV.
+[Disponible] La pantalla `/documents/work-queue` muestra una work queue documental compacta con pendientes de completitud, integridad y revisión de retención. Permite filtrar por módulo, tipo, prioridad y exportar CSV ligero.
 
 [Solo ADMIN] La pantalla `/documents/review` permite revisar documentos por retención: marcar revisado, diferir revisión, descargar y exportar CSV.
 
@@ -291,7 +291,7 @@ El usuario puede:
 
 ## Seguridad y usuarios
 
-[Solo ADMIN] La pantalla `/admin/users` permite administración básica de usuarios internos:
+[Solo ADMIN] La pantalla `/admin/users` permite administración compacta de usuarios internos, con alta en diálogo y acciones agrupadas en `Gestionar`:
 
 - Crear usuarios.
 - Asignar rol base.
@@ -333,17 +333,17 @@ El usuario puede:
 | Dashboard | `/dashboard` | `[Disponible]` |
 | Centro operativo | `/operations` | `[En validación]` |
 | Mercados | `/markets` | `[Disponible]` |
-| Donatarias | `/donatarias` | `[Disponible]` con reporte de transparencia y vista imprimible |
-| Financieras | `/financials` | `[Disponible]` con funciones en validación |
-| Federación | `/federation` | `[Disponible]` |
+| Donatarias | `/donatarias` | `[Disponible]` con tabs, KPIs, modales, reporte y vista imprimible |
+| Financieras | `/financials` | `[Disponible]` con tabs, ficha operativa, búsqueda de vigente, cadena y modales |
+| Federación | `/federation` | `[Disponible]` con tabs y modales contextuales |
 | Contactos | `/contacts` | `[Disponible]` con alcance acotado |
-| Documentos | `/documents` | `[Disponible]` |
+| Documentos | `/documents` | `[Disponible]` catálogo compacto |
 | Bandeja documental | `/documents/work-queue` | `[Disponible]` |
 | Revisión documental | `/documents/review` | `[Solo ADMIN]` |
 | Histórico | `/history` | `[Disponible con alcance acotado]` |
 | Bitácora | `/bitacora` | `[Disponible con alcance acotado]` |
 | Comisiones | `/commissions` | `[Disponible con alcance acotado]` |
-| Usuarios | `/admin/users` | `[Solo ADMIN]` |
+| Usuarios | `/admin/users` | `[Solo ADMIN]` alta en diálogo y acciones `Gestionar` |
 | Seguridad | `/admin/security` | `[Solo ADMIN]` |
 | Catálogos administrativos | `/catalogs/...` | `[Solo ADMIN]` |
 
@@ -351,13 +351,15 @@ El usuario puede:
 
 [Pendiente de fase posterior] Siguen visibles como no incluidas o sujetas a definición adicional:
 
-- Aprobación formal de varios tracks post-MVP.
+- Aprobación formal de líneas de trabajo documentadas.
 - Robustecimiento de bitácora, histórico y marca formal de cierre.
 - Política documental avanzada: respaldo formal, retención formal, limpieza segura, legal hold formal, OCR, almacenamiento externo y cumplimiento especializado.
 - Reportes avanzados, inteligencia de negocio, exportaciones masivas y reportes históricos formales.
-- Donatarias: CSV específico, PDF oficial, folio, firma, versionamiento del reporte, checklist documental avanzado y validación legal/fiscal/contable.
+- Donatarias: PDF oficial, folio, firma, versionamiento del reporte, checklist documental avanzado y validación legal/fiscal/contable.
 - Seguridad avanzada: autenticación multifactor, proveedor externo de identidad, recuperación avanzada de contraseña, monitoreo especializado y sesiones avanzadas.
 - Catálogo maestro y normalización fuerte para financieras, instituciones, dependencias y stands.
+- Contacts UX compacta.
+- Catálogos UX compacta.
 - Notificaciones externas por correo, WhatsApp u otros canales.
 
 ## Recomendaciones diarias

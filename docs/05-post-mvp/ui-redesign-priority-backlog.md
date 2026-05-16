@@ -70,6 +70,14 @@
 - Bugs corregidos durante validacion: copy tecnico visible en `/dashboard`, `/operations`, `/documents/review`, `/admin/security`, `/contacts`, `/commissions`, `/history`, `/bitacora` y `/account/password`; overflow horizontal movil en `/bitacora`.
 - Sigue pendiente convertir `/contacts` y catalogos simples a la misma densidad/interaccion de modales, mas pulido visual de dashboards/reportes transversales.
 
+## Actualizacion de guia de usuario 2026-05-16
+
+- Estado: guia rapida y HTML final actualizados para reflejar el rediseño visual global aceptado.
+- Evidencia: `docs/05-post-mvp/ui-global-redesign-user-guide-update-note.md`.
+- La guia ya describe login institucional, header con logo, menu de usuario compacto, cambio de contraseña, cierre de sesion y navegacion agrupada.
+- La guia ya describe Donatarias, Markets, Financials, Federation, Documents y Admin Users con tabs, pantallas compactas y modales contextuales donde aplica.
+- Se mantienen visibles como fase posterior: Contacts UX, Catalogos UX, PDF oficial/folio/firma, validacion legal/fiscal/contable y reportes formales.
+
 ## Cambios de riesgo medio
 
 - Modales/drawers para formularios que hoy viven inline.

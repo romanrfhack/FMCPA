@@ -10,7 +10,7 @@
       --bg: #f4f2eb;
       --bg-soft: #f7f6f2;
       --bg-warm: #ede8db;
-      --surface: rgba(255, 255, 255, 0.9);
+      --surface: rgba(255, 255, 255, 0.92);
       --surface-strong: #ffffff;
       --ink: #1d2d2a;
       --ink-soft: #29403b;
@@ -38,21 +38,21 @@
     }
 
     html {
-      scroll-behavior: smooth;
-      font-size: 16px;
       max-width: 100%;
       overflow-x: hidden;
+      scroll-behavior: smooth;
+      font-size: 16px;
     }
 
     body {
-      margin: 0;
-      font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
-      color: var(--ink);
       max-width: 100%;
+      margin: 0;
       overflow-x: hidden;
+      color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 30rem),
-        linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 54%, var(--bg-warm) 100%);
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 30rem),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 52%, var(--bg-warm) 100%);
+      font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
     }
 
     a {
@@ -67,7 +67,7 @@
 
     code {
       padding: 0.1rem 0.35rem;
-      border-radius: 0.45rem;
+      border-radius: 0.42rem;
       color: var(--teal-dark);
       background: rgba(15, 118, 110, 0.08);
       font-family: "Segoe UI Mono", Consolas, monospace;
@@ -78,31 +78,27 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       gap: 1rem;
-      min-height: 100vh;
       width: 100%;
       max-width: 100%;
+      min-height: 100vh;
       padding: 0.85rem;
     }
 
     .nav {
-      position: static;
-      align-self: start;
       display: flex;
       flex-wrap: wrap;
+      align-self: start;
       gap: 0.42rem;
-      max-height: none;
-      overflow: visible;
+      max-width: 100%;
       padding: 1rem;
       border: 1px solid var(--border);
       border-radius: 1rem;
-      background: rgba(255, 255, 255, 0.76);
+      background: rgba(255, 255, 255, 0.78);
       box-shadow: var(--shadow);
     }
 
     .nav strong {
-      display: block;
       width: 100%;
-      margin-bottom: 0.45rem;
       color: var(--teal-dark);
       font-size: 0.98rem;
     }
@@ -110,9 +106,9 @@
     .nav a {
       display: inline-flex;
       align-items: center;
-      min-height: 2.75rem;
-      padding: 0.68rem 0.78rem;
-      border-radius: 0.75rem;
+      min-height: 2.6rem;
+      padding: 0.64rem 0.76rem;
+      border-radius: 0.72rem;
       color: var(--ink-soft);
       font-size: 0.93rem;
       font-weight: 750;
@@ -127,7 +123,7 @@
     .content {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
-      gap: 1.1rem;
+      gap: 1.05rem;
       width: 100%;
       max-width: 100%;
       min-width: 0;
@@ -150,13 +146,49 @@
 
     .hero {
       display: grid;
-      gap: 1.1rem;
-      min-height: auto;
-      padding: 1.25rem;
+      gap: 1rem;
+      padding: 1.2rem;
       color: var(--cream);
       background:
         linear-gradient(135deg, rgba(18, 63, 59, 0.98), rgba(15, 118, 110, 0.9)),
         var(--teal-dark);
+    }
+
+    .brand-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 4.8rem;
+      height: 2.6rem;
+      border: 1px solid rgba(246, 246, 242, 0.24);
+      border-radius: 0.65rem;
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--cream);
+      font-size: 1rem;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+    }
+
+    .brand-copy {
+      display: grid;
+      gap: 0.1rem;
+    }
+
+    .brand-copy strong {
+      color: var(--cream);
+      font-size: 1rem;
+    }
+
+    .brand-copy span {
+      color: rgba(246, 246, 242, 0.76);
+      font-size: 0.9rem;
     }
 
     .kicker {
@@ -173,10 +205,10 @@
     }
 
     .hero h1 {
-      max-width: 56rem;
+      max-width: 58rem;
       margin: 0;
-      font-size: clamp(2.4rem, 5vw, 4.6rem);
-      line-height: 0.98;
+      font-size: clamp(2.2rem, 5vw, 4.3rem);
+      line-height: 1;
       letter-spacing: 0;
     }
 
@@ -203,8 +235,8 @@
       align-items: center;
       width: fit-content;
       min-height: 1.65rem;
-      border-radius: 999px;
       padding: 0.32rem 0.66rem;
+      border-radius: 999px;
       font-size: 0.78rem;
       font-weight: 850;
       line-height: 1;
@@ -213,8 +245,8 @@
 
     .hero-meta span {
       color: var(--cream);
-      background: rgba(255, 255, 255, 0.12);
       border: 1px solid rgba(246, 246, 242, 0.18);
+      background: rgba(255, 255, 255, 0.12);
     }
 
     .badge.available {
@@ -249,14 +281,20 @@
       padding: 1.05rem;
     }
 
-    .section h2,
-    .highlight h2,
-    .matrix-panel h2,
-    .phase-panel h2 {
-      margin: 0.35rem 0 0;
+    h2,
+    h3 {
       color: var(--ink);
-      font-size: 1.48rem;
       letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0.35rem 0 0;
+      font-size: 1.48rem;
+    }
+
+    h3 {
+      margin: 1rem 0 0.45rem;
+      font-size: 1.05rem;
     }
 
     .section p,
@@ -280,16 +318,9 @@
     .metric-grid,
     .tab-list {
       display: grid;
+      grid-template-columns: minmax(0, 1fr);
       gap: 0.9rem;
       margin-top: 1rem;
-    }
-
-    .grid-2,
-    .grid-3,
-    .grid-4,
-    .metric-grid,
-    .tab-list {
-      grid-template-columns: minmax(0, 1fr);
     }
 
     .card {
@@ -301,10 +332,9 @@
     }
 
     .card h3 {
-      margin: 0 0 0.55rem;
+      margin-top: 0;
       color: var(--teal-dark);
       font-size: 1rem;
-      letter-spacing: 0;
     }
 
     .card p {
@@ -315,8 +345,8 @@
     .metric-card strong {
       display: block;
       color: var(--teal-dark);
-      font-size: 1.28rem;
-      line-height: 1.1;
+      font-size: 1.24rem;
+      line-height: 1.14;
     }
 
     .metric-card span {
@@ -328,8 +358,8 @@
     }
 
     .tab-list {
-      list-style: none;
       padding: 0;
+      list-style: none;
     }
 
     .tab-list li {
@@ -338,7 +368,6 @@
       border: 1px solid var(--border);
       border-radius: 0.75rem;
       background: var(--surface-strong);
-      color: var(--muted);
       overflow-wrap: anywhere;
     }
 
@@ -389,7 +418,7 @@
       border: 1px solid var(--border);
       border-radius: 0.62rem;
       color: var(--teal-dark);
-      background: rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.82);
       font-family: "Segoe UI Mono", Consolas, monospace;
       font-size: 0.86rem;
       font-weight: 750;
@@ -497,8 +526,8 @@
       }
 
       .hero {
-        min-height: 22rem;
-        padding: 2.2rem;
+        min-height: 21rem;
+        padding: 2.1rem;
       }
 
       .section,
@@ -569,6 +598,7 @@
 
       .content {
         display: block;
+        overflow: visible;
       }
 
       .hero,
@@ -630,15 +660,11 @@
       <strong>FMCPA · Guía rápida</strong>
       <a href="#inicio">Portada</a>
       <a href="#como-usar">Cómo usar</a>
-      <a href="#estados">Estados</a>
-      <a href="#inicio-rapido">Inicio rápido</a>
+      <a href="#acceso">Acceso</a>
       <a href="#navegacion">Navegación</a>
-      <a href="#operations">Centro operativo</a>
       <a href="#modulos">Módulos</a>
       <a href="#donatarias">Donatarias</a>
-      <a href="#documentos">Documentos</a>
-      <a href="#seguimiento">Seguimiento</a>
-      <a href="#seguridad">Seguridad</a>
+      <a href="#documentos-admin">Documentos y usuarios</a>
       <a href="#matriz">Matriz</a>
       <a href="#fase-posterior">Fase posterior</a>
       <a href="#recomendaciones">Recomendaciones</a>
@@ -646,17 +672,23 @@
 
     <main class="content">
       <header class="hero" id="inicio">
+        <div class="brand-row">
+          <span class="brand-mark" aria-label="FMCPA">FMCPA</span>
+          <span class="brand-copy">
+            <strong>FMCPA Platform</strong>
+            <span>Gestión operativa institucional</span>
+          </span>
+        </div>
         <p class="kicker">Guía rápida de operación</p>
-        <h1>FMCPA Platform</h1>
+        <h1>Referencia de uso del sistema FMCPA</h1>
         <p>
-          Referencia operativa para navegar el sistema, identificar módulos disponibles,
-          reconocer funciones con alcance acotado y ubicar capacidades previstas para una fase posterior.
+          Guía para acceder, navegar y operar los módulos principales con la experiencia visual vigente:
+          login institucional, header con logo, navegación agrupada, pantallas compactas y modales contextuales.
         </p>
         <div class="hero-meta">
-          <span>Corte de contenido: 13 de mayo de 2026</span>
+          <span>Corte de contenido: 16 de mayo de 2026</span>
+          <span>Versión de guía: Final 1.2</span>
           <span>Alcance: operación diaria</span>
-          <span>Versión de guía: Final 1.1</span>
-          <span>Fuente: repositorio del sistema</span>
         </div>
       </header>
 
@@ -669,9 +701,14 @@
         </p>
         <div class="grid-3">
           <article class="card">
-            <h3>Guía rápida</h3>
-            <span class="badge available">Disponible</span>
-            <p>Explica rutas, módulos y acciones principales sin entrar en detalles técnicos innecesarios.</p>
+            <h3>Estados</h3>
+            <div class="legend">
+              <span class="badge available">Disponible</span>
+              <span class="badge scoped">Alcance acotado</span>
+              <span class="badge later">Fase posterior</span>
+              <span class="badge admin">Solo ADMIN</span>
+            </div>
+            <p>Las etiquetas ayudan a distinguir funciones listas, acotadas, administrativas o previstas para una etapa posterior.</p>
           </article>
           <article class="card">
             <h3>Funciones por rol</h3>
@@ -679,98 +716,76 @@
             <p>El menú y las acciones visibles dependen del rol asignado a cada usuario.</p>
           </article>
           <article class="card">
-            <h3>Administración</h3>
-            <span class="badge admin">Solo ADMIN</span>
-            <p>Usuarios, seguridad, catálogos, revisión documental y cierres formales requieren permisos administrativos.</p>
+            <h3>Reportes y exportaciones</h3>
+            <span class="badge scoped">Uso operativo</span>
+            <p>CSV, vistas imprimibles y reportes ligeros son apoyos de operación; no son reportes legales, fiscales o contables oficiales.</p>
           </article>
         </div>
       </section>
 
-      <section class="section" id="estados">
-        <p class="kicker">Convención visual</p>
-        <h2>Estados usados en la guía</h2>
-        <p class="lead">
-          Las etiquetas indican el estado operativo identificado en el repositorio. Una función puede existir
-          y aun así tener alcance acotado o requerir validación formal.
-        </p>
-        <div class="legend">
-          <span class="badge available">Disponible</span>
-          <span class="badge scoped">Disponible con alcance acotado</span>
-          <span class="badge validation">En validación</span>
-          <span class="badge later">Pendiente de fase posterior</span>
-          <span class="badge admin">Solo ADMIN</span>
-        </div>
-      </section>
-
-      <section class="highlight" id="inicio-rapido">
-        <p class="kicker">Primer recorrido</p>
-        <h2>Inicio rápido</h2>
+      <section class="highlight" id="acceso">
+        <p class="kicker">Acceso y cuenta</p>
+        <h2>Acceso y navegación inicial</h2>
         <div class="grid-2">
           <article class="card">
-            <h3>Revisión diaria</h3>
-            <ol>
-              <li>Abrir <code>/operations</code> para revisar prioridades transversales.</li>
-              <li>Consultar <code>/dashboard</code> para validar alertas principales.</li>
-              <li>Atender pendientes desde el módulo de origen o desde <code>/documents/work-queue</code>.</li>
-            </ol>
+            <h3>Login institucional</h3>
+            <span class="badge available">Disponible</span>
+            <p>El acceso se realiza desde <code>/login</code> con marca FMCPA visible y lenguaje institucional.</p>
           </article>
           <article class="card">
-            <h3>Criterio de operación</h3>
-            <ol>
-              <li>Registrar avances y evidencias en el contexto correcto.</li>
-              <li>Usar exportaciones ligeras solo como apoyo operativo.</li>
-              <li>Reservar cierres y acciones administrativas para usuarios <code>ADMIN</code>.</li>
-            </ol>
+            <h3>Header autenticado</h3>
+            <span class="badge available">Disponible</span>
+            <p>Después de iniciar sesión se muestra logo FMCPA, nombre de plataforma y un menú de usuario compacto.</p>
+          </article>
+          <article class="card">
+            <h3>Cambio de contraseña</h3>
+            <span class="badge available">Disponible</span>
+            <p>El cambio de contraseña está disponible desde el menú de usuario y abre <code>/account/password</code>.</p>
+          </article>
+          <article class="card">
+            <h3>Cerrar sesión</h3>
+            <span class="badge available">Disponible</span>
+            <p>El cierre de sesión se ejecuta desde el menú de usuario, sin ocupar espacio permanente en la pantalla principal.</p>
           </article>
         </div>
       </section>
 
       <section class="section" id="navegacion">
-        <p class="kicker">Navegación real</p>
-        <h2>Pantallas disponibles</h2>
-        <p>
-          La navegación principal se muestra dentro del entorno autenticado del sistema.
-          Las rutas siguientes fueron identificadas como pantallas reales protegidas por permisos.
+        <p class="kicker">Navegación general</p>
+        <h2>Secciones del sistema</h2>
+        <p class="lead">
+          La navegación se agrupa por secciones y se filtra por permisos. Si una opción no aparece, puede deberse al rol del usuario.
         </p>
-        <div class="route-grid">
+        <div class="grid-4">
+          <article class="card">
+            <h3>Inicio</h3>
+            <p>Dashboard y centro operativo para la revisión diaria de prioridades, alertas y señales transversales.</p>
+          </article>
+          <article class="card">
+            <h3>Operación</h3>
+            <p>Mercados, Donatarias, Financieras, Federación, Contactos y otros frentes de trabajo cotidiano.</p>
+          </article>
+          <article class="card">
+            <h3>Control</h3>
+            <p>Documentos, bandeja documental, revisión, histórico, bitácora y comisiones operativas.</p>
+          </article>
+          <article class="card">
+            <h3>Administración</h3>
+            <p>Usuarios, seguridad y catálogos administrativos para perfiles con permisos suficientes.</p>
+          </article>
+        </div>
+        <div class="route-grid" aria-label="Rutas principales">
           <span class="route">/dashboard</span>
           <span class="route">/operations</span>
-          <span class="route">/history</span>
-          <span class="route">/commissions</span>
-          <span class="route">/bitacora</span>
-          <span class="route">/documents</span>
-          <span class="route">/documents/work-queue</span>
-          <span class="route">/documents/review</span>
-          <span class="route">/contacts</span>
-          <span class="route">/admin/users</span>
-          <span class="route">/admin/security</span>
-          <span class="route">/catalogs/commission-types</span>
-          <span class="route">/catalogs/evidence-types</span>
-          <span class="route">/catalogs/module-statuses</span>
           <span class="route">/markets</span>
           <span class="route">/donatarias</span>
           <span class="route">/financials</span>
           <span class="route">/federation</span>
-          <span class="route">/account/password</span>
+          <span class="route">/documents</span>
+          <span class="route">/documents/work-queue</span>
+          <span class="route">/admin/users</span>
+          <span class="route">/admin/security</span>
         </div>
-      </section>
-
-      <section class="section" id="operations">
-        <p class="kicker">Centro operativo</p>
-        <h2>Operations</h2>
-        <p>
-          <span class="badge validation">En validación</span>
-          <code>/operations</code> consolida señales de negocio, documentos y seguridad de acuerdo con los permisos del usuario.
-          Incluye indicadores, bandeja transversal, severidades, ventanas temporales y exportación CSV ligera.
-        </p>
-        <p>
-          <span class="badge scoped">Disponible con alcance acotado</span>
-          No reemplaza los módulos fuente y no administra responsables, acuerdos de servicio ni flujos completos de aprobación.
-        </p>
-        <p>
-          <span class="badge admin">Solo ADMIN</span>
-          La acción rápida administrativa identificada es el desbloqueo de usuarios bloqueados cuando el sistema lo permite.
-        </p>
       </section>
 
       <section class="highlight" id="modulos">
@@ -778,39 +793,34 @@
         <h2>Módulos principales</h2>
         <div class="grid-3">
           <article class="card">
-            <h3>Dashboard</h3>
+            <h3>Donatarias</h3>
             <span class="badge available">Disponible</span>
-            <p>Resumen ejecutivo, alertas activas, enlaces a módulos e histórico reciente.</p>
+            <p>Tabs, KPIs, distribución de aplicaciones, evidencias, reporte de transparencia, vista imprimible y modales de captura.</p>
           </article>
           <article class="card">
             <h3>Mercados</h3>
             <span class="badge available">Disponible</span>
-            <p>Mercados, locatarios, cédulas digitalizadas, incidencias, mejoras y alertas de vigencia.</p>
-            <p><span class="badge admin">Solo ADMIN</span> Cierre formal.</p>
-          </article>
-          <article class="card">
-            <h3>Donatarias</h3>
-            <span class="badge available">Disponible</span>
-            <p>Transparencia del recurso donado con KPIs, distribución por aplicación, evidencias, semáforos, reporte y vista imprimible.</p>
-            <p><span class="badge scoped">Disponible con alcance acotado</span> Evidencia mínima no equivale a revisión legal, fiscal o contable.</p>
+            <p>Tabs locales, resumen, locatarios, incidencias, documentos/cédulas, alertas de vigencia y modales contextuales.</p>
           </article>
           <article class="card">
             <h3>Financieras</h3>
             <span class="badge available">Disponible</span>
-            <p>Oficios, vigencias, créditos, comisiones y alertas de vencimiento o renovación.</p>
-            <p><span class="badge validation">En validación</span> Renovación de oficio y captura contextual.</p>
+            <p>Tabs, ficha operativa, búsqueda de vigente, cadena, oficios, créditos, comisiones y modales.</p>
           </article>
           <article class="card">
             <h3>Federación</h3>
             <span class="badge available">Disponible</span>
-            <p>Gestiones, participantes, donaciones de Federación, aplicaciones, comisiones y evidencias.</p>
-            <p><span class="badge scoped">Disponible con alcance acotado</span> Reglas finas sujetas a definición adicional.</p>
+            <p>Tabs, gestiones, donaciones, aplicaciones/comisiones, evidencias y modales contextuales.</p>
           </article>
           <article class="card">
-            <h3>Contactos y catálogos</h3>
+            <h3>Documents</h3>
             <span class="badge available">Disponible</span>
-            <p>Contactos compartidos y catálogos administrativos de comisión, evidencia y estatus.</p>
-            <p><span class="badge admin">Solo ADMIN</span> Catálogos administrativos.</p>
+            <p>Catálogo compacto, labels operativos, filtros, detalle, descarga, CSV ligero y work queue compacta.</p>
+          </article>
+          <article class="card">
+            <h3>Admin Users</h3>
+            <span class="badge admin">Solo ADMIN</span>
+            <p>Alta de usuario en diálogo y acciones agrupadas en <code>Gestionar</code> para rol, contraseña y bloqueo.</p>
           </article>
         </div>
       </section>
@@ -820,17 +830,16 @@
         <h2>Transparencia del recurso donado</h2>
         <p class="lead">
           <span class="badge available">Disponible</span>
-          <code>/donatarias</code> concentra la consulta operativa de donaciones, aplicaciones, evidencias y reporte de transparencia.
-          El módulo está preparado para revisar cómo se recibió y aplicó el recurso, qué evidencia existe y qué pendientes quedan visibles.
+          El módulo concentra donaciones, aplicaciones, evidencias y reporte de transparencia. La pantalla prioriza revisión operativa y deja las capturas en modales.
         </p>
 
         <h3>Tabs de trabajo</h3>
         <ul class="tab-list">
           <li><strong>Resumen</strong> KPIs, semáforos y estado documental agregado.</li>
-          <li><strong>Donaciones</strong> Listado, filtros y captura de donaciones.</li>
+          <li><strong>Donaciones</strong> Listado, filtros y registro en modal.</li>
           <li><strong>Aplicaciones / distribución</strong> Beneficiarios, montos, porcentajes y saldo restante.</li>
           <li><strong>Evidencias</strong> Archivos agrupados por aplicación y documentos relacionados.</li>
-          <li><strong>Reporte de transparencia</strong> Vista consolidada con readiness y faltantes.</li>
+          <li><strong>Reporte de transparencia</strong> Vista consolidada con readiness, faltantes y acción de impresión.</li>
         </ul>
 
         <h3>KPIs principales</h3>
@@ -863,200 +872,125 @@
 
         <div class="grid-3">
           <article class="card">
-            <h3>Semáforos</h3>
-            <p><span class="badge available">Disponible</span> Financiero, documental y operativo se muestran por separado para no mezclar saldo, evidencia y cierre.</p>
+            <h3>Modales</h3>
+            <p><span class="badge available">Disponible</span> Registrar donación, registrar aplicación y cargar evidencia abren diálogos contextuales.</p>
           </article>
           <article class="card">
-            <h3>Readiness</h3>
-            <p><span class="badge scoped">Disponible con alcance acotado</span> <code>READY</code>, <code>PARTIAL</code> y <code>NOT_READY</code> indican preparación operativa preliminar, no aprobación oficial.</p>
-          </article>
-          <article class="card">
-            <h3>Cierre formal</h3>
-            <p><span class="badge admin">Solo ADMIN</span> El cierre formal advierte saldo y evidencia pendiente antes de confirmar.</p>
-          </article>
-        </div>
-
-        <div class="grid-2">
-          <article class="card">
-            <h3>Reporte de transparencia</h3>
-            <p>
-              Muestra donante, referencia, fecha de donación, fecha de corte/generación, tipo, total recibido,
-              total aplicado, saldo pendiente, porcentaje aplicado, estados financiero/documental/operativo,
-              aplicaciones, evidencias, faltantes y notas de alcance.
-            </p>
+            <h3>Reporte</h3>
+            <p><span class="badge available">Disponible</span> El reporte muestra donante, referencia, corte, totales, estados, aplicaciones, evidencias, faltantes y notas.</p>
           </article>
           <article class="card">
             <h3>Vista imprimible</h3>
-            <p>
-              Permite imprimir visualmente el reporte con <code>window.print()</code>.
-              En impresión se ocultan navegación, formularios, botones y controles técnicos; se conservan encabezado,
-              KPIs, estados, aplicaciones, evidencias, faltantes y notas.
-            </p>
+            <p><span class="badge scoped">Uso operativo</span> La impresión oculta navegación y controles, pero no genera PDF oficial ni folio.</p>
           </article>
         </div>
 
         <p class="scope-note">
           La evidencia mínima registrada no sustituye revisión legal, fiscal o contable.
-          El reporte de transparencia es una vista operativa del sistema y no debe presentarse como documento oficial.
+          El reporte de transparencia y su vista imprimible son apoyos operativos del sistema, no documentos oficiales.
         </p>
-
-        <div class="grid-2">
-          <article class="card">
-            <h3>Disponible ahora</h3>
-            <p>Tabs de transparencia, KPIs, distribución financiera, semáforo documental agregado, reporte de transparencia y vista imprimible.</p>
-          </article>
-          <article class="card">
-            <h3>Pendiente de fase posterior</h3>
-            <p>CSV específico, PDF oficial, folio, firma, versionamiento, validación legal/fiscal/contable, checklist documental avanzado y catálogo formal de donantes.</p>
-          </article>
-        </div>
       </section>
 
-      <section class="section" id="documentos">
-        <p class="kicker">Gestión documental</p>
-        <h2>Documentos, bandeja y revisión</h2>
+      <section class="section" id="documentos-admin">
+        <p class="kicker">Control y administración</p>
+        <h2>Documents y Admin Users</h2>
         <div class="grid-3">
           <article class="card">
             <h3>Catálogo documental</h3>
             <span class="badge available">Disponible</span>
-            <p><code>/documents</code> permite consultar resumen, filtros, detalle, descarga, pendientes, historia y CSV ligero.</p>
+            <p><code>/documents</code> muestra catálogo compacto, filtros, detalle, descarga, historia, pendientes y CSV ligero.</p>
           </article>
           <article class="card">
-            <h3>Bandeja documental</h3>
+            <h3>Work queue</h3>
             <span class="badge available">Disponible</span>
-            <p><code>/documents/work-queue</code> concentra completitud, integridad y retención por severidad.</p>
+            <p><code>/documents/work-queue</code> concentra pendientes documentales con lectura compacta por módulo, tipo y prioridad.</p>
           </article>
           <article class="card">
-            <h3>Revisión documental</h3>
+            <h3>Usuarios</h3>
             <span class="badge admin">Solo ADMIN</span>
-            <p><code>/documents/review</code> permite marcar revisado, diferir revisión, descargar y exportar.</p>
+            <p><code>/admin/users</code> usa alta en diálogo y panel <code>Gestionar</code> para acciones por usuario.</p>
           </article>
         </div>
         <p>
           <span class="badge scoped">Disponible con alcance acotado</span>
-          La retención documental actual es operativa: una señal de revisión no equivale a cumplimiento legal completo ni a autorización automática de borrado.
+          La retención documental actual es operativa: una señal de revisión no equivale a cumplimiento legal completo ni autoriza borrado automático.
         </p>
-      </section>
-
-      <section class="section" id="seguimiento">
-        <p class="kicker">Seguimiento</p>
-        <h2>Histórico, bitácora y comisiones</h2>
-        <div class="grid-3">
-          <article class="card">
-            <h3>Histórico</h3>
-            <span class="badge scoped">Disponible con alcance acotado</span>
-            <p><code>/history</code> consulta registros cerrados o archivados, con reservas sobre marca formal de cierre.</p>
-          </article>
-          <article class="card">
-            <h3>Bitácora</h3>
-            <span class="badge scoped">Disponible con alcance acotado</span>
-            <p><code>/bitacora</code> consulta eventos transversales, sin equivaler a auditoría forense completa.</p>
-          </article>
-          <article class="card">
-            <h3>Comisiones</h3>
-            <span class="badge scoped">Disponible con alcance acotado</span>
-            <p><code>/commissions</code> consolida comisiones operativas de Financieras y Federación; no es contabilidad definitiva.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="section" id="seguridad">
-        <p class="kicker">Administración</p>
-        <h2>Seguridad y usuarios</h2>
-        <div class="grid-2">
-          <article class="card">
-            <h3>Usuarios</h3>
-            <span class="badge admin">Solo ADMIN</span>
-            <p><code>/admin/users</code> permite crear usuarios, asignar rol, activar o desactivar, cambiar rol, restablecer contraseña y limpiar bloqueo.</p>
-          </article>
-          <article class="card">
-            <h3>Seguridad</h3>
-            <span class="badge admin">Solo ADMIN</span>
-            <p><code>/admin/security</code> muestra eventos de seguridad, usuarios bloqueados, fallos de ingreso y resumen básico.</p>
-          </article>
-        </div>
       </section>
 
       <section class="matrix-panel" id="matriz">
         <p class="kicker">Estado funcional</p>
         <h2>Matriz rápida</h2>
-        <p>Resumen visual de funciones principales. La matriz con evidencia completa se mantiene en <code>drafts/feature-status-matrix.md</code>.</p>
+        <p>Resumen de capacidades principales y pendientes visibles para operación.</p>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Módulo</th>
-                <th>Pantalla / flujo</th>
+                <th>Área</th>
+                <th>Flujo</th>
                 <th>Estado</th>
                 <th>Lectura operativa</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>Acceso</td>
-                <td><code>/login</code>, <code>/account/password</code></td>
+                <td>Visual global</td>
+                <td>Rediseño institucional</td>
                 <td><span class="badge available">Disponible</span></td>
-                <td>Inicio de sesión y cambio de contraseña disponibles.</td>
+                <td>Login, header, navegación, pantallas compactas y limpieza CSS/budget validados.</td>
               </tr>
               <tr>
-                <td>Centro operativo</td>
-                <td><code>/operations</code></td>
-                <td><span class="badge validation">En validación</span></td>
-                <td>Consolidación transversal implementada, pendiente de aprobación formal.</td>
+                <td>Acceso</td>
+                <td>Login, header y menú de usuario</td>
+                <td><span class="badge available">Disponible</span></td>
+                <td>Marca FMCPA visible, cambio de contraseña y cierre de sesión desde menú compacto.</td>
+              </tr>
+              <tr>
+                <td>Navegación</td>
+                <td>Inicio, Operación, Control, Administración</td>
+                <td><span class="badge available">Disponible</span></td>
+                <td>Grupos reales filtrados por permisos del usuario.</td>
+              </tr>
+              <tr>
+                <td>Donatarias</td>
+                <td>Tabs, KPIs, reporte, impresión y modales</td>
+                <td><span class="badge available">Disponible</span></td>
+                <td>Vista operativa de transparencia con alcance explícito.</td>
               </tr>
               <tr>
                 <td>Mercados</td>
-                <td><code>/markets</code></td>
+                <td>Tabs, resumen, locatarios, incidencias y cédulas</td>
                 <td><span class="badge available">Disponible</span></td>
-                <td>Mercados, locatarios, cédulas, incidencias y alertas.</td>
-              </tr>
-              <tr>
-                <td>Donatarias</td>
-                <td><code>/donatarias</code></td>
-                <td><span class="badge available">Disponible</span> <span class="badge scoped">Alcance acotado</span></td>
-                <td>Tabs, KPIs, distribución, semáforos, reporte de transparencia y vista imprimible disponibles; revisión legal/fiscal/contable no incluida.</td>
-              </tr>
-              <tr>
-                <td>Donatarias</td>
-                <td>CSV específico / PDF oficial / folio / firma</td>
-                <td><span class="badge later">Pendiente de fase posterior</span></td>
-                <td>Exportación formal, folio, firma, versionamiento, checklist documental avanzado y validación legal/fiscal/contable quedan fuera de esta versión.</td>
+                <td>Capturas principales en modales y documentos separados.</td>
               </tr>
               <tr>
                 <td>Financieras</td>
-                <td><code>/financials</code></td>
-                <td><span class="badge available">Disponible</span> <span class="badge validation">En validación</span></td>
-                <td>Oficios, créditos y comisiones disponibles; renovación y captura contextual en validación.</td>
+                <td>Tabs, ficha operativa, vigente, cadena y modales</td>
+                <td><span class="badge available">Disponible</span></td>
+                <td>Consulta y captura contextual con límites de normalización pendientes.</td>
               </tr>
               <tr>
                 <td>Federación</td>
-                <td><code>/federation</code></td>
-                <td><span class="badge available">Disponible</span> <span class="badge scoped">Alcance acotado</span></td>
-                <td>Gestiones y donaciones disponibles; reglas finas requieren definición adicional.</td>
-              </tr>
-              <tr>
-                <td>Documentos</td>
-                <td><code>/documents</code>, <code>/documents/work-queue</code></td>
+                <td>Tabs, gestiones, donaciones, comisiones y evidencias</td>
                 <td><span class="badge available">Disponible</span></td>
-                <td>Catálogo, bandeja, filtros, descarga, historia y exportación ligera.</td>
+                <td>Flujos contextuales en modales y lectura más compacta.</td>
               </tr>
               <tr>
-                <td>Histórico / bitácora / comisiones</td>
-                <td><code>/history</code>, <code>/bitacora</code>, <code>/commissions</code></td>
-                <td><span class="badge scoped">Disponible con alcance acotado</span></td>
-                <td>Consulta operativa; no sustituye auditoría forense, contabilidad definitiva ni reportes formales.</td>
+                <td>Documents</td>
+                <td>Catálogo y work queue</td>
+                <td><span class="badge available">Disponible</span></td>
+                <td>Consulta compacta, labels operativos y CSV ligero de apoyo.</td>
               </tr>
               <tr>
-                <td>Usuarios y seguridad</td>
-                <td><code>/admin/users</code>, <code>/admin/security</code></td>
+                <td>Admin Users</td>
+                <td>Alta y gestión de usuarios</td>
                 <td><span class="badge admin">Solo ADMIN</span></td>
-                <td>Administración básica de usuarios y observabilidad de seguridad.</td>
+                <td>Alta en diálogo y acciones agrupadas por usuario.</td>
               </tr>
               <tr>
-                <td>Reportes y notificaciones</td>
-                <td>CSV ligero / alertas internas</td>
+                <td>Reportes formales</td>
+                <td>PDF oficial, folio, firma, dictámenes</td>
                 <td><span class="badge later">Pendiente de fase posterior</span></td>
-                <td>Reportes avanzados, exportaciones formales y notificaciones externas no están incluidos en esta versión.</td>
+                <td>No incluido en esta versión.</td>
               </tr>
             </tbody>
           </table>
@@ -1067,37 +1001,40 @@
         <p class="kicker">Alcance no incluido</p>
         <h2>Pendientes de fase posterior</h2>
         <p class="lead">
-          Estos puntos no se ocultan en la guía: permanecen visibles como capacidades no incluidas en esta versión
-          o que requieren definición adicional antes de considerarse cerradas.
+          Estos puntos se mantienen visibles para evitar sobreprometer capacidades no incluidas en la versión actual.
         </p>
         <div class="grid-3">
           <article class="card">
-            <h3>Aprobación formal</h3>
-            <p>Varios tracks post-MVP permanecen pendientes de aprobación formal.</p>
-          </article>
-          <article class="card">
-            <h3>Bitácora e histórico</h3>
-            <p>Requieren robustecer eventos, cambios finos de estado y marca formal de cierre.</p>
-          </article>
-          <article class="card">
-            <h3>Política documental</h3>
-            <p>No se incluye respaldo externo formal, OCR, legal hold formal, borrado físico seguro ni cumplimiento avanzado.</p>
-          </article>
-          <article class="card">
-            <h3>Analítica y reportes</h3>
-            <p>No se incluyen reportes avanzados, inteligencia de negocio, exportaciones masivas ni reportes históricos formales.</p>
-          </article>
-          <article class="card">
             <h3>Donatarias formal</h3>
-            <p>No se incluyen CSV específico, PDF oficial, folio, firma, versionamiento, checklist avanzado ni validación legal/fiscal/contable.</p>
+            <p>PDF oficial, folio, firma, versionamiento, checklist avanzado y validación legal/fiscal/contable.</p>
+          </article>
+          <article class="card">
+            <h3>Reportes avanzados</h3>
+            <p>Inteligencia de negocio, exportaciones masivas, reportes históricos formales y cierres documentales especializados.</p>
+          </article>
+          <article class="card">
+            <h3>Documental avanzado</h3>
+            <p>Respaldo externo formal, OCR, legal hold formal, borrado físico seguro y cumplimiento documental especializado.</p>
           </article>
           <article class="card">
             <h3>Seguridad avanzada</h3>
-            <p>No se incluyen autenticación multifactor, proveedor externo de identidad, sesiones avanzadas ni monitoreo especializado.</p>
+            <p>Autenticación multifactor, proveedor externo de identidad, sesiones avanzadas y monitoreo especializado.</p>
           </article>
           <article class="card">
-            <h3>Financieras y notificaciones</h3>
-            <p>No existe catálogo maestro de financieras/dependencias ni notificaciones externas por correo o WhatsApp.</p>
+            <h3>Financieras</h3>
+            <p>Catálogo maestro y normalización fuerte de financieras, instituciones, dependencias y stands.</p>
+          </article>
+          <article class="card">
+            <h3>Contacts y Catálogos UX</h3>
+            <p>Homologación visual compacta pendiente para Contacts y catálogos administrativos simples.</p>
+          </article>
+          <article class="card">
+            <h3>Notificaciones</h3>
+            <p>Envíos externos por correo, WhatsApp u otros canales.</p>
+          </article>
+          <article class="card">
+            <h3>Bitácora e histórico</h3>
+            <p>Mayor robustez de eventos, cambios finos de estado y marca formal de cierre.</p>
           </article>
         </div>
       </section>
@@ -1125,7 +1062,7 @@
           <article class="card">
             <h3>Donatarias</h3>
             <ul>
-              <li>Revisar saldo y semáforos antes de compartir el reporte.</li>
+              <li>Revisar saldo, semáforos y faltantes antes de compartir una vista.</li>
               <li>Usar la vista imprimible solo como apoyo visual operativo.</li>
               <li>Explicar pendientes cuando el readiness sea <code>PARTIAL</code> o <code>NOT_READY</code>.</li>
             </ul>
@@ -1138,19 +1075,11 @@
               <li>Atender bloqueos con criterio administrativo.</li>
             </ul>
           </article>
-          <article class="card">
-            <h3>Financieras</h3>
-            <ul>
-              <li>Confirmar contexto antes de capturar créditos.</li>
-              <li>Revisar permisos vigentes antes de crear nuevos.</li>
-              <li>Registrar comisiones desde el crédito correspondiente.</li>
-            </ul>
-          </article>
         </div>
       </section>
 
       <p class="footer">
-        Documento generado desde la revisión del repositorio y documentación del proyecto. No incluye capturas ni assets externos.
+        Documento preparado desde la documentación del proyecto. No incluye capturas ni assets externos.
       </p>
     </main>
   </div>

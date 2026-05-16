@@ -87,3 +87,8 @@ La validacion Playwright uso stack local aislado:
 ## Estado final
 
 Aceptada para cierre de esta etapa visual, con pendientes visuales menores ya registrados en el backlog post-MVP.
+
+## Actualizacion documental posterior
+
+- Guia rapida y HTML final actualizados para reflejar esta etapa visual aceptada.
+- Evidencia: `docs/05-post-mvp/ui-global-redesign-user-guide-update-note.md`.

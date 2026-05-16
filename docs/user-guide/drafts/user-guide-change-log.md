@@ -1,5 +1,24 @@
 # Change log de guía rápida FMCPA
 
+## Versión final 1.2
+
+**Fecha de ajuste:** 16 de mayo de 2026
+**Archivos base revisados:** `system-visual-reference.md`, `feature-status-matrix.md`, `user-guide-outline.md`, `user-guide-source.md`, `user-guide-final-source.md`, `user-guide.html`, `user-guide-final.html`, `ui-global-redesign-validation-note.md`, `ui-css-budget-cleanup-implementation-note.md` y `ui-redesign-priority-backlog.md`.
+
+## Qué se ajustó en esta versión
+
+- Se actualizó la guía por el rediseño visual global aceptado del sistema FMCPA.
+- Se describió el login institucional con logo FMCPA y se retiraron referencias técnicas visibles de la portada HTML.
+- Se actualizó el shell autenticado: header con logo FMCPA, nombre de plataforma, menú de usuario compacto, cambio de contraseña y cierre de sesión.
+- Se documentó la navegación agrupada real: `Inicio`, `Operación`, `Control` y `Administración`, filtrada por permisos.
+- Se actualizó Donatarias con tabs, KPIs, reporte de transparencia, vista imprimible operativa y modales contextuales.
+- Se actualizaron Mercados, Financieras y Federación para reflejar tabs, resúmenes/fichas operativas, listados compactos y modales.
+- Se actualizó Documents como catálogo compacto con labels operativos y work queue compacta.
+- Se actualizó Admin Users con alta en diálogo y acciones agrupadas en `Gestionar`.
+- Se registró la limpieza CSS/budget con utilidades `fmcpa-*` y build sin warnings de CSS budget.
+- Se mantuvieron visibles pendientes de fase posterior: PDF oficial/folio/firma, validación legal/fiscal/contable, seguridad avanzada, reportes formales, Contacts UX y Catálogos UX.
+- No se modificó código funcional, backend ni frontend de aplicación.
+
 ## Versión final 1.1
 
 **Fecha de ajuste:** 13 de mayo de 2026
@@ -55,7 +74,7 @@ También se redujo lenguaje técnico visible en portada y contenido principal:
 
 Los siguientes puntos se mantienen visibles como `Pendiente de fase posterior` o `Requiere definición adicional`:
 
-- Aprobación formal de varios tracks post-MVP.
+- Aprobación formal de varias líneas de trabajo documentadas.
 - Robustecimiento de bitácora, histórico y marca formal de cierre.
 - Política documental avanzada: respaldo formal, retención formal, limpieza segura, legal hold formal, OCR, almacenamiento externo y cumplimiento especializado.
 - Reportes avanzados, inteligencia de negocio, exportaciones masivas y reportes históricos formales.
