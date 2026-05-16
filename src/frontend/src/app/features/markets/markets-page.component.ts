@@ -14,11 +14,12 @@ import {
   MarketTenant,
   MarketTenantAlert
 } from '../../core/models/markets.models';
-import { Contact, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
+import { Contact, ContactIntervention, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
 import { AuthService } from '../../core/services/auth.service';
 import { MarketsService } from '../../core/services/markets.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
+import { ContactInterventionLauncherComponent } from '../contacts/contact-intervention-launcher.component';
 import { RelatedDocumentsPanelComponent } from '../documents/related-documents-panel.component';
 
 type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
@@ -26,7 +27,7 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
 @Component({
   selector: 'app-markets-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, ReactiveFormsModule, RelatedDocumentsPanelComponent],
+  imports: [DatePipe, ReactiveFormsModule, ContactInterventionLauncherComponent, RelatedDocumentsPanelComponent],
   template: `
     <section class="page-shell">
       <article class="hero-card">
@@ -666,6 +667,22 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
                         @if (issue.finalSatisfaction) {
                           <p class="meta"><strong>Satisfacción final:</strong> {{ issue.finalSatisfaction }}</p>
                         }
+
+                        @if (canLinkContactSupportForMarketIssue()) {
+                          <div class="row-actions issue-support-actions">
+                            <app-contact-intervention-launcher
+                              class="issue-support-launcher"
+                              moduleKey="MARKETS"
+                              originType="MARKET_ISSUE"
+                              [originId]="issue.id"
+                              [originDisplayName]="buildMarketIssueOriginDisplayName(marketDetail, issue)"
+                              [defaultSubject]="buildMarketIssueDefaultSubject(issue)"
+                              buttonLabel="Vincular apoyo de contacto"
+                              [disabled]="!selectedMarketCanOperate()"
+                              (saved)="onMarketIssueContactInterventionSaved($event, issue)">
+                            </app-contact-intervention-launcher>
+                          </div>
+                        }
                       </article>
                     }
                   </div>
@@ -937,6 +954,18 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
         color: #5233a8;
       }
 
+      .issue-support-actions {
+        justify-content: flex-end;
+      }
+
+      :host ::ng-deep app-contact-intervention-launcher.issue-support-launcher .intervention-launcher {
+        border-radius: 0.7rem;
+        padding: 0.62rem 0.78rem;
+        background: rgba(15, 118, 110, 0.08);
+        color: #17423d;
+        font-size: 0.9rem;
+      }
+
       .status-pill.due-soon {
         background: rgba(148, 98, 0, 0.16);
         color: #7a5400;
@@ -1034,6 +1063,7 @@ export class MarketsPageComponent {
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
   protected readonly canWrite = this.authService.canWriteMarkets;
+  protected readonly canReadContacts = this.authService.canReadContacts;
   protected readonly canAdminister = this.authService.canAdministerFormalClose;
   protected readonly contacts = signal<Contact[]>([]);
   protected readonly marketStatuses = signal<ModuleStatusCatalogEntry[]>([]);
@@ -1486,6 +1516,24 @@ export class MarketsPageComponent {
     }
 
     return 'issue-progress';
+  }
+
+  protected canLinkContactSupportForMarketIssue() {
+    return this.selectedMarketCanOperate() && this.canReadContacts();
+  }
+
+  protected buildMarketIssueOriginDisplayName(market: MarketDetail, issue: MarketIssue) {
+    return `${market.name} · ${issue.issueType} · ${issue.issueDate}`;
+  }
+
+  protected buildMarketIssueDefaultSubject(issue: MarketIssue) {
+    return `Apoyo en incidencia de mercado: ${issue.issueType}`;
+  }
+
+  protected onMarketIssueContactInterventionSaved(_intervention: ContactIntervention, issue: MarketIssue) {
+    this.pageError.set(null);
+    this.issueFormError.set(null);
+    this.issueFormSuccess.set(`Apoyo de contacto vinculado a la incidencia: ${issue.issueType}.`);
   }
 
   protected tenantAlertClass(alertState: string) {
