@@ -90,6 +90,12 @@ export interface ContactInterventionQuery {
   to?: string;
 }
 
+export interface ContactInterventionOriginQuery {
+  moduleKey: string;
+  originType: string;
+  originId: string;
+}
+
 export interface CatalogItem {
   id: number;
   code: string;

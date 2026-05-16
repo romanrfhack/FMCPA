@@ -19,10 +19,26 @@ import { AuthService } from '../../core/services/auth.service';
 import { MarketsService } from '../../core/services/markets.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
-import { ContactInterventionLauncherComponent } from '../contacts/contact-intervention-launcher.component';
+import { ContactInterventionLauncherComponent } from '../../shared/contact-interventions/contact-intervention-launcher.component';
 import { RelatedDocumentsPanelComponent } from '../documents/related-documents-panel.component';
 
 type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
+
+interface IssueContactInterventionsState {
+  isOpen: boolean;
+  isLoading: boolean;
+  hasLoaded: boolean;
+  error: string | null;
+  interventions: ContactIntervention[];
+}
+
+const emptyIssueContactInterventionsState: IssueContactInterventionsState = {
+  isOpen: false,
+  isLoading: false,
+  hasLoaded: false,
+  error: null,
+  interventions: []
+};
 
 @Component({
   selector: 'app-markets-page',
@@ -668,20 +684,101 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
                           <p class="meta"><strong>Satisfacción final:</strong> {{ issue.finalSatisfaction }}</p>
                         }
 
-                        @if (canLinkContactSupportForMarketIssue()) {
+                        @if (canLinkContactSupportForMarketIssue() || canViewContactSupportForMarketIssue()) {
                           <div class="row-actions issue-support-actions">
-                            <app-contact-intervention-launcher
-                              class="issue-support-launcher"
-                              moduleKey="MARKETS"
-                              originType="MARKET_ISSUE"
-                              [originId]="issue.id"
-                              [originDisplayName]="buildMarketIssueOriginDisplayName(marketDetail, issue)"
-                              [defaultSubject]="buildMarketIssueDefaultSubject(issue)"
-                              buttonLabel="Vincular apoyo de contacto"
-                              [disabled]="!selectedMarketCanOperate()"
-                              (saved)="onMarketIssueContactInterventionSaved($event, issue)">
-                            </app-contact-intervention-launcher>
+                            @if (canLinkContactSupportForMarketIssue()) {
+                              <app-contact-intervention-launcher
+                                class="issue-support-launcher"
+                                moduleKey="MARKETS"
+                                originType="MARKET_ISSUE"
+                                [originId]="issue.id"
+                                [originDisplayName]="buildMarketIssueOriginDisplayName(marketDetail, issue)"
+                                [defaultSubject]="buildMarketIssueDefaultSubject(issue)"
+                                buttonLabel="Vincular apoyo de contacto"
+                                [disabled]="!selectedMarketCanOperate()"
+                                (saved)="onMarketIssueContactInterventionSaved($event, issue)">
+                              </app-contact-intervention-launcher>
+                            }
+                            @if (canViewContactSupportForMarketIssue()) {
+                              <button
+                                type="button"
+                                class="ghost compact"
+                                [disabled]="getIssueContactInterventionsState(issue.id).isLoading"
+                                (click)="toggleIssueContactInterventions(issue)">
+                                @if (isIssueContactInterventionsOpen(issue.id)) {
+                                  Ocultar apoyos
+                                } @else {
+                                  Ver apoyos
+                                }
+                              </button>
+                            }
                           </div>
+                        }
+
+                        @if (canViewContactSupportForMarketIssue() && isIssueContactInterventionsOpen(issue.id)) {
+                          @if (getIssueContactInterventionsState(issue.id); as supportHistory) {
+                            <section class="issue-support-history" aria-label="Apoyos de contacto vinculados">
+                              <div class="row-top issue-support-history-header">
+                                <div>
+                                  <h4>Apoyos de contacto</h4>
+                                  <p class="meta">Intervenciones asociadas a esta incidencia.</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  class="ghost compact"
+                                  [disabled]="supportHistory.isLoading"
+                                  (click)="loadIssueContactInterventions(issue, true)">
+                                  Actualizar
+                                </button>
+                              </div>
+
+                              @if (supportHistory.error) {
+                                <p class="alert error">{{ supportHistory.error }}</p>
+                              } @else if (supportHistory.isLoading) {
+                                <p class="empty-state">Cargando apoyos de contacto...</p>
+                              } @else if (supportHistory.hasLoaded && supportHistory.interventions.length === 0) {
+                                <p class="empty-state">No hay apoyos de contacto registrados para esta incidencia.</p>
+                              } @else {
+                                <div class="issue-support-history-list">
+                                  @for (intervention of supportHistory.interventions; track intervention.id) {
+                                    <article class="issue-support-history-item">
+                                      <div class="row-top">
+                                        <div>
+                                          <p class="meta">
+                                            {{ intervention.occurredUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}
+                                          </p>
+                                          <h4>{{ intervention.contactName }}</h4>
+                                        </div>
+                                        <span class="status-pill neutral">{{ getOutcomeLabel(intervention.outcome) }}</span>
+                                      </div>
+
+                                      <dl class="detail-grid-list">
+                                        <div>
+                                          <dt>Tipo de ayuda</dt>
+                                          <dd>{{ getHelpTypeLabel(intervention.helpType) }}</dd>
+                                        </div>
+                                        <div>
+                                          <dt>Resultado</dt>
+                                          <dd>{{ getOutcomeLabel(intervention.outcome) }}</dd>
+                                        </div>
+                                        <div>
+                                          <dt>Registró</dt>
+                                          <dd>
+                                            {{ intervention.createdByUserName || 'Sin usuario' }}
+                                            · {{ intervention.createdUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}
+                                          </dd>
+                                        </div>
+                                      </dl>
+
+                                      @if (intervention.notes) {
+                                        <p class="description issue-support-notes">{{ intervention.notes }}</p>
+                                      }
+                                    </article>
+                                  }
+                                </div>
+                              }
+                            </section>
+                          }
                         }
                       </article>
                     }
@@ -966,6 +1063,35 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
         font-size: 0.9rem;
       }
 
+      .issue-support-history {
+        display: grid;
+        min-width: 0;
+        gap: 0.75rem;
+        margin-top: 0.35rem;
+        padding: 0.85rem;
+        border: 1px solid rgba(29, 45, 42, 0.08);
+        border-radius: 0.75rem;
+        background: #fbfbf8;
+      }
+
+      .issue-support-history-list {
+        display: grid;
+        gap: 0.65rem;
+      }
+
+      .issue-support-history-item {
+        display: grid;
+        min-width: 0;
+        gap: 0.7rem;
+        padding: 0.75rem;
+        border-radius: 0.7rem;
+        background: #f6f5ef;
+      }
+
+      .issue-support-notes {
+        overflow-wrap: anywhere;
+      }
+
       .status-pill.due-soon {
         background: rgba(148, 98, 0, 0.16);
         color: #7a5400;
@@ -1062,6 +1188,7 @@ export class MarketsPageComponent {
   private readonly marketsService = inject(MarketsService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
+  protected readonly canReadMarkets = this.authService.canReadMarkets;
   protected readonly canWrite = this.authService.canWriteMarkets;
   protected readonly canReadContacts = this.authService.canReadContacts;
   protected readonly canAdminister = this.authService.canAdministerFormalClose;
@@ -1073,6 +1200,7 @@ export class MarketsPageComponent {
   protected readonly selectedMarketId = signal<string | null>(null);
   protected readonly selectedMarket = signal<MarketDetail | null>(null);
   protected readonly activeTab = signal<MarketTab>('summary');
+  protected readonly issueContactInterventions = signal<Record<string, IssueContactInterventionsState>>({});
 
   protected readonly isBootstrapping = signal(true);
   protected readonly pageError = signal<string | null>(null);
@@ -1522,6 +1650,79 @@ export class MarketsPageComponent {
     return this.selectedMarketCanOperate() && this.canReadContacts();
   }
 
+  protected canViewContactSupportForMarketIssue() {
+    return this.canReadMarkets() && this.canReadContacts();
+  }
+
+  protected getIssueContactInterventionsState(issueId: string) {
+    return this.issueContactInterventions()[issueId] ?? emptyIssueContactInterventionsState;
+  }
+
+  protected isIssueContactInterventionsOpen(issueId: string) {
+    return this.getIssueContactInterventionsState(issueId).isOpen;
+  }
+
+  protected async toggleIssueContactInterventions(issue: MarketIssue) {
+    if (!this.canViewContactSupportForMarketIssue()) {
+      return;
+    }
+
+    const currentState = this.getIssueContactInterventionsState(issue.id);
+
+    if (currentState.isOpen) {
+      this.patchIssueContactInterventionsState(issue.id, { isOpen: false });
+      return;
+    }
+
+    this.patchIssueContactInterventionsState(issue.id, { isOpen: true });
+
+    if (!currentState.hasLoaded) {
+      await this.loadIssueContactInterventions(issue);
+    }
+  }
+
+  protected async loadIssueContactInterventions(issue: MarketIssue, force = false) {
+    if (!this.canViewContactSupportForMarketIssue()) {
+      return;
+    }
+
+    const currentState = this.getIssueContactInterventionsState(issue.id);
+    if ((currentState.isLoading && !force) || (currentState.hasLoaded && !force)) {
+      return;
+    }
+
+    this.patchIssueContactInterventionsState(issue.id, {
+      isOpen: true,
+      isLoading: true,
+      error: null,
+      interventions: currentState.hasLoaded ? currentState.interventions : []
+    });
+
+    try {
+      const interventions = await firstValueFrom(
+        this.sharedCatalogsService.getContactInterventionsByOrigin({
+          moduleKey: 'MARKETS',
+          originType: 'MARKET_ISSUE',
+          originId: issue.id
+        })
+      );
+
+      this.patchIssueContactInterventionsState(issue.id, {
+        isLoading: false,
+        hasLoaded: true,
+        error: null,
+        interventions
+      });
+    } catch (error) {
+      this.patchIssueContactInterventionsState(issue.id, {
+        isLoading: false,
+        hasLoaded: true,
+        error: getApiErrorMessage(error, 'No fue posible cargar los apoyos de contacto.'),
+        interventions: []
+      });
+    }
+  }
+
   protected buildMarketIssueOriginDisplayName(market: MarketDetail, issue: MarketIssue) {
     return `${market.name} · ${issue.issueType} · ${issue.issueDate}`;
   }
@@ -1530,10 +1731,37 @@ export class MarketsPageComponent {
     return `Apoyo en incidencia de mercado: ${issue.issueType}`;
   }
 
-  protected onMarketIssueContactInterventionSaved(_intervention: ContactIntervention, issue: MarketIssue) {
+  protected async onMarketIssueContactInterventionSaved(_intervention: ContactIntervention, issue: MarketIssue) {
     this.pageError.set(null);
     this.issueFormError.set(null);
     this.issueFormSuccess.set(`Apoyo de contacto vinculado a la incidencia: ${issue.issueType}.`);
+
+    if (this.isIssueContactInterventionsOpen(issue.id)) {
+      await this.loadIssueContactInterventions(issue, true);
+    }
+  }
+
+  protected getHelpTypeLabel(helpType: string) {
+    return this.resolveLabel(helpType, {
+      INFORMATION: 'Información',
+      FACILITATION: 'Facilitación',
+      VALIDATION: 'Validación',
+      ESCALATION: 'Escalamiento',
+      FOLLOW_UP: 'Seguimiento',
+      UNBLOCKING: 'Desbloqueo',
+      OTHER: 'Otro'
+    });
+  }
+
+  protected getOutcomeLabel(outcome: string) {
+    return this.resolveLabel(outcome, {
+      USEFUL: 'Útil',
+      SUCCESSFUL: 'Exitoso',
+      PENDING: 'Pendiente',
+      NO_RESPONSE: 'Sin respuesta',
+      NOT_APPLICABLE: 'No aplica',
+      OTHER: 'Otro'
+    });
   }
 
   protected tenantAlertClass(alertState: string) {
@@ -1666,6 +1894,7 @@ export class MarketsPageComponent {
   }
 
   private async loadMarketDetail(marketId: string) {
+    this.issueContactInterventions.set({});
     this.selectedMarket.set(await firstValueFrom(this.marketsService.getMarket(marketId)));
   }
 
@@ -1686,6 +1915,25 @@ export class MarketsPageComponent {
   private normalizeGuid(value: string) {
     const normalizedValue = value.trim();
     return normalizedValue.length > 0 ? normalizedValue : null;
+  }
+
+  private patchIssueContactInterventionsState(issueId: string, patch: Partial<IssueContactInterventionsState>) {
+    this.issueContactInterventions.update((currentStates) => {
+      const currentState = currentStates[issueId] ?? emptyIssueContactInterventionsState;
+
+      return {
+        ...currentStates,
+        [issueId]: {
+          ...currentState,
+          ...patch
+        }
+      };
+    });
+  }
+
+  private resolveLabel(code: string, labels: Record<string, string>) {
+    const normalizedCode = code.trim().toUpperCase();
+    return labels[normalizedCode] ?? normalizedCode;
   }
 
   private todayIso() {

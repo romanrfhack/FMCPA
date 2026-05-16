@@ -10,7 +10,7 @@ import { Contact, ContactIntervention, ModuleStatusCatalogEntry } from '../../co
 import { AuthService } from '../../core/services/auth.service';
 import { MarketsService } from '../../core/services/markets.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
-import { ContactInterventionLauncherComponent } from '../contacts/contact-intervention-launcher.component';
+import { ContactInterventionLauncherComponent } from '../../shared/contact-interventions/contact-intervention-launcher.component';
 import { MarketsPageComponent } from './markets-page.component';
 
 const contact: Contact = {
@@ -174,12 +174,67 @@ describe('MarketsPageComponent contact intervention pilot', () => {
     expect(compiled.textContent).toContain('Apoyo de contacto vinculado a la incidencia: Mejora de limpieza.');
     expect(compiled.textContent).toContain('Mejora de limpieza');
   });
+
+  it('loads issue support interventions by origin when Ver apoyos is clicked', async () => {
+    const { fixture, sharedCatalogsService } = await renderMarketsPage();
+
+    await openIssueSupportHistory(fixture);
+
+    expect(sharedCatalogsService.getContactInterventionsByOrigin).toHaveBeenCalledWith({
+      moduleKey: 'MARKETS',
+      originType: 'MARKET_ISSUE',
+      originId: issue.id
+    });
+  });
+
+  it('renders associated issue support interventions', async () => {
+    const { fixture } = await renderMarketsPage();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    await openIssueSupportHistory(fixture);
+
+    expect(compiled.textContent).toContain('Apoyos de contacto');
+    expect(compiled.textContent).toContain('Enlace Operativo');
+    expect(compiled.textContent).toContain('Desbloqueo');
+    expect(compiled.textContent).toContain('Útil');
+    expect(compiled.textContent).toContain('Ayudo a coordinar.');
+    expect(compiled.textContent).toContain('Operadora');
+  });
+
+  it('shows an empty state when the issue has no support interventions', async () => {
+    const { fixture } = await renderMarketsPage({ issueInterventions: [] });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    await openIssueSupportHistory(fixture);
+
+    expect(compiled.textContent).toContain('No hay apoyos de contacto registrados para esta incidencia.');
+  });
+
+  it('refreshes the open support panel after saving an intervention', async () => {
+    const { fixture, sharedCatalogsService } = await renderMarketsPage();
+
+    await openIssueSupportHistory(fixture);
+    expect(sharedCatalogsService.getContactInterventionsByOrigin).toHaveBeenCalledTimes(1);
+
+    const launcher = fixture.debugElement.query(By.directive(ContactInterventionLauncherComponent))
+      .componentInstance as ContactInterventionLauncherComponent;
+    launcher.saved.emit(intervention);
+    await fixture.whenStable();
+    await flushAsyncTasks();
+    fixture.detectChanges();
+
+    expect(sharedCatalogsService.getContactInterventionsByOrigin).toHaveBeenCalledTimes(2);
+    expect((fixture.nativeElement as HTMLElement).textContent)
+      .toContain('Apoyo de contacto vinculado a la incidencia: Mejora de limpieza.');
+  });
 });
 
 async function renderMarketsPage(options: {
   canWriteMarkets?: boolean;
+  canReadMarkets?: boolean;
   canReadContacts?: boolean;
   market?: MarketDetail;
+  issueInterventions?: ContactIntervention[];
 } = {}) {
   const selectedMarket = options.market ?? marketDetail;
   const marketAlerts: MarketTenantAlert[] = [];
@@ -200,6 +255,7 @@ async function renderMarketsPage(options: {
     getContacts: vi.fn(() => of([contact])),
     getModuleStatuses: vi.fn((moduleCode?: string, contextCode?: string) =>
       of(contextCode === 'MARKET_ISSUE' ? [issueStatus] : [marketStatus])),
+    getContactInterventionsByOrigin: vi.fn(() => of(options.issueInterventions ?? [intervention])),
     createContactIntervention: vi.fn(() => of(intervention))
   };
 
@@ -210,6 +266,7 @@ async function renderMarketsPage(options: {
       {
         provide: AuthService,
         useValue: {
+          canReadMarkets: signal(options.canReadMarkets ?? true),
           canWriteMarkets: signal(options.canWriteMarkets ?? true),
           canReadContacts: signal(options.canReadContacts ?? true),
           canAdministerFormalClose: signal(false)
@@ -229,7 +286,8 @@ async function renderMarketsPage(options: {
   const fixture = TestBed.createComponent(MarketsPageComponent);
   fixture.detectChanges();
   await fixture.whenStable();
-  await Promise.resolve();
+  await flushAsyncTasks();
+  fixture.detectChanges();
 
   const component = fixture.componentInstance as unknown as {
     selectedMarketId: { set(value: string | null): void };
@@ -248,4 +306,26 @@ async function renderMarketsPage(options: {
 
 function showIssuesTab(fixture: ComponentFixture<MarketsPageComponent>) {
   (fixture.componentInstance as unknown as { setActiveTab(tab: 'issues'): void }).setActiveTab('issues');
+}
+
+async function openIssueSupportHistory(fixture: ComponentFixture<MarketsPageComponent>) {
+  showIssuesTab(fixture);
+  fixture.detectChanges();
+
+  findButtonByText(fixture.nativeElement as HTMLElement, 'Ver apoyos')?.click();
+  fixture.detectChanges();
+  await fixture.whenStable();
+  await flushAsyncTasks();
+  fixture.detectChanges();
+}
+
+async function flushAsyncTasks() {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+}
+
+function findButtonByText(root: HTMLElement, text: string) {
+  return Array.from(root.querySelectorAll<HTMLButtonElement>('button'))
+    .find((button) => button.textContent?.trim() === text) ?? null;
 }

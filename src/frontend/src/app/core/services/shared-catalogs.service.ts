@@ -6,6 +6,7 @@ import {
   CatalogItem,
   Contact,
   ContactIntervention,
+  ContactInterventionOriginQuery,
   ContactInterventionQuery,
   ContactType,
   CreateCatalogItemRequest,
@@ -56,6 +57,17 @@ export class SharedCatalogsService {
     return this.httpClient.get<ContactIntervention[]>(
       `${this.apiBaseUrl}/contacts/${contactId}/interventions`,
       { params: params.keys().length > 0 ? params : undefined });
+  }
+
+  getContactInterventionsByOrigin(query: ContactInterventionOriginQuery) {
+    const params = new HttpParams()
+      .set('moduleKey', query.moduleKey)
+      .set('originType', query.originType)
+      .set('originId', query.originId);
+
+    return this.httpClient.get<ContactIntervention[]>(
+      `${this.apiBaseUrl}/contact-interventions`,
+      { params });
   }
 
   createContactIntervention(contactId: string, request: CreateContactInterventionRequest) {
