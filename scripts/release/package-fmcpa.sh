@@ -13,6 +13,7 @@ FRONTEND_OUTPUT="src/frontend/dist/frontend/browser"
 SMOKE_PORT="55111"
 SMOKE_PID=""
 SMOKE_LOG=""
+CONTACTS_COMPATIBILITY_ALIAS_SOURCE=""
 
 cleanup() {
   if [[ -n "${SMOKE_PID}" ]] && kill -0 "${SMOKE_PID}" >/dev/null 2>&1; then
@@ -110,6 +111,68 @@ scan_for_forbidden_strings() {
   done
 }
 
+add_frontend_chunk_compatibility_aliases() {
+  local contacts_stale_chunk="chunk-IISUAAIB.js"
+  local contacts_chunks=()
+
+  mapfile -t contacts_chunks < <(grep -l "ContactsPageComponent" "${FRONTEND_RELEASE_DIR}"/chunk-*.js || true)
+  if ((${#contacts_chunks[@]} != 1)); then
+    echo "ERROR: expected exactly one contacts lazy chunk and found ${#contacts_chunks[@]}." >&2
+    printf '%s\n' "${contacts_chunks[@]}" >&2
+    exit 1
+  fi
+
+  CONTACTS_COMPATIBILITY_ALIAS_SOURCE="$(basename "${contacts_chunks[0]}")"
+  if [[ "${CONTACTS_COMPATIBILITY_ALIAS_SOURCE}" != "${contacts_stale_chunk}" ]]; then
+    cp "${contacts_chunks[0]}" "${FRONTEND_RELEASE_DIR}/${contacts_stale_chunk}"
+  fi
+}
+
+verify_frontend_dynamic_imports() {
+  local main_files=("${FRONTEND_RELEASE_DIR}"/main-*.js)
+  local referenced_chunks=()
+  local missing_chunks=()
+
+  if [[ ! -f "${main_files[0]}" ]]; then
+    echo "ERROR: frontend main bundle was not found in ${FRONTEND_RELEASE_DIR}." >&2
+    exit 1
+  fi
+
+  mapfile -t referenced_chunks < <(grep -hoE 'chunk-[A-Z0-9]+\.js' "${main_files[@]}" | sort -u || true)
+  for chunk in "${referenced_chunks[@]}"; do
+    if [[ ! -f "${FRONTEND_RELEASE_DIR}/${chunk}" ]]; then
+      missing_chunks+=("${chunk}")
+    fi
+  done
+
+  if ((${#missing_chunks[@]} > 0)); then
+    echo "ERROR: frontend build references missing chunks:" >&2
+    printf '%s\n' "${missing_chunks[@]}" >&2
+    exit 1
+  fi
+}
+
+write_frontend_cache_snippet() {
+  cat > "${RELEASE_DIR}/nginx-fmcpa-frontend-cache.conf" <<'NGINX'
+# Place these locations inside the fmcpa.com.mx server block.
+# HTML must revalidate on every deploy; hashed JS/CSS/assets can be cached long-term.
+location = /index.html {
+    add_header Cache-Control "no-store" always;
+    try_files /index.html =404;
+}
+
+location / {
+    add_header Cache-Control "no-store" always;
+    try_files $uri $uri/ /index.html;
+}
+
+location ~* \.(?:js|css|webp|ico|png|jpg|jpeg|svg|woff2?)$ {
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    try_files $uri =404;
+}
+NGINX
+}
+
 random_signing_key() {
   od -An -N64 -tx1 /dev/urandom | tr -d ' \n'
 }
@@ -188,6 +251,9 @@ if [[ ! -d "${FRONTEND_OUTPUT}" ]]; then
 fi
 
 cp -a "${FRONTEND_OUTPUT}/." "${FRONTEND_RELEASE_DIR}/"
+add_frontend_chunk_compatibility_aliases
+verify_frontend_dynamic_imports
+write_frontend_cache_snippet
 
 SMOKE_JWT_SIGNING_KEY="$(random_signing_key)"
 pushd "${BACKEND_DIR}" >/dev/null
@@ -237,6 +303,9 @@ validaciones realizadas:
 - appsettings.Production.json minimo sin secretos creado en backend
 - npm run build en ${FRONTEND_DIR}
 - frontend copiado desde ${FRONTEND_OUTPUT}
+- alias temporal Contactos chunk-IISUAAIB.js -> ${CONTACTS_COMPATIBILITY_ALIAS_SOURCE}
+- chunks dinamicos referenciados por main verificados en frontend
+- snippet nginx-fmcpa-frontend-cache.conf generado para cache HTML/assets
 - scan de strings prohibidos en frontend textual y backend appsettings/manifest
 - smoke backend publicado en Production sobre 127.0.0.1:${SMOKE_PORT}
 - curl /health exitoso

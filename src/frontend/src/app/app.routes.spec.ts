@@ -32,6 +32,18 @@ describe('app routes', () => {
     expect(operationsRoute?.data?.['requiredPermission']).toBe('DASHBOARD_READ');
   });
 
+  it('protects the contacts route with CONTACTS_READ permission and lazy-loads the contacts page', async () => {
+    const shellRoute = routes.find((route) => route.path === '');
+    const contactsRoute = shellRoute?.children?.find((route) => route.path === 'contacts');
+
+    expect(contactsRoute).toBeDefined();
+    expect(contactsRoute?.canActivate).toContain(permissionGuard);
+    expect(contactsRoute?.data?.['requiredPermission']).toBe('CONTACTS_READ');
+
+    const component = await contactsRoute?.loadComponent?.();
+    expect((component as { name?: string })?.name).toContain('ContactsPageComponent');
+  });
+
   it('exposes self-service password change only under the authenticated shell', () => {
     const shellRoute = routes.find((route) => route.path === '');
     const changePasswordRoute = shellRoute?.children?.find((route) => route.path === 'account/password');
