@@ -21,6 +21,8 @@ import { SharedCatalogsService } from '../../core/services/shared-catalogs.servi
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
 import { RelatedDocumentsPanelComponent } from '../documents/related-documents-panel.component';
 
+type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
+
 @Component({
   selector: 'app-markets-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -28,65 +30,46 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">STAGE-03</p>
-        <h2>Mercados</h2>
-        <p>
-          Primer modulo de negocio real sobre la base compartida de contactos y catalogos.
-          Incluye mercados, locatarios, incidencias y alertas minimas de vigencia de cédulas.
-        </p>
+        <div>
+          <p class="page-kicker">Gestión operativa</p>
+          <h2>Mercados</h2>
+          <p>
+            Consulta mercados, locatarios, cédulas, incidencias y alertas de vigencia desde una vista compacta.
+          </p>
+        </div>
+        @if (canWrite()) {
+          <button type="button" (click)="openMarketModal()">Registrar mercado</button>
+        }
       </article>
 
       @if (pageError()) {
         <p class="alert error">{{ pageError() }}</p>
       }
 
-      <div class="page-grid">
-        <aside class="sidebar">
-          <article class="filter-card">
+      @if (pageSuccess()) {
+        <p class="alert success">{{ pageSuccess() }}</p>
+      }
+
+      @if (isMarketModalOpen()) {
+        <div class="modal" (click)="closeMarketModal()" (document:keydown.escape)="closeMarketModal()">
+          <article
+            class="form-card modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="register-market-title"
+            (click)="$event.stopPropagation()">
             <div class="card-header">
               <div>
-                <h3>Filtro</h3>
-                <p>Reduce la lista por estatus o solo por alertas activas.</p>
-              </div>
-            </div>
-
-            <form class="form-grid" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
-              <label>
-                <span>Estatus</span>
-                <select formControlName="statusCode">
-                  <option value="">Todos</option>
-                  @for (status of marketStatuses(); track status.id) {
-                    <option [value]="status.statusCode">{{ status.statusName }}</option>
-                  }
-                </select>
-              </label>
-
-              <label class="toggle">
-                <input type="checkbox" formControlName="alertsOnly" />
-                <span>Solo con alertas activas</span>
-              </label>
-
-              <div class="form-actions">
-                <button type="submit">Aplicar filtro</button>
-                <button type="button" class="ghost" (click)="clearFilters()">Limpiar</button>
-              </div>
-            </form>
-          </article>
-
-          <article class="form-card">
-            <div class="card-header">
-              <div>
-                <h3>Alta de mercado</h3>
+                <h3 id="register-market-title">Registrar mercado</h3>
                 <p>Registro base del mercado y su secretario general.</p>
               </div>
+              <button type="button" class="ghost" (click)="closeMarketModal()" [disabled]="isSubmittingMarket()">
+                Cerrar
+              </button>
             </div>
 
             @if (marketFormError()) {
               <p class="alert error">{{ marketFormError() }}</p>
-            }
-
-            @if (marketFormSuccess()) {
-              <p class="alert success">{{ marketFormSuccess() }}</p>
             }
 
             <form class="form-grid" [formGroup]="marketForm" (ngSubmit)="submitMarket()">
@@ -96,8 +79,8 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               </label>
 
               <label>
-                <span>Alcaldia</span>
-                <input type="text" formControlName="borough" placeholder="Alcaldia" />
+                <span>Alcaldía</span>
+                <input type="text" formControlName="borough" placeholder="Alcaldía" />
               </label>
 
               <label>
@@ -132,7 +115,224 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
               <div class="form-actions full-width">
                 <button type="submit" [disabled]="isSubmittingMarket() || !canWrite()">Registrar mercado</button>
-                <button type="button" class="ghost" (click)="resetMarketForm()">Limpiar</button>
+                <button type="button" class="ghost" (click)="resetMarketForm()" [disabled]="isSubmittingMarket()">
+                  Limpiar
+                </button>
+                <button type="button" class="ghost" (click)="closeMarketModal()" [disabled]="isSubmittingMarket()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </article>
+        </div>
+      }
+
+      @if (isTenantModalOpen() && selectedMarket(); as marketDetail) {
+        <div class="modal" (click)="closeTenantModal()" (document:keydown.escape)="closeTenantModal()">
+          <article
+            class="form-card modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="register-tenant-title"
+            (click)="$event.stopPropagation()">
+            <div class="card-header">
+              <div>
+                <h3 id="register-tenant-title">Registrar locatario</h3>
+                <p>{{ marketDetail.name }} · cédula digitalizada y datos operativos.</p>
+              </div>
+              <button type="button" class="ghost" (click)="closeTenantModal()" [disabled]="isSubmittingTenant()">
+                Cerrar
+              </button>
+            </div>
+
+            @if (tenantFormError()) {
+              <p class="alert error">{{ tenantFormError() }}</p>
+            }
+
+            <form class="form-grid" [formGroup]="tenantForm" (ngSubmit)="submitTenant()">
+              <label>
+                <span>Contacto compartido</span>
+                <select formControlName="contactId" (change)="syncTenantFromContact()">
+                  <option value="">Sin vincular</option>
+                  @for (contact of contacts(); track contact.id) {
+                    <option [value]="contact.id">{{ contact.name }}</option>
+                  }
+                </select>
+              </label>
+
+              <label>
+                <span>Locatario</span>
+                <input type="text" formControlName="tenantName" placeholder="Nombre del locatario" />
+              </label>
+
+              <label>
+                <span>Número de cédula</span>
+                <input type="text" formControlName="certificateNumber" placeholder="Número de cédula" />
+              </label>
+
+              <label>
+                <span>Vigencia</span>
+                <input type="date" formControlName="certificateValidityTo" />
+              </label>
+
+              <label>
+                <span>Giro</span>
+                <input type="text" formControlName="businessLine" placeholder="Giro comercial" />
+              </label>
+
+              <label>
+                <span>Celular</span>
+                <input type="text" formControlName="mobilePhone" placeholder="Celular" />
+              </label>
+
+              <label>
+                <span>WhatsApp</span>
+                <input type="text" formControlName="whatsAppPhone" placeholder="WhatsApp" />
+              </label>
+
+              <label>
+                <span>Correo</span>
+                <input type="email" formControlName="email" placeholder="correo@ejemplo.com" />
+              </label>
+
+              <label class="full-width">
+                <span>Cédula digitalizada</span>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" (change)="onCertificateSelected($event)" />
+              </label>
+
+              @if (selectedCertificateFileName()) {
+                <p class="inline-note full-width">Archivo seleccionado: {{ selectedCertificateFileName() }}</p>
+              }
+
+              <label class="full-width">
+                <span>Observaciones</span>
+                <textarea formControlName="notes" rows="3" placeholder="Observaciones del locatario"></textarea>
+              </label>
+
+              <div class="form-actions full-width">
+                <button type="submit" [disabled]="isSubmittingTenant() || !selectedMarketCanOperate()">
+                  Registrar locatario
+                </button>
+                <button type="button" class="ghost" (click)="resetTenantForm()" [disabled]="isSubmittingTenant()">
+                  Limpiar
+                </button>
+                <button type="button" class="ghost" (click)="closeTenantModal()" [disabled]="isSubmittingTenant()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </article>
+        </div>
+      }
+
+      @if (isIssueModalOpen() && selectedMarket(); as marketDetail) {
+        <div class="modal" (click)="closeIssueModal()" (document:keydown.escape)="closeIssueModal()">
+          <article
+            class="form-card modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="register-issue-title"
+            (click)="$event.stopPropagation()">
+            <div class="card-header">
+              <div>
+                <h3 id="register-issue-title">Registrar incidencia / mejora</h3>
+                <p>{{ marketDetail.name }} · seguimiento con estatus reusable.</p>
+              </div>
+              <button type="button" class="ghost" (click)="closeIssueModal()" [disabled]="isSubmittingIssue()">
+                Cerrar
+              </button>
+            </div>
+
+            @if (issueFormError()) {
+              <p class="alert error">{{ issueFormError() }}</p>
+            }
+
+            <form class="form-grid" [formGroup]="issueForm" (ngSubmit)="submitIssue()">
+              <label>
+                <span>Tipo</span>
+                <input type="text" formControlName="issueType" placeholder="Queja, mejora u observación" />
+              </label>
+
+              <label>
+                <span>Fecha</span>
+                <input type="date" formControlName="issueDate" />
+              </label>
+
+              <label class="full-width">
+                <span>Descripción</span>
+                <textarea formControlName="description" rows="4" placeholder="Descripción de la incidencia o mejora"></textarea>
+              </label>
+
+              <label class="full-width">
+                <span>Avance</span>
+                <textarea formControlName="advanceSummary" rows="3" placeholder="Avance actual"></textarea>
+              </label>
+
+              <label>
+                <span>Estatus</span>
+                <select formControlName="statusCatalogEntryId">
+                  <option [value]="0">Selecciona un estatus</option>
+                  @for (status of issueStatuses(); track status.id) {
+                    <option [value]="status.id">{{ status.statusName }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="full-width">
+                <span>Seguimiento / resolución</span>
+                <textarea formControlName="followUpOrResolution" rows="3" placeholder="Seguimiento o resolución"></textarea>
+              </label>
+
+              <label class="full-width">
+                <span>Satisfacción final</span>
+                <input type="text" formControlName="finalSatisfaction" placeholder="Si aplica" />
+              </label>
+
+              <div class="form-actions full-width">
+                <button type="submit" [disabled]="isSubmittingIssue() || !selectedMarketCanOperate()">
+                  Registrar incidencia
+                </button>
+                <button type="button" class="ghost" (click)="resetIssueForm()" [disabled]="isSubmittingIssue()">
+                  Limpiar
+                </button>
+                <button type="button" class="ghost" (click)="closeIssueModal()" [disabled]="isSubmittingIssue()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </article>
+        </div>
+      }
+
+      <div class="page-grid">
+        <aside class="sidebar">
+          <article class="filter-card">
+            <div class="card-header">
+              <div>
+                <h3>Mercados</h3>
+                <p>Filtros compactos por estatus y alertas.</p>
+              </div>
+            </div>
+
+            <form class="filter-grid" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+              <label>
+                <span>Estatus</span>
+                <select formControlName="statusCode">
+                  <option value="">Todos</option>
+                  @for (status of marketStatuses(); track status.id) {
+                    <option [value]="status.statusCode">{{ status.statusName }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="toggle">
+                <input type="checkbox" formControlName="alertsOnly" />
+                <span>Solo con alertas activas</span>
+              </label>
+
+              <div class="form-actions">
+                <button type="submit">Aplicar</button>
+                <button type="button" class="ghost" (click)="clearFilters()">Limpiar</button>
               </div>
             </form>
           </article>
@@ -251,8 +451,20 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                   <p>{{ marketDetail.tenants.length }}</p>
                 </article>
                 <article>
-                  <h4>Incidencias</h4>
-                  <p>{{ marketDetail.issues.length }}</p>
+                  <h4>Cédulas con alerta</h4>
+                  <p>{{ selectedMarketAlertCount() }}</p>
+                </article>
+                <article>
+                  <h4>Incidencias abiertas</h4>
+                  <p>{{ selectedOpenIssueCount() }}</p>
+                </article>
+                <article>
+                  <h4>Incidencias cerradas</h4>
+                  <p>{{ selectedClosedIssueCount() }}</p>
+                </article>
+                <article>
+                  <h4>Secretario general</h4>
+                  <p>{{ marketDetail.secretaryGeneralName }}</p>
                 </article>
                 <article>
                   <h4>Alta UTC</h4>
@@ -261,102 +473,103 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
               </div>
             </article>
 
-            <div class="detail-grid">
-              <article class="form-card">
+            <nav class="tab-nav" aria-label="Secciones de mercado">
+              <button
+                type="button"
+                [class.is-active]="activeTab() === 'summary'"
+                (click)="setActiveTab('summary')">
+                Resumen
+              </button>
+              <button
+                type="button"
+                [class.is-active]="activeTab() === 'tenants'"
+                (click)="setActiveTab('tenants')">
+                Locatarios
+              </button>
+              <button
+                type="button"
+                [class.is-active]="activeTab() === 'issues'"
+                (click)="setActiveTab('issues')">
+                Incidencias / mejoras
+              </button>
+              <button
+                type="button"
+                [class.is-active]="activeTab() === 'documents'"
+                (click)="setActiveTab('documents')">
+                Documentos / cédulas
+              </button>
+            </nav>
+
+            @if (activeTab() === 'summary') {
+              <article class="list-card">
                 <div class="card-header">
                   <div>
-                    <h3>Alta de locatario</h3>
-                    <p>Cédula digitalizada con vigencia y datos operativos.</p>
+                    <h3>Resumen ejecutivo</h3>
+                    <p>Lectura rápida del mercado seleccionado y sus alertas principales.</p>
+                  </div>
+                  <div class="detail-badges">
+                    @if (selectedMarketCanOperate()) {
+                      <button type="button" (click)="openTenantModal()">Registrar locatario</button>
+                      <button type="button" class="ghost" (click)="openIssueModal()">Registrar incidencia</button>
+                    }
                   </div>
                 </div>
 
-                @if (tenantFormError()) {
-                  <p class="alert error">{{ tenantFormError() }}</p>
-                }
+                <div class="signal-grid">
+                  <article class="signal-card">
+                    <h4>Estatus</h4>
+                    <strong>{{ marketDetail.statusName }}</strong>
+                    <p>{{ marketDetail.statusIsClosed ? 'Mercado terminal; captura bloqueada.' : 'Mercado disponible para operación contextual.' }}</p>
+                  </article>
+                  <article class="signal-card">
+                    <h4>Alcaldía</h4>
+                    <strong>{{ marketDetail.borough }}</strong>
+                    <p>Secretario general: {{ marketDetail.secretaryGeneralName }}</p>
+                  </article>
+                  <article class="signal-card">
+                    <h4>Cédulas</h4>
+                    <strong>{{ selectedExpiredTenantCount() }} vencidas · {{ selectedDueSoonTenantCount() }} por vencer</strong>
+                    <p>{{ selectedValidTenantCount() }} vigentes o sin alerta activa.</p>
+                  </article>
+                  <article class="signal-card">
+                    <h4>Locatarios</h4>
+                    <strong>{{ marketDetail.tenants.length }}</strong>
+                    <p>Registro operativo con contacto y cédula asociada.</p>
+                  </article>
+                  <article class="signal-card">
+                    <h4>Incidencias / mejoras</h4>
+                    <strong>{{ selectedOpenIssueCount() }} abiertas · {{ selectedClosedIssueCount() }} cerradas</strong>
+                    <p>Seguimiento calculado con el estatus disponible.</p>
+                  </article>
+                  <article class="signal-card">
+                    <h4>Alertas</h4>
+                    <strong>{{ selectedMarketAlertCount() }}</strong>
+                    <p>Cédulas vencidas o por vencer reportadas por el servicio actual.</p>
+                  </article>
+                </div>
+              </article>
+            }
+
+            @if (activeTab() === 'tenants') {
+              <article class="list-card">
+                <div class="card-header">
+                  <div>
+                    <h3>Locatarios</h3>
+                    <p>Vigencias visibles con indicador de alerta.</p>
+                  </div>
+                  @if (selectedMarketCanOperate()) {
+                    <button type="button" (click)="openTenantModal()">Registrar locatario</button>
+                  }
+                </div>
 
                 @if (tenantFormSuccess()) {
                   <p class="alert success">{{ tenantFormSuccess() }}</p>
                 }
 
-                <form class="form-grid" [formGroup]="tenantForm" (ngSubmit)="submitTenant()">
-                  <label>
-                    <span>Contacto compartido</span>
-                    <select formControlName="contactId" (change)="syncTenantFromContact()">
-                      <option value="">Sin vincular</option>
-                      @for (contact of contacts(); track contact.id) {
-                        <option [value]="contact.id">{{ contact.name }}</option>
-                      }
-                    </select>
-                  </label>
-
-                  <label>
-                    <span>Locatario</span>
-                    <input type="text" formControlName="tenantName" placeholder="Nombre del locatario" />
-                  </label>
-
-                  <label>
-                    <span>Número de cédula</span>
-                    <input type="text" formControlName="certificateNumber" placeholder="Número de cédula" />
-                  </label>
-
-                  <label>
-                    <span>Vigencia</span>
-                    <input type="date" formControlName="certificateValidityTo" />
-                  </label>
-
-                  <label>
-                    <span>Giro</span>
-                    <input type="text" formControlName="businessLine" placeholder="Giro comercial" />
-                  </label>
-
-                  <label>
-                    <span>Celular</span>
-                    <input type="text" formControlName="mobilePhone" placeholder="Celular" />
-                  </label>
-
-                  <label>
-                    <span>WhatsApp</span>
-                    <input type="text" formControlName="whatsAppPhone" placeholder="WhatsApp" />
-                  </label>
-
-                  <label>
-                    <span>Correo</span>
-                    <input type="email" formControlName="email" placeholder="correo@ejemplo.com" />
-                  </label>
-
-                  <label class="full-width">
-                    <span>Cédula digitalizada</span>
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" (change)="onCertificateSelected($event)" />
-                  </label>
-
-                  @if (selectedCertificateFileName()) {
-                    <p class="inline-note full-width">Archivo seleccionado: {{ selectedCertificateFileName() }}</p>
-                  }
-
-                  <label class="full-width">
-                    <span>Observaciones</span>
-                    <textarea formControlName="notes" rows="3" placeholder="Observaciones del locatario"></textarea>
-                  </label>
-
-                  <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingTenant() || !canWrite()">Registrar locatario</button>
-                    <button type="button" class="ghost" (click)="resetTenantForm()">Limpiar</button>
-                  </div>
-                </form>
-              </article>
-
-              <article class="list-card">
-                <div class="card-header">
-                  <div>
-                    <h3>Locatarios del mercado</h3>
-                    <p>Vigencias visibles con indicador de alerta.</p>
-                  </div>
-                </div>
-
                 @if (marketDetail.tenants.length === 0) {
-                  <p class="empty-state">Aun no hay locatarios registrados.</p>
+                  <p class="empty-state">Aún no hay locatarios registrados.</p>
                 } @else {
-                  <div class="entity-list">
+                  <div class="entity-list compact-entity-list">
                     @for (tenant of marketDetail.tenants; track tenant.id) {
                       <article class="entity-row">
                         <div class="row-top">
@@ -390,9 +603,8 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                           </div>
                         </dl>
 
-                        <p class="meta">{{ expirationLabel(tenant.daysUntilExpiration) }}</p>
-
                         <div class="row-actions">
+                          <span>{{ expirationLabel(tenant.daysUntilExpiration) }}</span>
                           @if (tenant.hasDigitalCertificate) {
                             <button
                               type="button"
@@ -405,101 +617,33 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                             <span>{{ tenant.notes }}</span>
                           }
                         </div>
-
-                        <app-related-documents-panel
-                          moduleCode="MARKETS"
-                          entityType="MARKET_TENANT"
-                          [entityId]="tenant.id"
-                          [canRemediate]="canWrite()"
-                          title="Documentos del locatario"
-                          subtitle="Cédulas y metadata transversal asociadas al locatario."
-                          emptyMessage="No hay documentos transversales asociados a este locatario."
-                          (remediated)="reloadPage()">
-                        </app-related-documents-panel>
                       </article>
                     }
                   </div>
                 }
               </article>
-            </div>
+            }
 
-            <div class="detail-grid">
-              <article class="form-card">
+            @if (activeTab() === 'issues') {
+              <article class="list-card">
                 <div class="card-header">
                   <div>
-                    <h3>Alta de incidencia o mejora</h3>
-                    <p>Seguimiento mínimo del mercado con estatus reusable.</p>
+                    <h3>Incidencias / mejoras</h3>
+                    <p>Listado cronológico del seguimiento del mercado.</p>
                   </div>
+                  @if (selectedMarketCanOperate()) {
+                    <button type="button" (click)="openIssueModal()">Registrar incidencia</button>
+                  }
                 </div>
-
-                @if (issueFormError()) {
-                  <p class="alert error">{{ issueFormError() }}</p>
-                }
 
                 @if (issueFormSuccess()) {
                   <p class="alert success">{{ issueFormSuccess() }}</p>
                 }
 
-                <form class="form-grid" [formGroup]="issueForm" (ngSubmit)="submitIssue()">
-                  <label>
-                    <span>Tipo</span>
-                    <input type="text" formControlName="issueType" placeholder="Queja, mejora u observacion" />
-                  </label>
-
-                  <label>
-                    <span>Fecha</span>
-                    <input type="date" formControlName="issueDate" />
-                  </label>
-
-                  <label class="full-width">
-                    <span>Descripcion</span>
-                    <textarea formControlName="description" rows="4" placeholder="Descripcion de la incidencia o mejora"></textarea>
-                  </label>
-
-                  <label class="full-width">
-                    <span>Avance</span>
-                    <textarea formControlName="advanceSummary" rows="3" placeholder="Avance actual"></textarea>
-                  </label>
-
-                  <label>
-                    <span>Estatus</span>
-                    <select formControlName="statusCatalogEntryId">
-                      <option [value]="0">Selecciona un estatus</option>
-                      @for (status of issueStatuses(); track status.id) {
-                        <option [value]="status.id">{{ status.statusName }}</option>
-                      }
-                    </select>
-                  </label>
-
-                  <label class="full-width">
-                    <span>Seguimiento / resolución</span>
-                    <textarea formControlName="followUpOrResolution" rows="3" placeholder="Seguimiento o resolucion"></textarea>
-                  </label>
-
-                  <label class="full-width">
-                    <span>Satisfaccion final</span>
-                    <input type="text" formControlName="finalSatisfaction" placeholder="Si aplica" />
-                  </label>
-
-                  <div class="form-actions full-width">
-                    <button type="submit" [disabled]="isSubmittingIssue() || !canWrite()">Registrar incidencia</button>
-                    <button type="button" class="ghost" (click)="resetIssueForm()">Limpiar</button>
-                  </div>
-                </form>
-              </article>
-
-              <article class="list-card">
-                <div class="card-header">
-                  <div>
-                    <h3>Incidencias del mercado</h3>
-                    <p>Listado cronológico del seguimiento del mercado.</p>
-                  </div>
-                </div>
-
                 @if (marketDetail.issues.length === 0) {
-                  <p class="empty-state">Aun no hay incidencias registradas.</p>
+                  <p class="empty-state">Aún no hay incidencias registradas.</p>
                 } @else {
-                  <div class="entity-list">
+                  <div class="entity-list compact-entity-list">
                     @for (issue of marketDetail.issues; track issue.id) {
                       <article class="entity-row">
                         <div class="row-top">
@@ -520,14 +664,71 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
                         }
 
                         @if (issue.finalSatisfaction) {
-                          <p class="meta"><strong>Satisfaccion final:</strong> {{ issue.finalSatisfaction }}</p>
+                          <p class="meta"><strong>Satisfacción final:</strong> {{ issue.finalSatisfaction }}</p>
                         }
                       </article>
                     }
                   </div>
                 }
               </article>
-            </div>
+            }
+
+            @if (activeTab() === 'documents') {
+              <article class="list-card">
+                <div class="card-header">
+                  <div>
+                    <h3>Documentos / cédulas</h3>
+                    <p>Cédula actual, vigencia, descarga y documentos transversales por locatario.</p>
+                  </div>
+                </div>
+
+                @if (marketDetail.tenants.length === 0) {
+                  <p class="empty-state">No hay locatarios con cédulas para consultar.</p>
+                } @else {
+                  <div class="entity-list compact-entity-list">
+                    @for (tenant of marketDetail.tenants; track tenant.id) {
+                      <article class="entity-row">
+                        <div class="row-top">
+                          <div>
+                            <h4>{{ tenant.tenantName }}</h4>
+                            <p class="meta">
+                              Cédula {{ tenant.certificateNumber }} · Vigencia {{ tenant.certificateValidityTo }}
+                            </p>
+                          </div>
+                          <span class="status-pill" [class]="tenantAlertClass(tenant.certificateAlertState)">
+                            {{ tenantAlertLabel(tenant.certificateAlertState) }}
+                          </span>
+                        </div>
+
+                        <div class="row-actions">
+                          <span>{{ tenant.certificateOriginalFileName || 'Sin nombre de archivo' }}</span>
+                          <span>{{ expirationLabel(tenant.daysUntilExpiration) }}</span>
+                          @if (tenant.hasDigitalCertificate) {
+                            <button
+                              type="button"
+                              class="ghost"
+                              (click)="downloadTenantCertificate(tenant)">
+                              Descargar cédula
+                            </button>
+                          }
+                        </div>
+
+                        <app-related-documents-panel
+                          moduleCode="MARKETS"
+                          entityType="MARKET_TENANT"
+                          [entityId]="tenant.id"
+                          [canRemediate]="selectedMarketCanOperate()"
+                          title="Documentos del locatario"
+                          subtitle="Cédulas y metadata transversal asociadas al locatario."
+                          emptyMessage="No hay documentos transversales asociados a este locatario."
+                          (remediated)="reloadPage()">
+                        </app-related-documents-panel>
+                      </article>
+                    }
+                  </div>
+                }
+              </article>
+            }
           } @else {
             <article class="empty-card">
               <h3>Selecciona un mercado</h3>
@@ -551,12 +752,12 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       .market-list,
       .alert-list {
         display: grid;
-        gap: 1.25rem;
+        gap: 1rem;
       }
 
       .page-grid {
         display: grid;
-        grid-template-columns: minmax(22rem, 25rem) minmax(0, 1fr);
+        grid-template-columns: minmax(20rem, 23rem) minmax(0, 1fr);
         gap: 1.25rem;
         align-items: start;
       }
@@ -571,11 +772,36 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       .list-card,
       .detail-card,
       .empty-card {
-        padding: 1.5rem;
-        border-radius: 1.35rem;
+        min-width: 0;
+        padding: 1.15rem;
+        border-radius: 0.9rem;
         background: rgba(255, 255, 255, 0.82);
         border: 1px solid rgba(29, 45, 42, 0.08);
-        box-shadow: 0 16px 30px rgba(32, 44, 41, 0.06);
+        box-shadow: 0 12px 24px rgba(32, 44, 41, 0.05);
+      }
+
+      .hero-card {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+        border-top: 4px solid #a8302d;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        background: rgba(29, 45, 42, 0.42);
+      }
+
+      .modal-panel {
+        width: min(46rem, 100%);
+        max-height: 90vh;
+        overflow: auto;
       }
 
       .page-kicker {
@@ -616,7 +842,7 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       }
 
       .card-header {
-        margin-bottom: 1rem;
+        margin-bottom: 0.85rem;
       }
 
       .detail-badges,
@@ -630,13 +856,14 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       .summary-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.75rem;
-        margin-top: 1rem;
+        gap: 0.65rem;
+        margin-top: 0.85rem;
       }
 
       .summary-grid article {
-        padding: 0.9rem;
-        border-radius: 1rem;
+        min-width: 0;
+        padding: 0.75rem;
+        border-radius: 0.75rem;
         background: #f6f5ef;
       }
 
@@ -649,9 +876,15 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
       .summary-grid p {
         margin-top: 0.4rem;
-        font-size: 1.05rem;
+        font-size: 1rem;
         font-weight: 700;
         color: #203734;
+        overflow-wrap: anywhere;
+      }
+
+      .filter-grid {
+        display: grid;
+        gap: 0.75rem;
       }
 
       .form-grid {
@@ -678,6 +911,15 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
         background: #fbfbf8;
         color: #1d2d2a;
         font: inherit;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus,
+      button:focus-visible,
+      .market-card:focus-visible {
+        outline: 3px solid rgba(15, 118, 110, 0.22);
+        outline-offset: 1px;
       }
 
       textarea {
@@ -711,8 +953,8 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       button,
       .market-card {
         border: none;
-        border-radius: 0.9rem;
-        padding: 0.8rem 1rem;
+        border-radius: 0.75rem;
+        padding: 0.72rem 0.9rem;
         font: inherit;
       }
 
@@ -737,9 +979,10 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       .entity-row,
       .alert-row {
         display: grid;
-        gap: 0.7rem;
-        padding: 1rem;
-        border-radius: 1rem;
+        min-width: 0;
+        gap: 0.6rem;
+        padding: 0.85rem;
+        border-radius: 0.75rem;
         background: #f6f5ef;
       }
 
@@ -755,12 +998,65 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
       .market-stats span,
       .row-actions span,
       .row-actions a {
-        padding: 0.45rem 0.65rem;
+        padding: 0.4rem 0.6rem;
         border-radius: 999px;
         background: rgba(15, 118, 110, 0.08);
         color: #17423d;
         font-size: 0.82rem;
         text-decoration: none;
+      }
+
+      .tab-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        padding: 0.35rem;
+        border-radius: 0.9rem;
+        background: rgba(18, 63, 59, 0.06);
+      }
+
+      .tab-nav button {
+        border-radius: 999px;
+        background: transparent;
+        color: #17423d;
+      }
+
+      .tab-nav button.is-active {
+        background: #123f3b;
+        color: #f6f6f2;
+      }
+
+      .signal-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+
+      .signal-card {
+        min-width: 0;
+        padding: 0.85rem;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(29, 45, 42, 0.08);
+        background: #fbfbf8;
+      }
+
+      .signal-card strong {
+        display: block;
+        margin-top: 0.35rem;
+        color: #203734;
+        overflow-wrap: anywhere;
+      }
+
+      .signal-card p {
+        margin-top: 0.45rem;
+        color: #4d615c;
+        line-height: 1.45;
+      }
+
+      .compact-entity-list {
+        max-height: 62vh;
+        overflow: auto;
+        padding-right: 0.2rem;
       }
 
       .status-pill {
@@ -854,7 +1150,8 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
 
       @media (max-width: 1200px) {
         .page-grid,
-        .detail-grid {
+        .detail-grid,
+        .signal-grid {
           grid-template-columns: 1fr;
         }
       }
@@ -865,11 +1162,32 @@ import { RelatedDocumentsPanelComponent } from '../documents/related-documents-p
           grid-template-columns: 1fr;
         }
 
+        .page-shell,
+        .sidebar,
+        .detail-column {
+          gap: 1rem;
+        }
+
+        .hero-card,
         .card-header,
         .detail-header,
         .row-top,
         .form-actions {
           flex-direction: column;
+        }
+
+        .modal {
+          align-items: end;
+          padding: 0.75rem;
+        }
+
+        .modal-panel {
+          width: 100%;
+          max-height: 92vh;
+        }
+
+        .compact-entity-list {
+          max-height: none;
         }
       }
     `
@@ -890,12 +1208,17 @@ export class MarketsPageComponent {
   protected readonly tenantAlerts = signal<MarketTenantAlert[]>([]);
   protected readonly selectedMarketId = signal<string | null>(null);
   protected readonly selectedMarket = signal<MarketDetail | null>(null);
+  protected readonly activeTab = signal<MarketTab>('summary');
 
   protected readonly isBootstrapping = signal(true);
   protected readonly pageError = signal<string | null>(null);
+  protected readonly pageSuccess = signal<string | null>(null);
   protected readonly isSubmittingMarket = signal(false);
   protected readonly isSubmittingTenant = signal(false);
   protected readonly isSubmittingIssue = signal(false);
+  protected readonly isMarketModalOpen = signal(false);
+  protected readonly isTenantModalOpen = signal(false);
+  protected readonly isIssueModalOpen = signal(false);
 
   protected readonly marketFormError = signal<string | null>(null);
   protected readonly marketFormSuccess = signal<string | null>(null);
@@ -908,6 +1231,19 @@ export class MarketsPageComponent {
   protected readonly selectedCertificateFileName = computed(() => this.selectedCertificateFile()?.name ?? null);
   protected readonly selectedMarketAlertCount = computed(() =>
     this.tenantAlerts().filter((item) => item.marketId === this.selectedMarketId()).length);
+  protected readonly selectedMarketCanOperate = computed(() => {
+    const market = this.selectedMarket();
+    return this.canWrite() && !!market && !market.statusIsClosed;
+  });
+  protected readonly selectedOpenIssueCount = computed(() =>
+    this.selectedMarket()?.issues.filter((issue) => !issue.statusIsClosed).length ?? 0);
+  protected readonly selectedClosedIssueCount = computed(() =>
+    this.selectedMarket()?.issues.filter((issue) => issue.statusIsClosed).length ?? 0);
+  protected readonly selectedExpiredTenantCount = computed(() => this.countSelectedTenantsByAlertState('EXPIRED'));
+  protected readonly selectedDueSoonTenantCount = computed(() => this.countSelectedTenantsByAlertState('DUE_SOON'));
+  protected readonly selectedValidTenantCount = computed(() =>
+    this.selectedMarket()?.tenants.filter((tenant) =>
+      tenant.certificateAlertState !== 'EXPIRED' && tenant.certificateAlertState !== 'DUE_SOON').length ?? 0);
 
   protected readonly filtersForm = this.formBuilder.nonNullable.group({
     statusCode: [''],
@@ -950,6 +1286,7 @@ export class MarketsPageComponent {
   }
 
   protected async reloadPage() {
+    this.pageSuccess.set(null);
     await this.loadPage(this.selectedMarketId());
   }
 
@@ -967,8 +1304,83 @@ export class MarketsPageComponent {
   }
 
   protected async selectMarket(marketId: string) {
+    this.pageSuccess.set(null);
     this.selectedMarketId.set(marketId);
     await this.loadMarketDetail(marketId);
+  }
+
+  protected setActiveTab(tab: MarketTab) {
+    this.activeTab.set(tab);
+  }
+
+  protected openMarketModal() {
+    if (!this.canWrite()) {
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.marketFormError.set(null);
+    this.marketFormSuccess.set(null);
+    this.isMarketModalOpen.set(true);
+  }
+
+  protected closeMarketModal() {
+    if (this.isSubmittingMarket()) {
+      return;
+    }
+
+    this.isMarketModalOpen.set(false);
+    this.marketFormError.set(null);
+    this.resetMarketForm();
+  }
+
+  protected openTenantModal() {
+    const unavailableMessage = this.selectedMarketOperationUnavailableMessage();
+    if (unavailableMessage) {
+      this.pageError.set(unavailableMessage);
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.tenantFormError.set(null);
+    this.tenantFormSuccess.set(null);
+    this.isTenantModalOpen.set(true);
+  }
+
+  protected closeTenantModal() {
+    if (this.isSubmittingTenant()) {
+      return;
+    }
+
+    this.isTenantModalOpen.set(false);
+    this.tenantFormError.set(null);
+    this.resetTenantForm();
+  }
+
+  protected openIssueModal() {
+    const unavailableMessage = this.selectedMarketOperationUnavailableMessage();
+    if (unavailableMessage) {
+      this.pageError.set(unavailableMessage);
+      return;
+    }
+
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+    this.issueFormError.set(null);
+    this.issueFormSuccess.set(null);
+    this.isIssueModalOpen.set(true);
+  }
+
+  protected closeIssueModal() {
+    if (this.isSubmittingIssue()) {
+      return;
+    }
+
+    this.isIssueModalOpen.set(false);
+    this.issueFormError.set(null);
+    this.resetIssueForm();
   }
 
   protected async closeSelectedMarket() {
@@ -1029,6 +1441,9 @@ export class MarketsPageComponent {
   }
 
   protected async submitMarket() {
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+
     if (this.marketForm.invalid) {
       this.marketForm.markAllAsTouched();
       this.marketFormError.set('Completa los campos obligatorios del mercado.');
@@ -1053,7 +1468,9 @@ export class MarketsPageComponent {
       const market = await firstValueFrom(this.marketsService.createMarket(request));
       await this.reloadMarketsAndSelection(market.id);
       this.resetMarketForm();
+      this.isMarketModalOpen.set(false);
       this.marketFormSuccess.set('Mercado registrado correctamente.');
+      this.pageSuccess.set('Mercado registrado correctamente.');
     } catch (error) {
       this.marketFormError.set(getApiErrorMessage(error, 'No fue posible registrar el mercado.'));
     } finally {
@@ -1063,8 +1480,18 @@ export class MarketsPageComponent {
 
   protected async submitTenant() {
     const marketId = this.selectedMarketId();
+    const unavailableMessage = this.selectedMarketOperationUnavailableMessage();
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+
     if (!marketId) {
       this.tenantFormError.set('Selecciona un mercado antes de registrar locatarios.');
+      this.tenantFormSuccess.set(null);
+      return;
+    }
+
+    if (unavailableMessage) {
+      this.tenantFormError.set(unavailableMessage);
       this.tenantFormSuccess.set(null);
       return;
     }
@@ -1097,7 +1524,10 @@ export class MarketsPageComponent {
       await firstValueFrom(this.marketsService.createMarketTenant(marketId, request));
       await this.reloadMarketsAndSelection(marketId);
       this.resetTenantForm();
+      this.isTenantModalOpen.set(false);
       this.tenantFormSuccess.set('Locatario registrado correctamente.');
+      this.pageSuccess.set('Locatario registrado correctamente.');
+      this.activeTab.set('tenants');
     } catch (error) {
       this.tenantFormError.set(getApiErrorMessage(error, 'No fue posible registrar el locatario.'));
     } finally {
@@ -1107,8 +1537,18 @@ export class MarketsPageComponent {
 
   protected async submitIssue() {
     const marketId = this.selectedMarketId();
+    const unavailableMessage = this.selectedMarketOperationUnavailableMessage();
+    this.pageError.set(null);
+    this.pageSuccess.set(null);
+
     if (!marketId) {
       this.issueFormError.set('Selecciona un mercado antes de registrar incidencias.');
+      this.issueFormSuccess.set(null);
+      return;
+    }
+
+    if (unavailableMessage) {
+      this.issueFormError.set(unavailableMessage);
       this.issueFormSuccess.set(null);
       return;
     }
@@ -1138,7 +1578,10 @@ export class MarketsPageComponent {
       await firstValueFrom(this.marketsService.createMarketIssue(marketId, request));
       await this.reloadMarketsAndSelection(marketId);
       this.resetIssueForm();
+      this.isIssueModalOpen.set(false);
       this.issueFormSuccess.set('Incidencia registrada correctamente.');
+      this.pageSuccess.set('Incidencia registrada correctamente.');
+      this.activeTab.set('issues');
     } catch (error) {
       this.issueFormError.set(getApiErrorMessage(error, 'No fue posible registrar la incidencia.'));
     } finally {
@@ -1259,6 +1702,27 @@ export class MarketsPageComponent {
     } catch (error) {
       this.pageError.set(getApiErrorMessage(error, 'No fue posible descargar la cédula digitalizada.'));
     }
+  }
+
+  private selectedMarketOperationUnavailableMessage() {
+    const market = this.selectedMarket();
+    if (!market) {
+      return 'Selecciona un mercado antes de registrar información.';
+    }
+
+    if (!this.canWrite()) {
+      return 'No tienes permiso para registrar información en mercados.';
+    }
+
+    if (market.statusIsClosed) {
+      return 'El mercado está en estado terminal y no admite nuevas capturas.';
+    }
+
+    return null;
+  }
+
+  private countSelectedTenantsByAlertState(alertState: string) {
+    return this.selectedMarket()?.tenants.filter((tenant) => tenant.certificateAlertState === alertState).length ?? 0;
   }
 
   private async loadPage(preferredMarketId?: string | null) {

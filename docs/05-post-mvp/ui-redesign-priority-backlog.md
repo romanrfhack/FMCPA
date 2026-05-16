@@ -19,7 +19,7 @@
 | P0 | `/admin/users` | Etapa A implementada: eliminar overflow desktop y comprimir acciones por usuario. | Layout/interaccion local | Medio | No | Cumplido en Etapa A: 390/768/1366 sin overflow global; alta abre en dialog; acciones de rol, contraseña y bloqueo quedan en panel `Gestionar`; activacion queda visible por fila. |
 | P0 | `/federation` | Etapa A/B implementadas: reducir scroll extremo y separar focos operativos. | Layout/interaccion local | Medio | No | Cumplido en Etapa B: tabs por dominio, resumen ejecutivo, listados/detalles enfocados y altas de gestion/participante/donacion/aplicacion/comision/evidencia en modales contextuales sin formularios inline permanentes. |
 | P1 | `/financials` | Etapa A implementada: convertir captura financiera en flujo guiado, no formulario permanente. | Layout/interaccion local | Medio | No | Cumplido en Etapa A: ficha operativa destacada; tabs para contexto/oficios/creditos/comisiones/renovaciones; alta de oficio, credito, comision y renovacion en modales; 390/768/1366 sin overflow global. |
-| P1 | `/markets` | Reducir sidebar largo y hacer el detalle mas operativo. | Layout/interaccion local | Medio | No | Alta de mercado/locatario/incidencia en modales; listado y detalle visibles sin recorrer todos los formularios; scroll movil reducido. |
+| P1 | `/markets` | Etapa A implementada: reducir sidebar largo y hacer el detalle mas operativo. | Layout/interaccion local | Medio | No | Cumplido en Etapa A: resumen ejecutivo, tabs locales, filtros/listado compactos, altas de mercado/locatario/incidencia en modales, documentos/cédulas separados y 390/768/1366 sin overflow global. |
 
 ### Fase 2 - Limpieza de lenguaje tecnico
 
@@ -80,4 +80,4 @@
 
 ## Siguiente fase recomendada
 
-Continuar con `/markets` como siguiente pantalla densa pendiente. `/documents`, `/documents/work-queue`, `/admin/users`, `/financials` y `/federation` ya recibieron mejoras de densidad; `/federation` ya incluye Etapa A y Etapa B. La siguiente fase debe limitarse a frontend visual/interaccion local: copy, responsive, modales, drawers, menus de acciones y compactacion de tarjetas. La validacion minima debe repetir Playwright en `390px`, `768px` y `1366px`, confirmando sin overflow horizontal y sin cambios en `src/backend`.
+Continuar con `/contacts` y catalogos simples como siguientes pantallas densas pendientes. `/documents`, `/documents/work-queue`, `/admin/users`, `/financials`, `/federation` y `/markets` ya recibieron mejoras de densidad; `/federation` ya incluye Etapa A y Etapa B. La siguiente fase debe limitarse a frontend visual/interaccion local: copy, responsive, modales, drawers, menus de acciones y compactacion de tarjetas. La validacion minima debe repetir Playwright en `390px`, `768px` y `1366px`, confirmando sin overflow horizontal y sin cambios en `src/backend`.
