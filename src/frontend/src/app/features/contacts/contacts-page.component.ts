@@ -15,11 +15,10 @@ import { Contact, ContactType } from '../../core/models/shared-catalogs.models';
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">STAGE-02</p>
+        <p class="page-kicker">Administración</p>
         <h2>Contactos compartidos</h2>
         <p>
-          Catalogo reutilizable de contactos internos y externos listo para relacionarse con
-          proyectos, gestiones y modulos futuros sin modelar todavia esas entidades de negocio.
+          Catálogo reutilizable de contactos internos y externos para la operación institucional.
         </p>
       </article>
 
@@ -27,8 +26,8 @@ import { Contact, ContactType } from '../../core/models/shared-catalogs.models';
         <article class="form-card">
           <div class="card-header">
             <div>
-              <h3>Alta minima</h3>
-              <p>Captura base reutilizable para operacion interna y externa.</p>
+              <h3>Nuevo contacto</h3>
+              <p>Captura de datos base para operación interna y externa.</p>
             </div>
             @if (!canWrite()) {
               <span class="badge neutral">Solo lectura</span>

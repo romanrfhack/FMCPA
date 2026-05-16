@@ -15,11 +15,11 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">TRACK 1 POST-MVP</p>
+        <p class="page-kicker">Histórico</p>
         <h2>Histórico y cerrados</h2>
         <p>
-          Consulta simple de registros cerrados o archivados del MVP. Los elementos históricos se
-          consultan sin mezclarse con las alertas activas ni reactivarse desde esta vista.
+          Consulta de registros cerrados o archivados. Los elementos históricos se consultan
+          sin mezclarse con las alertas activas ni reactivarse desde esta vista.
         </p>
       </article>
 
@@ -342,7 +342,7 @@ export class HistoryPageComponent {
 
       this.items.set(items);
     } catch (error) {
-      this.pageError.set(getApiErrorMessage(error, 'No fue posible cargar la consulta histórica del MVP.'));
+      this.pageError.set(getApiErrorMessage(error, 'No fue posible cargar la consulta histórica.'));
     } finally {
       this.isLoading.set(false);
     }

@@ -14,11 +14,11 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">STAGE-07</p>
-        <h2>Dashboard ejecutivo y cierre operativo del MVP</h2>
+        <p class="page-kicker">Inicio</p>
+        <h2>Dashboard ejecutivo y cierre operativo</h2>
         <p>
-          Vista global minima para operar el cierre del MVP: resumen por modulo, alertas activas,
-          acceso a historico y visibilidad transversal de comisiones, sin abrir analitica avanzada.
+          Vista global para seguimiento operativo: resumen por módulo, alertas activas,
+          acceso a histórico y visibilidad transversal de comisiones.
         </p>
       </article>
 
@@ -28,7 +28,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
       @if (isLoading()) {
         <article class="card">
-          <p class="empty-state">Cargando resumen ejecutivo y alertas del MVP...</p>
+          <p class="empty-state">Cargando resumen ejecutivo y alertas...</p>
         </article>
       } @else if (summary(); as summaryData) {
         <div class="metrics-grid">
@@ -64,7 +64,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 <h3>Mercados</h3>
                 <p>Operacion activa y control de vigencias.</p>
               </div>
-              <a routerLink="/markets">Abrir modulo</a>
+              <a routerLink="/markets">Abrir módulo</a>
             </div>
             <dl class="stats-list">
               <div><dt>Mercados activos</dt><dd>{{ summaryData.markets.activeMarkets }}</dd></div>
@@ -128,7 +128,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
             <div class="card-header">
               <div>
                 <h3>Alertas activas principales</h3>
-                <p>Consolidacion minima dentro de la app, sin notificaciones externas.</p>
+                <p>Consolidación operativa dentro de la app, sin notificaciones externas.</p>
               </div>
               <button type="button" class="ghost" (click)="reloadPage()">Actualizar</button>
             </div>
@@ -166,7 +166,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
             <div class="card-header">
               <div>
                 <h3>Historico reciente</h3>
-                <p>Cerrados visibles para consulta operativa y cierre del MVP.</p>
+                <p>Cerrados visibles para consulta operativa.</p>
               </div>
               <a routerLink="/history">Abrir historico</a>
             </div>
@@ -516,7 +516,7 @@ export class DashboardPageComponent {
       this.alerts.set(alerts);
       this.closedItems.set(closedItems);
     } catch (error) {
-      this.pageError.set(getApiErrorMessage(error, 'No fue posible cargar el dashboard ejecutivo del MVP.'));
+      this.pageError.set(getApiErrorMessage(error, 'No fue posible cargar el dashboard ejecutivo.'));
     } finally {
       this.isLoading.set(false);
     }

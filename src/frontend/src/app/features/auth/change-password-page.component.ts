@@ -15,7 +15,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       <article class="form-card">
         <div class="card-header">
           <div>
-            <p class="page-kicker">TRACK 2 SEGURIDAD</p>
+            <p class="page-kicker">Cuenta</p>
             <h2>Cambiar contraseña</h2>
             <p>
               Actualiza tu contraseña con validación de la contraseña actual y cierre de sesión al terminar.
@@ -59,7 +59,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         </form>
 
         <p class="card-note">
-          Después del cambio se invalida el token actual y deberás iniciar sesión nuevamente.
+          Después del cambio se cerrará la sesión actual y deberás iniciar sesión nuevamente.
         </p>
       </article>
     </section>

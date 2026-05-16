@@ -19,11 +19,11 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">TRACK 2 SEGURIDAD</p>
-        <h2>Operación mínima de seguridad</h2>
+        <p class="page-kicker">Seguridad</p>
+        <h2>Administración de seguridad</h2>
         <p>
-          Visibilidad administrativa de eventos SECURITY, usuarios con lockout activo y resumen
-          operativo básico sobre la auditoría y usuarios internos ya existentes.
+          Visibilidad administrativa de eventos de acceso, usuarios bloqueados y actividad reciente
+          sobre usuarios internos.
         </p>
       </article>
 
@@ -46,7 +46,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           <select formControlName="eventType">
             <option value="">Todos</option>
             @for (eventType of eventTypeOptions; track eventType) {
-              <option [value]="eventType">{{ eventType }}</option>
+              <option [value]="eventType">{{ eventTypeLabel(eventType) }}</option>
             }
           </select>
         </label>
@@ -71,7 +71,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         <section class="summary-grid" aria-label="Resumen de seguridad">
           <article>
             <strong>{{ currentSummary.recentSecurityEventCount }}</strong>
-            <span>Eventos SECURITY</span>
+            <span>Eventos de seguridad</span>
           </article>
           <article>
             <strong>{{ currentSummary.loginFailedCount }}</strong>
@@ -93,7 +93,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           <div class="card-header">
             <div>
               <h3>Usuarios bloqueados</h3>
-              <p>Lockouts activos calculados contra la hora actual del backend.</p>
+              <p>Bloqueos activos calculados contra la hora actual del sistema.</p>
             </div>
           </div>
 
@@ -124,7 +124,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
           <div class="card-header">
             <div>
               <h3>Eventos recientes</h3>
-              <p>Eventos SECURITY filtrados por usuario, tipo y rango reciente.</p>
+              <p>Eventos de seguridad filtrados por usuario, tipo y rango reciente.</p>
             </div>
           </div>
 
@@ -393,6 +393,33 @@ export class SecurityAdminPageComponent {
     void this.reload();
   }
 
+  protected eventTypeLabel(eventType: string) {
+    switch (eventType) {
+      case 'AUTH_LOGIN_SUCCEEDED':
+        return 'Inicio de sesión exitoso';
+      case 'AUTH_LOGIN_FAILED':
+        return 'Inicio de sesión fallido';
+      case 'AUTH_LOGIN_LOCKOUT_DENIED':
+        return 'Acceso rechazado por bloqueo';
+      case 'USER_TEMPORARILY_LOCKED':
+        return 'Usuario bloqueado temporalmente';
+      case 'USER_LOCKOUT_RESET':
+        return 'Bloqueo limpiado';
+      case 'USER_PASSWORD_RESET':
+        return 'Contraseña restablecida';
+      case 'USER_ROLE_CHANGED':
+        return 'Rol actualizado';
+      case 'USER_DEACTIVATED':
+        return 'Usuario desactivado';
+      case 'USER_ACTIVATED':
+        return 'Usuario activado';
+      case 'AUTH_PASSWORD_CHANGED_SELF_SERVICE':
+        return 'Cambio de contraseña propio';
+      default:
+        return eventType;
+    }
+  }
+
   protected async reload() {
     this.isLoading.set(true);
     this.pageError.set(null);
@@ -440,7 +467,7 @@ export class SecurityAdminPageComponent {
 
     try {
       await firstValueFrom(this.userManagementService.unlockUser(user.id));
-      this.pageSuccess.set(`Lockout limpiado para ${user.userName}.`);
+      this.pageSuccess.set(`Bloqueo limpiado para ${user.userName}.`);
       await this.reload();
     } catch (error) {
       this.pageError.set(getApiErrorMessage(error, 'No fue posible limpiar el lockout.'));

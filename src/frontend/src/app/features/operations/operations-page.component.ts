@@ -16,7 +16,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
     <section class="page-shell">
       <header class="page-header">
         <div>
-          <p class="page-kicker">TRACK 4</p>
+          <p class="page-kicker">Operación</p>
           <h2>Centro operativo</h2>
         </div>
         <div class="header-actions">
@@ -31,7 +31,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
             }
           </div>
           <button type="button" class="ghost" (click)="reloadPage()">Actualizar</button>
-          <button type="button" class="ghost" [disabled]="isExporting()" (click)="exportSummary()">Exportar summary</button>
+          <button type="button" class="ghost" [disabled]="isExporting()" (click)="exportSummary()">Exportar resumen</button>
           <button type="button" class="ghost" [disabled]="isExporting()" (click)="exportWorkQueue()">Exportar bandeja</button>
         </div>
       </header>
@@ -57,21 +57,21 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 [class.high]="isSeverity(kpi.severityCode, 'HIGH')"
                 [class.medium]="isSeverity(kpi.severityCode, 'MEDIUM')"
                 [class.low]="isSeverity(kpi.severityCode, 'LOW')">
-                {{ kpi.severityCode }}
+                {{ severityLabel(kpi.severityCode) }}
               </span>
               <p class="metric-label">{{ kpi.label }}</p>
               <p class="metric-value">{{ kpi.count }}</p>
               @if (kpi.amount !== null) {
                 <p class="metric-meta">{{ kpi.amount | number: '1.0-2' }}</p>
               } @else {
-                <p class="metric-meta">{{ kpi.moduleName || 'Operacion' }}</p>
+                <p class="metric-meta">{{ moduleDisplayLabel(kpi.moduleName) }}</p>
               }
             </a>
           }
 
           @if (summaryData.documents; as documents) {
             <a class="metric-card" routerLink="/documents">
-              <span class="badge" [class.high]="documents.integrityIssuesCount > 0" [class.low]="documents.integrityIssuesCount === 0">DOCUMENTS</span>
+              <span class="badge" [class.high]="documents.integrityIssuesCount > 0" [class.low]="documents.integrityIssuesCount === 0">Documentos</span>
               <p class="metric-label">Pendientes documentales</p>
               <p class="metric-value">
                 {{ documents.integrityIssuesCount + documents.incompleteEntitiesCount + documents.reviewDueCount + documents.expiredRetentionCount }}
@@ -82,7 +82,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
           @if (summaryData.security; as security) {
             <a class="metric-card" routerLink="/admin/security">
-              <span class="badge" [class.high]="security.activeLockedUserCount > 0" [class.low]="security.activeLockedUserCount === 0">SECURITY</span>
+              <span class="badge" [class.high]="security.activeLockedUserCount > 0" [class.low]="security.activeLockedUserCount === 0">Seguridad</span>
               <p class="metric-label">Usuarios bloqueados</p>
               <p class="metric-value">{{ security.activeLockedUserCount }}</p>
               <p class="metric-meta">{{ security.recentSecurityEventCount }} eventos recientes</p>
@@ -115,8 +115,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
               <dl class="stats-list">
                 <div><dt>Integridad</dt><dd>{{ documents.integrityIssuesCount }}</dd></div>
                 <div><dt>Completitud</dt><dd>{{ documents.incompleteEntitiesCount }}</dd></div>
-                <div><dt>Review due</dt><dd>{{ documents.reviewDueCount }}</dd></div>
-                <div><dt>Retention expired</dt><dd>{{ documents.expiredRetentionCount }}</dd></div>
+                <div><dt>Revisión pendiente</dt><dd>{{ documents.reviewDueCount }}</dd></div>
+                <div><dt>Retención vencida</dt><dd>{{ documents.expiredRetentionCount }}</dd></div>
                 <div><dt>Hold administrativo</dt><dd>{{ documents.administrativeHoldCount }}</dd></div>
               </dl>
             } @else {
@@ -134,8 +134,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
             @if (summaryData.security; as security) {
               <dl class="stats-list">
                 <div><dt>Eventos recientes</dt><dd>{{ security.recentSecurityEventCount }}</dd></div>
-                <div><dt>Login failed</dt><dd>{{ security.loginFailedCount }}</dd></div>
-                <div><dt>Lockout activos</dt><dd>{{ security.activeLockedUserCount }}</dd></div>
+                <div><dt>Inicios fallidos</dt><dd>{{ security.loginFailedCount }}</dd></div>
+                <div><dt>Bloqueos activos</dt><dd>{{ security.activeLockedUserCount }}</dd></div>
                 <div><dt>Intentos acumulados</dt><dd>{{ security.usersWithFailedAttemptsCount }}</dd></div>
               </dl>
             } @else {
@@ -152,9 +152,9 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
             </div>
             <div class="filters">
               <button type="button" [class.active]="queueFilter() === ''" (click)="setQueueFilter('')">Todo</button>
-              <button type="button" [class.active]="queueFilter() === 'HIGH'" (click)="setQueueFilter('HIGH')">HIGH</button>
-              <button type="button" [class.active]="queueFilter() === 'MEDIUM'" (click)="setQueueFilter('MEDIUM')">MEDIUM</button>
-              <button type="button" [class.active]="queueFilter() === 'LOW'" (click)="setQueueFilter('LOW')">LOW</button>
+              <button type="button" [class.active]="queueFilter() === 'HIGH'" (click)="setQueueFilter('HIGH')">Alta</button>
+              <button type="button" [class.active]="queueFilter() === 'MEDIUM'" (click)="setQueueFilter('MEDIUM')">Media</button>
+              <button type="button" [class.active]="queueFilter() === 'LOW'" (click)="setQueueFilter('LOW')">Baja</button>
             </div>
           </div>
 
@@ -173,14 +173,14 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                           [class.high]="isSeverity(item.severityCode, 'HIGH')"
                           [class.medium]="isSeverity(item.severityCode, 'MEDIUM')"
                           [class.low]="isSeverity(item.severityCode, 'LOW')">
-                          {{ item.severityCode }}
+                          {{ severityLabel(item.severityCode) }}
                         </span>
-                        <span class="badge action">{{ item.actionKind }}</span>
+                        <span class="badge action">{{ actionKindLabel(item.actionKind) }}</span>
                       </div>
                     </div>
                     <p>{{ item.summary }}</p>
                     <small>
-                      {{ item.categoryCode }} · {{ item.moduleName }} · {{ item.reasonCode }}
+                      {{ workQueueMetaLabel(item) }}
                       @if (item.contextLabel) {
                         · {{ item.contextLabel }}
                       }
@@ -488,6 +488,60 @@ export class OperationsPageComponent {
     return actual.trim().toUpperCase() === expected;
   }
 
+  protected severityLabel(severityCode: string) {
+    switch (severityCode.trim().toUpperCase()) {
+      case 'HIGH':
+        return 'Alta';
+      case 'MEDIUM':
+        return 'Media';
+      case 'LOW':
+        return 'Baja';
+      default:
+        return this.titleizeCode(severityCode);
+    }
+  }
+
+  protected moduleDisplayLabel(moduleName: string | null | undefined) {
+    switch ((moduleName ?? '').trim().toUpperCase()) {
+      case 'DOCUMENTS':
+        return 'Documentos';
+      case 'SECURITY':
+        return 'Seguridad';
+      case 'MARKETS':
+        return 'Mercados';
+      case 'DONATARIAS':
+      case 'DONATIONS':
+        return 'Donatarias';
+      case 'FINANCIALS':
+        return 'Financieras';
+      case 'FEDERATION':
+        return 'Federación';
+      case 'HISTORY':
+        return 'Histórico';
+      default:
+        return this.titleizeCode(moduleName || 'Operación');
+    }
+  }
+
+  protected actionKindLabel(actionKind: string) {
+    switch (actionKind.trim().toUpperCase()) {
+      case 'NAVIGATE':
+        return 'Abrir';
+      case 'UNLOCK_USER':
+        return 'Desbloquear';
+      default:
+        return this.titleizeCode(actionKind);
+    }
+  }
+
+  protected workQueueMetaLabel(item: OperationsWorkQueueItem) {
+    return [
+      this.titleizeCode(item.categoryCode),
+      this.moduleDisplayLabel(item.moduleName),
+      this.titleizeCode(item.reasonCode)
+    ].join(' · ');
+  }
+
   protected canRunQuickAction(item: OperationsWorkQueueItem) {
     return item.quickActionCode === 'UNLOCK_USER' && !!item.entityId;
   }
@@ -575,5 +629,13 @@ export class OperationsPageComponent {
     return {
       timeWindowCode: this.selectedTimeWindowCode()
     };
+  }
+
+  private titleizeCode(value: string) {
+    return value
+      .trim()
+      .replace(/[_-]+/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 }

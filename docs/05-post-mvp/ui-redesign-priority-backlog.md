@@ -62,6 +62,14 @@
 - Usar headings mas cortos y operativos en dashboard, historico, bitacora y catalogos.
 - Convertir copy de "MVP", "modulo real", "sembrado", "base minima" a lenguaje institucional.
 
+## Validacion global 2026-05-16
+
+- Estado: etapa visual global aceptada con pendientes menores.
+- Evidencia: `docs/05-post-mvp/ui-global-redesign-validation-note.md`.
+- Playwright real con usuario `ADMIN` valido `/login`, shell/nav y rutas principales en `390px`, `768px` y `1366px`.
+- Bugs corregidos durante validacion: copy tecnico visible en `/dashboard`, `/operations`, `/documents/review`, `/admin/security`, `/contacts`, `/commissions`, `/history`, `/bitacora` y `/account/password`; overflow horizontal movil en `/bitacora`.
+- Sigue pendiente convertir `/contacts` y catalogos simples a la misma densidad/interaccion de modales, mas pulido visual de dashboards/reportes transversales.
+
 ## Cambios de riesgo medio
 
 - Modales/drawers para formularios que hoy viven inline.
@@ -81,4 +89,4 @@
 
 ## Siguiente fase recomendada
 
-Continuar con `/contacts` y catalogos simples como siguientes pantallas densas pendientes. `/documents`, `/documents/work-queue`, `/admin/users`, `/financials`, `/federation` y `/markets` ya recibieron mejoras de densidad; `/federation` ya incluye Etapa A y Etapa B. La deuda de CSS budget de Donatarias, Documents, Financials, Federation y Markets quedo limpiada mediante utilidades `fmcpa-*` globales, por lo que la siguiente fase debe reutilizar esos patrones antes de agregar CSS local nuevo. La validacion minima debe repetir Playwright en `390px`, `768px` y `1366px`, confirmando sin overflow horizontal, sin warnings de CSS budget y sin cambios en `src/backend`.
+Continuar con `/contacts` y catalogos simples como siguientes pantallas densas pendientes. `/documents`, `/documents/work-queue`, `/admin/users`, `/financials`, `/federation` y `/markets` ya recibieron mejoras de densidad; `/federation` ya incluye Etapa A y Etapa B. La deuda de CSS budget de Donatarias, Documents, Financials, Federation y Markets quedo limpiada mediante utilidades `fmcpa-*` globales. La validacion global del 2026-05-16 quedo aceptada sin overflow horizontal y sin warnings de CSS budget, por lo que la siguiente fase debe reutilizar esos patrones antes de agregar CSS local nuevo.

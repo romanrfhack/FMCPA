@@ -17,11 +17,10 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">STAGE-07</p>
+        <p class="page-kicker">Comisiones</p>
         <h2>Comisiones operativas consolidadas</h2>
         <p>
-          Consulta transversal minima de comisiones provenientes de Financieras y Federación,
-          sin rehacer los modelos internos ni abrir todavía analítica avanzada.
+          Consulta transversal de comisiones provenientes de Financieras y Federación.
         </p>
       </article>
 
@@ -63,9 +62,9 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                 <span>Categoría</span>
                 <select formControlName="recipientCategory">
                   <option value="">Todas</option>
-                  <option value="COMPANY">COMPANY</option>
-                  <option value="THIRD_PARTY">THIRD_PARTY</option>
-                  <option value="OTHER_PARTICIPANT">OTHER_PARTICIPANT</option>
+                  <option value="COMPANY">Empresa</option>
+                  <option value="THIRD_PARTY">Tercero</option>
+                  <option value="OTHER_PARTICIPANT">Otro participante</option>
                 </select>
               </label>
 
@@ -134,7 +133,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
                       </div>
 
                       <span class="status-pill" [class]="recipientCategoryClass(item.recipientCategory)">
-                        {{ item.recipientCategory }}
+                        {{ recipientCategoryLabel(item.recipientCategory) }}
                       </span>
                     </div>
 
@@ -416,6 +415,19 @@ export class CommissionsPageComponent {
         return 'third-party';
       default:
         return 'other';
+    }
+  }
+
+  protected recipientCategoryLabel(category: string) {
+    switch (category) {
+      case 'COMPANY':
+        return 'Empresa';
+      case 'THIRD_PARTY':
+        return 'Tercero';
+      case 'OTHER_PARTICIPANT':
+        return 'Otro participante';
+      default:
+        return category;
     }
   }
 

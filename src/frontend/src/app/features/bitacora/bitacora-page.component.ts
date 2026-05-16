@@ -15,11 +15,11 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   template: `
     <section class="page-shell">
       <article class="hero-card">
-        <p class="page-kicker">TRACK 1 POST-MVP</p>
-        <h2>Bitácora transversal real</h2>
+        <p class="page-kicker">Bitácora</p>
+        <h2>Bitácora operativa transversal</h2>
         <p>
-          Cobertura mínima real desde el hardening inicial: altas nuevas, cargas relevantes, cierres
-          formales y cierres retrospectivos normalizados capturados en una bitácora transversal compartida.
+          Registro transversal de altas, cargas relevantes, cierres formales y regularizaciones
+          operativas para consulta administrativa.
         </p>
       </article>
 
@@ -227,6 +227,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .page-grid {
         display: grid;
         gap: 1rem;
+        min-width: 0;
       }
 
       .page-grid {
@@ -236,6 +237,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .hero-card,
       .card,
       .timeline-item {
+        min-width: 0;
+        max-width: 100%;
         padding: 1.5rem;
         border-radius: 1.35rem;
         background: rgba(255, 255, 255, 0.82);
@@ -395,6 +398,25 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       @media (max-width: 980px) {
         .page-grid {
           grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 42rem) {
+        .hero-card,
+        .card,
+        .timeline-item {
+          padding: 1rem;
+          border-radius: 0.9rem;
+        }
+
+        .card-header,
+        .row-top,
+        .form-actions {
+          flex-wrap: wrap;
+        }
+
+        .form-actions button {
+          width: 100%;
         }
       }
     `

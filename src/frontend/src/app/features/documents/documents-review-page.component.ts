@@ -18,8 +18,8 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
   template: `
     <section class="page-shell">
       <header class="page-header">
-        <p class="page-kicker">TRACK 3 DOCUMENTOS</p>
-        <h2>Revision de retencion</h2>
+        <p class="page-kicker">Control documental</p>
+        <h2>Revisión de retención</h2>
       </header>
 
       @if (pageError()) {
@@ -32,7 +32,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
 
       <form class="filters-panel" [formGroup]="filtersForm" (ngSubmit)="reload()">
         <label>
-          <span>Modulo</span>
+          <span>Módulo</span>
           <select formControlName="moduleCode">
             <option value="">Todos</option>
             <option value="MARKETS">Mercados</option>
@@ -42,17 +42,17 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         </label>
 
         <label>
-          <span>Estado revision</span>
+          <span>Estado de revisión</span>
           <select formControlName="retentionReviewStatusCode">
             <option value="">Pendientes vencidos</option>
-            <option value="REVIEW_PENDING">REVIEW_PENDING</option>
-            <option value="REVIEW_DEFERRED">REVIEW_DEFERRED</option>
-            <option value="REVIEW_COMPLETED">REVIEW_COMPLETED</option>
+            <option value="REVIEW_PENDING">Pendiente</option>
+            <option value="REVIEW_DEFERRED">Pospuesta</option>
+            <option value="REVIEW_COMPLETED">Completada</option>
           </select>
         </label>
 
         <label>
-          <span>Limite</span>
+          <span>Límite</span>
           <input type="number" min="1" max="200" formControlName="take" />
         </label>
 
