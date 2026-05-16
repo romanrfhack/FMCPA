@@ -5,6 +5,8 @@ import { environment } from '../../../environments/environment';
 import {
   CatalogItem,
   Contact,
+  ContactIntervention,
+  ContactInterventionQuery,
   ContactType,
   CreateCatalogItemRequest,
   CreateContactRequest,
@@ -29,6 +31,30 @@ export class SharedCatalogsService {
 
   createContact(request: CreateContactRequest) {
     return this.httpClient.post<Contact>(`${this.apiBaseUrl}/contacts`, request);
+  }
+
+  getContactInterventions(contactId: string, query?: ContactInterventionQuery) {
+    let params = new HttpParams();
+
+    if (query?.limit !== undefined) {
+      params = params.set('limit', query.limit);
+    }
+
+    if (query?.moduleKey) {
+      params = params.set('moduleKey', query.moduleKey);
+    }
+
+    if (query?.from) {
+      params = params.set('from', query.from);
+    }
+
+    if (query?.to) {
+      params = params.set('to', query.to);
+    }
+
+    return this.httpClient.get<ContactIntervention[]>(
+      `${this.apiBaseUrl}/contacts/${contactId}/interventions`,
+      { params: params.keys().length > 0 ? params : undefined });
   }
 
   getCommissionTypes() {

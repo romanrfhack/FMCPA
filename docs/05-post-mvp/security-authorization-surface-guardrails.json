@@ -277,6 +277,27 @@
     },
     {
       "method": "GET",
+      "routePattern": "/api/contacts/{contactId:guid}/interventions",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Contacts.Read"],
+      "reason": "Lectura de intervenciones de contactos con filtrado adicional por modulo origen."
+    },
+    {
+      "method": "POST",
+      "routePattern": "/api/contacts/{contactId:guid}/interventions",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Contacts.Read"],
+      "reason": "Registro de intervenciones de contactos; el endpoint valida escritura del modulo origen en tiempo de ejecucion."
+    },
+    {
+      "method": "GET",
+      "routePattern": "/api/contact-interventions",
+      "authorization": "policy",
+      "requiredPolicies": ["Platform.Contacts.Read"],
+      "reason": "Consulta de intervenciones por origen; el endpoint valida lectura del modulo origen en tiempo de ejecucion."
+    },
+    {
+      "method": "GET",
       "routePattern": "/api/commission-types",
       "authorization": "policy",
       "requiredPolicies": ["Platform.Catalogs.Read"],

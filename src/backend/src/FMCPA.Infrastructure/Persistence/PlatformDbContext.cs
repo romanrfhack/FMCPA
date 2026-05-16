@@ -26,6 +26,7 @@ public sealed class PlatformDbContext : DbContext, IPlatformDbContext
     public DbSet<Contact> Contacts => Set<Contact>();
     public DbSet<ContactType> ContactTypes => Set<ContactType>();
     public DbSet<ContactParticipation> ContactParticipations => Set<ContactParticipation>();
+    public DbSet<ContactIntervention> ContactInterventions => Set<ContactIntervention>();
     public DbSet<CommissionType> CommissionTypes => Set<CommissionType>();
     public DbSet<EvidenceType> EvidenceTypes => Set<EvidenceType>();
     public DbSet<ModuleStatusCatalogEntry> ModuleStatusCatalogEntries => Set<ModuleStatusCatalogEntry>();
@@ -51,6 +52,7 @@ public sealed class PlatformDbContext : DbContext, IPlatformDbContext
     IQueryable<Contact> IPlatformDbContext.Contacts => Contacts.AsQueryable();
     IQueryable<ContactType> IPlatformDbContext.ContactTypes => ContactTypes.AsQueryable();
     IQueryable<ContactParticipation> IPlatformDbContext.ContactParticipations => ContactParticipations.AsQueryable();
+    IQueryable<ContactIntervention> IPlatformDbContext.ContactInterventions => ContactInterventions.AsQueryable();
     IQueryable<CommissionType> IPlatformDbContext.CommissionTypes => CommissionTypes.AsQueryable();
     IQueryable<EvidenceType> IPlatformDbContext.EvidenceTypes => EvidenceTypes.AsQueryable();
     IQueryable<ModuleStatusCatalogEntry> IPlatformDbContext.ModuleStatusCatalogEntries => ModuleStatusCatalogEntries.AsQueryable();

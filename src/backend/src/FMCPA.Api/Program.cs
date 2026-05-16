@@ -121,6 +121,7 @@ app.MapHealthChecks(
     });
 
 app.MapContactsEndpoints();
+app.MapContactInterventionsEndpoints();
 app.MapSharedCatalogEndpoints();
 app.MapUserManagementEndpoints();
 app.MapSecurityOperationsEndpoints();

@@ -17,6 +17,7 @@ public interface IPlatformDbContext
     IQueryable<Contact> Contacts { get; }
     IQueryable<ContactType> ContactTypes { get; }
     IQueryable<ContactParticipation> ContactParticipations { get; }
+    IQueryable<ContactIntervention> ContactInterventions { get; }
     IQueryable<CommissionType> CommissionTypes { get; }
     IQueryable<EvidenceType> EvidenceTypes { get; }
     IQueryable<ModuleStatusCatalogEntry> ModuleStatusCatalogEntries { get; }

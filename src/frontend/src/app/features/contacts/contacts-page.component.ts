@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -6,7 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
-import { Contact, ContactType } from '../../core/models/shared-catalogs.models';
+import { Contact, ContactIntervention, ContactType } from '../../core/models/shared-catalogs.models';
 
 @Component({
   selector: 'app-contacts-page',
@@ -151,12 +151,115 @@ import { Contact, ContactType } from '../../core/models/shared-catalogs.models';
                   @if (contact.notes) {
                     <p class="notes">{{ contact.notes }}</p>
                   }
+
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      class="ghost compact"
+                      [attr.aria-label]="'Ver historial de intervenciones de ' + contact.name"
+                      (click)="openInterventionHistory(contact)">
+                      Historial
+                    </button>
+                  </div>
                 </article>
               }
             </div>
           }
         </article>
       </div>
+
+      @if (selectedContact(); as contact) {
+        <div class="history-backdrop" (click)="closeInterventionHistory()">
+          <aside
+            class="history-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contact-history-title"
+            (click)="$event.stopPropagation()">
+            <header class="history-header">
+              <div>
+                <p class="page-kicker">Historial</p>
+                <h3 id="contact-history-title">Intervenciones de contacto</h3>
+                <p>{{ contact.name }}</p>
+              </div>
+              <button type="button" class="ghost compact" (click)="closeInterventionHistory()">Cerrar</button>
+            </header>
+
+            <dl class="contact-summary">
+              <div>
+                <dt>Tipo</dt>
+                <dd>{{ contact.contactTypeName }}</dd>
+              </div>
+              <div>
+                <dt>Organizacion</dt>
+                <dd>{{ contact.organizationOrDependency || 'Sin dato' }}</dd>
+              </div>
+              <div>
+                <dt>Cargo</dt>
+                <dd>{{ contact.roleTitle || 'Sin dato' }}</dd>
+              </div>
+              <div>
+                <dt>Correo</dt>
+                <dd>{{ contact.email || 'Sin dato' }}</dd>
+              </div>
+            </dl>
+
+            <div class="history-toolbar">
+              <div>
+                <h4>Últimas intervenciones</h4>
+                <p>Se muestran hasta 25 registros visibles para tus permisos.</p>
+              </div>
+              <button type="button" class="ghost compact" (click)="reloadInterventionHistory()">Actualizar</button>
+            </div>
+
+            @if (historyError()) {
+              <p class="alert error">{{ historyError() }}</p>
+            } @else if (isHistoryLoading()) {
+              <p class="empty-state">Cargando historial de intervenciones...</p>
+            } @else if (contactInterventions().length === 0) {
+              <p class="empty-state">No hay intervenciones registradas para este contacto.</p>
+            } @else {
+              <div class="history-list" aria-label="Historial de intervenciones">
+                @for (intervention of contactInterventions(); track intervention.id) {
+                  <article class="history-item">
+                    <div class="history-item-header">
+                      <div>
+                        <p class="history-date">{{ intervention.occurredUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}</p>
+                        <h4>{{ intervention.subject }}</h4>
+                      </div>
+                      <span class="module-pill">{{ getModuleLabel(intervention.moduleKey) }}</span>
+                    </div>
+
+                    <dl class="history-detail-grid">
+                      <div>
+                        <dt>Origen</dt>
+                        <dd>{{ intervention.originDisplayName }}</dd>
+                      </div>
+                      <div>
+                        <dt>Tipo de ayuda</dt>
+                        <dd>{{ getHelpTypeLabel(intervention.helpType) }}</dd>
+                      </div>
+                      <div>
+                        <dt>Resultado</dt>
+                        <dd>{{ getOutcomeLabel(intervention.outcome) }}</dd>
+                      </div>
+                      <div>
+                        <dt>Registro</dt>
+                        <dd>
+                          {{ intervention.createdByUserName || 'Sin usuario' }}
+                          · {{ intervention.createdUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <p class="notes">{{ intervention.notes || 'Sin observaciones.' }}</p>
+                  </article>
+                }
+              </div>
+            }
+          </aside>
+        </div>
+      }
     </section>
   `,
   styles: [
@@ -301,6 +404,12 @@ import { Contact, ContactType } from '../../core/models/shared-catalogs.models';
         color: #17423d;
       }
 
+      button.compact {
+        padding: 0.62rem 0.78rem;
+        border-radius: 0.7rem;
+        font-size: 0.9rem;
+      }
+
       button:disabled {
         cursor: wait;
         opacity: 0.75;
@@ -342,6 +451,102 @@ import { Contact, ContactType } from '../../core/models/shared-catalogs.models';
         margin-top: 0;
       }
 
+      .row-actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .history-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: flex;
+        justify-content: flex-end;
+        background: rgba(18, 31, 29, 0.34);
+      }
+
+      .history-panel {
+        width: min(46rem, 100%);
+        height: 100%;
+        overflow-y: auto;
+        padding: 1.25rem;
+        background: #fbfbf8;
+        box-shadow: -18px 0 40px rgba(18, 31, 29, 0.18);
+      }
+
+      .history-header,
+      .history-toolbar,
+      .history-item-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+      }
+
+      .history-header {
+        margin-bottom: 1rem;
+      }
+
+      .history-header p,
+      .history-toolbar p {
+        margin-top: 0.45rem;
+        color: #4d615c;
+      }
+
+      .contact-summary,
+      .history-detail-grid {
+        display: grid;
+        gap: 0.75rem;
+        margin: 0;
+      }
+
+      .contact-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 0.95rem;
+        border: 1px solid rgba(29, 45, 42, 0.08);
+        border-radius: 0.8rem;
+        background: #f1f4ee;
+      }
+
+      .history-toolbar {
+        margin: 1.25rem 0 0.9rem;
+      }
+
+      .history-list {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .history-item {
+        display: grid;
+        gap: 0.8rem;
+        padding: 0.95rem;
+        border: 1px solid rgba(29, 45, 42, 0.08);
+        border-radius: 0.8rem;
+        background: #ffffff;
+      }
+
+      .history-date {
+        margin-bottom: 0.35rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #5b6b68;
+      }
+
+      .module-pill {
+        white-space: nowrap;
+        border-radius: 999px;
+        padding: 0.35rem 0.55rem;
+        background: rgba(15, 118, 110, 0.1);
+        color: #0f766e;
+        font-size: 0.78rem;
+        font-weight: 800;
+      }
+
+      .history-detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
       @media (max-width: 1100px) {
         .page-grid {
           grid-template-columns: 1fr;
@@ -356,6 +561,21 @@ import { Contact, ContactType } from '../../core/models/shared-catalogs.models';
         .card-header,
         .form-actions {
           flex-direction: column;
+        }
+
+        .history-panel {
+          width: 100%;
+        }
+
+        .history-header,
+        .history-toolbar,
+        .history-item-header {
+          flex-direction: column;
+        }
+
+        .contact-summary,
+        .history-detail-grid {
+          grid-template-columns: 1fr;
         }
       }
     `
@@ -374,6 +594,10 @@ export class ContactsPageComponent {
   protected readonly isSubmitting = signal(false);
   protected readonly submitError = signal<string | null>(null);
   protected readonly submitSuccess = signal<string | null>(null);
+  protected readonly selectedContact = signal<Contact | null>(null);
+  protected readonly contactInterventions = signal<ContactIntervention[]>([]);
+  protected readonly isHistoryLoading = signal(false);
+  protected readonly historyError = signal<string | null>(null);
 
   protected readonly form = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(200)]],
@@ -392,6 +616,34 @@ export class ContactsPageComponent {
 
   protected async reload() {
     await this.load();
+  }
+
+  @HostListener('document:keydown.escape')
+  protected closeOnEscape() {
+    if (this.selectedContact() !== null) {
+      this.closeInterventionHistory();
+    }
+  }
+
+  protected async openInterventionHistory(contact: Contact) {
+    this.selectedContact.set(contact);
+    await this.loadInterventionHistory(contact.id);
+  }
+
+  protected closeInterventionHistory() {
+    this.selectedContact.set(null);
+    this.contactInterventions.set([]);
+    this.historyError.set(null);
+    this.isHistoryLoading.set(false);
+  }
+
+  protected async reloadInterventionHistory() {
+    const contact = this.selectedContact();
+    if (!contact) {
+      return;
+    }
+
+    await this.loadInterventionHistory(contact.id);
   }
 
   protected resetForm() {
@@ -468,6 +720,63 @@ export class ContactsPageComponent {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  private async loadInterventionHistory(contactId: string) {
+    this.isHistoryLoading.set(true);
+    this.historyError.set(null);
+    this.contactInterventions.set([]);
+
+    try {
+      const interventions = await firstValueFrom(
+        this.sharedCatalogsService.getContactInterventions(contactId, { limit: 25 })
+      );
+
+      this.contactInterventions.set(interventions);
+    } catch (error) {
+      this.historyError.set(getApiErrorMessage(error, 'No fue posible cargar el historial de intervenciones.'));
+    } finally {
+      this.isHistoryLoading.set(false);
+    }
+  }
+
+  protected getModuleLabel(moduleKey: string) {
+    return this.resolveLabel(moduleKey, {
+      MARKETS: 'Mercados',
+      DONATARIAS: 'Donatarias',
+      FINANCIALS: 'Financieras',
+      FEDERATION: 'Federación',
+      DOCUMENTS: 'Documentos',
+      OTHER: 'Otro'
+    });
+  }
+
+  protected getHelpTypeLabel(helpType: string) {
+    return this.resolveLabel(helpType, {
+      INFORMATION: 'Información',
+      FACILITATION: 'Facilitación',
+      VALIDATION: 'Validación',
+      ESCALATION: 'Escalamiento',
+      FOLLOW_UP: 'Seguimiento',
+      UNBLOCKING: 'Desbloqueo',
+      OTHER: 'Otro'
+    });
+  }
+
+  protected getOutcomeLabel(outcome: string) {
+    return this.resolveLabel(outcome, {
+      USEFUL: 'Útil',
+      SUCCESSFUL: 'Exitoso',
+      PENDING: 'Pendiente',
+      NO_RESPONSE: 'Sin respuesta',
+      NOT_APPLICABLE: 'No aplica',
+      OTHER: 'Otro'
+    });
+  }
+
+  private resolveLabel(code: string, labels: Record<string, string>) {
+    const normalizedCode = code.trim().toUpperCase();
+    return labels[normalizedCode] ?? normalizedCode;
   }
 
   private normalizeOptional(value: string) {

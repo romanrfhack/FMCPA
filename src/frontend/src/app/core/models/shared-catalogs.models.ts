@@ -33,6 +33,34 @@ export interface CreateContactRequest {
   notes: string | null;
 }
 
+export interface ContactIntervention {
+  id: string;
+  contactId: string;
+  contactName: string;
+  contactTypeName: string | null;
+  moduleKey: string;
+  originType: string;
+  originId: string;
+  originDisplayName: string;
+  subject: string;
+  helpType: string;
+  outcome: string;
+  notes: string | null;
+  occurredUtc: string;
+  createdByUserId: string;
+  createdByUserName: string | null;
+  createdUtc: string;
+  updatedUtc: string | null;
+  archivedUtc: string | null;
+}
+
+export interface ContactInterventionQuery {
+  limit?: number;
+  moduleKey?: string;
+  from?: string;
+  to?: string;
+}
+
 export interface CatalogItem {
   id: number;
   code: string;
