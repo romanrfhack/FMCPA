@@ -10,6 +10,7 @@ import {
   ContactType,
   CreateCatalogItemRequest,
   CreateContactRequest,
+  CreateContactInterventionRequest,
   CreateModuleStatusCatalogEntryRequest,
   ModuleStatusCatalogEntry
 } from '../models/shared-catalogs.models';
@@ -55,6 +56,12 @@ export class SharedCatalogsService {
     return this.httpClient.get<ContactIntervention[]>(
       `${this.apiBaseUrl}/contacts/${contactId}/interventions`,
       { params: params.keys().length > 0 ? params : undefined });
+  }
+
+  createContactIntervention(contactId: string, request: CreateContactInterventionRequest) {
+    return this.httpClient.post<ContactIntervention>(
+      `${this.apiBaseUrl}/contacts/${contactId}/interventions`,
+      request);
   }
 
   getCommissionTypes() {

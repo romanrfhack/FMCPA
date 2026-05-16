@@ -54,6 +54,35 @@ export interface ContactIntervention {
   archivedUtc: string | null;
 }
 
+export type ContactInterventionHelpType =
+  | 'INFORMATION'
+  | 'FACILITATION'
+  | 'VALIDATION'
+  | 'ESCALATION'
+  | 'FOLLOW_UP'
+  | 'UNBLOCKING'
+  | 'OTHER';
+
+export type ContactInterventionOutcome =
+  | 'USEFUL'
+  | 'SUCCESSFUL'
+  | 'PENDING'
+  | 'NO_RESPONSE'
+  | 'NOT_APPLICABLE'
+  | 'OTHER';
+
+export interface CreateContactInterventionRequest {
+  moduleKey: string;
+  originType: string;
+  originId: string;
+  originDisplayName: string;
+  subject: string;
+  helpType: ContactInterventionHelpType;
+  outcome: ContactInterventionOutcome;
+  notes: string | null;
+  occurredUtc: string;
+}
+
 export interface ContactInterventionQuery {
   limit?: number;
   moduleKey?: string;
