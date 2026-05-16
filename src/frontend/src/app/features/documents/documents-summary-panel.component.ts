@@ -9,70 +9,121 @@ import { DocumentSummary } from '../../core/models/document-catalog.models';
   imports: [DecimalPipe],
   template: `
     @if (summary) {
-      <div class="summary-grid">
-        <section>
-          <h4>Por modulo</h4>
-          <div class="summary-table">
+      <div class="summary-dashboard">
+        <section class="summary-section modules-section">
+          <div class="section-heading">
+            <h4>Por modulo</h4>
+            <span>{{ summary.modules.length | number }} modulos</span>
+          </div>
+          <div class="module-grid">
             @for (module of summary.modules; track module.moduleCode) {
-              <div>
-                <strong>{{ module.moduleName }}</strong>
-                <span>{{ module.totalDocuments | number }} documentos</span>
-                <span>{{ module.incompleteEntitiesCount | number }} incompletos</span>
-                <span>{{ module.integrityIssuesCount | number }} integridad</span>
-                <span>{{ module.reviewDueCount | number }} por revisar</span>
-                <span>{{ module.expiredRetentionCount | number }} vencidos</span>
-                <span>{{ module.administrativeHoldCount | number }} en resguardo</span>
-              </div>
+              <article class="module-card">
+                <header>
+                  <strong>{{ module.moduleName }}</strong>
+                  <span>{{ module.totalDocuments | number }} docs</span>
+                </header>
+                <dl class="metric-grid">
+                  <div>
+                    <dt>Incompletos</dt>
+                    <dd>{{ module.incompleteEntitiesCount | number }}</dd>
+                  </div>
+                  <div>
+                    <dt>Integridad</dt>
+                    <dd>{{ module.integrityIssuesCount | number }}</dd>
+                  </div>
+                  <div>
+                    <dt>Por revisar</dt>
+                    <dd>{{ module.reviewDueCount | number }}</dd>
+                  </div>
+                  <div>
+                    <dt>Vencidos</dt>
+                    <dd>{{ module.expiredRetentionCount | number }}</dd>
+                  </div>
+                  <div>
+                    <dt>Resguardo</dt>
+                    <dd>{{ module.administrativeHoldCount | number }}</dd>
+                  </div>
+                  <div>
+                    <dt>Documentos</dt>
+                    <dd>{{ module.totalDocuments | number }}</dd>
+                  </div>
+                </dl>
+              </article>
             }
           </div>
         </section>
 
-        <section>
-          <h4>Estado operativo</h4>
-          @if (summary.operationalStatuses.length === 0) {
-            <p class="empty-state">Sin estados operativos calculados.</p>
-          } @else {
-            <div class="summary-table">
-              @for (status of summary.operationalStatuses; track status.documentOperationalStatusCode) {
-                <div>
-                  <strong>{{ operationalStatusLabel(status.documentOperationalStatusCode) }}</strong>
-                  <span>{{ severityLabel(status.documentOperationalSeverityCode) }}</span>
-                  <span>{{ status.totalCount | number }} documentos</span>
-                </div>
-              }
+        <div class="summary-pair">
+          <section class="summary-section">
+            <div class="section-heading">
+              <h4>Estado operativo</h4>
+              <span>{{ summary.operationalStatuses.length | number }} estados</span>
             </div>
-          }
-        </section>
+            @if (summary.operationalStatuses.length === 0) {
+              <p class="empty-state">Sin estados operativos calculados.</p>
+            } @else {
+              <div class="compact-list">
+                @for (status of summary.operationalStatuses; track status.documentOperationalStatusCode) {
+                  <div class="compact-row">
+                    <div>
+                      <strong>{{ operationalStatusLabel(status.documentOperationalStatusCode) }}</strong>
+                      <span>{{ severityLabel(status.documentOperationalSeverityCode) }}</span>
+                    </div>
+                    <b>{{ status.totalCount | number }} <small>docs</small></b>
+                  </div>
+                }
+              </div>
+            }
+          </section>
 
-        <section>
-          <h4>Trabajo pendiente</h4>
-          @if (summary.workQueueCategories.length === 0) {
-            <p class="empty-state">Sin categorias pendientes.</p>
-          } @else {
-            <div class="summary-table">
-              @for (category of summary.workQueueCategories; track category.workItemType + category.reasonCode + category.severityCode) {
-                <div>
-                  <strong>{{ workItemTypeLabel(category.workItemType) }}</strong>
-                  <span>{{ reasonLabel(category.reasonCode) }}</span>
-                  <span>{{ severityLabel(category.severityCode) }}</span>
-                  <span>{{ category.totalCount | number }} pendientes</span>
-                </div>
-              }
+          <section class="summary-section">
+            <div class="section-heading">
+              <h4>Trabajo pendiente</h4>
+              <span>{{ summary.workQueueCategories.length | number }} categorias</span>
             </div>
-          }
-        </section>
+            @if (summary.workQueueCategories.length === 0) {
+              <p class="empty-state">Sin categorias pendientes.</p>
+            } @else {
+              <div class="compact-list">
+                @for (category of summary.workQueueCategories; track category.workItemType + category.reasonCode + category.severityCode) {
+                  <div class="compact-row">
+                    <div>
+                      <strong>{{ workItemTypeLabel(category.workItemType) }}</strong>
+                      <span>{{ reasonLabel(category.reasonCode) }} - {{ severityLabel(category.severityCode) }}</span>
+                    </div>
+                    <b>{{ category.totalCount | number }} <small>pend.</small></b>
+                  </div>
+                }
+              </div>
+            }
+          </section>
+        </div>
 
         @if (summary.documentClasses.length > 0) {
-          <section>
-            <h4>Por clase</h4>
-            <div class="summary-table">
+          <section class="summary-section class-section">
+            <div class="section-heading">
+              <h4>Por clase</h4>
+              <span>{{ summary.documentClasses.length | number }} clases</span>
+            </div>
+            <div class="class-grid">
               @for (documentClass of summary.documentClasses; track documentClass.documentClassCode) {
-                <div>
+                <article class="class-card">
                   <strong>{{ documentClassLabel(documentClass.documentClassCode) }}</strong>
-                  <span>{{ documentClass.totalDocuments | number }} documentos</span>
-                  <span>{{ documentClass.activeDocuments | number }} vigentes</span>
-                  <span>{{ documentClass.archivedDocuments | number }} archivados</span>
-                </div>
+                  <dl>
+                    <div>
+                      <dt>Docs</dt>
+                      <dd>{{ documentClass.totalDocuments | number }}</dd>
+                    </div>
+                    <div>
+                      <dt>Vigentes</dt>
+                      <dd>{{ documentClass.activeDocuments | number }}</dd>
+                    </div>
+                    <div>
+                      <dt>Archivados</dt>
+                      <dd>{{ documentClass.archivedDocuments | number }}</dd>
+                    </div>
+                  </dl>
+                </article>
               }
             </div>
           </section>
@@ -84,39 +135,221 @@ import { DocumentSummary } from '../../core/models/document-catalog.models';
   `,
   styles: [
     `
-      .summary-grid {
+      .summary-dashboard {
         display: grid;
-        gap: 0.75rem;
+        gap: 0.7rem;
+        min-width: 0;
       }
 
       h4,
-      p {
+      p,
+      dl,
+      dd {
         margin: 0;
       }
 
       h4 {
-        margin-bottom: 0.5rem;
+        font-size: 0.98rem;
+        line-height: 1.2;
         color: #123f3b;
       }
 
-      .summary-table {
+      .summary-section {
         display: grid;
         gap: 0.5rem;
-      }
-
-      .summary-table div {
-        display: grid;
-        gap: 0.25rem;
         min-width: 0;
-        border-radius: 8px;
-        padding: 0.65rem;
-        background: #f6f5ef;
       }
 
-      .summary-table span,
+      .section-heading {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.75rem;
+        min-width: 0;
+      }
+
+      .section-heading span {
+        color: #60716d;
+        font-size: 0.78rem;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .module-grid,
+      .class-grid {
+        display: grid;
+        gap: 0.55rem;
+      }
+
+      .module-grid {
+        grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+      }
+
+      .module-card,
+      .class-card {
+        min-width: 0;
+        border: 1px solid rgba(35, 51, 47, 0.1);
+        border-radius: 8px;
+        background: #fbfaf6;
+      }
+
+      .module-card {
+        display: grid;
+        gap: 0.45rem;
+        padding: 0.6rem;
+      }
+
+      .module-card header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        min-width: 0;
+      }
+
+      .module-card header strong,
+      .class-card strong,
+      .compact-row strong {
+        color: #20332f;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .module-card header span {
+        color: #0f766e;
+        font-size: 0.78rem;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.35rem;
+      }
+
+      .metric-grid div,
+      .class-card dl div {
+        display: grid;
+        gap: 0.1rem;
+        border-radius: 8px;
+        background: #f6f5ef;
+        min-width: 0;
+      }
+
+      .metric-grid div {
+        padding: 0.4rem 0.45rem;
+      }
+
+      dt {
+        color: #60716d;
+        font-size: 0.68rem;
+        font-weight: 800;
+        line-height: 1.1;
+        text-transform: uppercase;
+      }
+
+      dd {
+        color: #123f3b;
+        font-size: 1rem;
+        font-weight: 900;
+        line-height: 1.1;
+      }
+
+      .summary-pair {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+        align-items: start;
+      }
+
+      .compact-list {
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      .compact-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.7rem;
+        align-items: center;
+        min-width: 0;
+        border: 1px solid rgba(35, 51, 47, 0.08);
+        border-radius: 8px;
+        padding: 0.45rem 0.55rem;
+        background: #fbfaf6;
+      }
+
+      .compact-row div {
+        display: grid;
+        gap: 0.1rem;
+        min-width: 0;
+      }
+
+      .compact-row span {
+        color: #60716d;
+        font-size: 0.78rem;
+        overflow-wrap: anywhere;
+      }
+
+      .compact-row b {
+        color: #123f3b;
+        font-size: 1.05rem;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .compact-row b small {
+        color: #60716d;
+        font-size: 0.7rem;
+        font-weight: 800;
+      }
+
+      .class-grid {
+        grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+      }
+
+      .class-card {
+        display: grid;
+        gap: 0.4rem;
+        padding: 0.55rem;
+      }
+
+      .class-card dl {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.35rem;
+      }
+
+      .class-card dl div {
+        padding: 0.35rem 0.4rem;
+      }
+
       .empty-state {
         color: #60716d;
         overflow-wrap: anywhere;
+      }
+
+      .empty-state {
+        border: 1px dashed rgba(35, 51, 47, 0.18);
+        border-radius: 8px;
+        padding: 0.55rem;
+        background: #fbfaf6;
+      }
+
+      @media (max-width: 760px) {
+        .summary-pair {
+          grid-template-columns: 1fr;
+        }
+
+        .module-grid,
+        .class-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .metric-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
     `
   ]

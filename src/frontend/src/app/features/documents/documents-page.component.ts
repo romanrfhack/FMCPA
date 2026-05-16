@@ -771,6 +771,14 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
         justify-content: flex-end;
       }
 
+      .summary-panel {
+        padding: 0.95rem;
+      }
+
+      .summary-panel .panel-header {
+        margin-bottom: 0.65rem;
+      }
+
       .panel-header span,
       .empty-state,
       small,
