@@ -631,15 +631,6 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
       }
 
       .page-header,
-      .filters-panel,
-      .panel {
-        border: 1px solid rgba(35, 51, 47, 0.12);
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.9);
-        box-shadow: 0 14px 26px rgba(32, 44, 41, 0.06);
-      }
-
-      .page-header,
       .panel {
         padding: 1.25rem;
       }
@@ -736,53 +727,14 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
         margin-top: 0.75rem;
       }
 
-      label {
-        display: grid;
-        gap: 0.35rem;
-        font-weight: 700;
-      }
-
-      input,
-      textarea,
-      select {
-        width: 100%;
-        min-width: 0;
-        box-sizing: border-box;
-        border: 1px solid rgba(35, 51, 47, 0.16);
-        border-radius: 8px;
-        padding: 0.58rem 0.7rem;
-        font: inherit;
-        background: #fff;
-      }
-
       textarea {
         min-height: 4.75rem;
         resize: vertical;
       }
 
-      button {
-        min-width: 0;
-        border: 0;
-        border-radius: 8px;
-        padding: 0.68rem 0.9rem;
-        font-weight: 800;
-        color: #fff;
-        background: #0f766e;
-        cursor: pointer;
-      }
-
       button:disabled {
         opacity: 0.55;
         cursor: not-allowed;
-      }
-
-      button.ghost {
-        color: #0f766e;
-        background: rgba(15, 118, 110, 0.1);
-      }
-
-      button.compact {
-        padding: 0.55rem 0.8rem;
       }
 
       .filter-actions {
@@ -828,16 +780,6 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
 
       dd {
         overflow-wrap: anywhere;
-      }
-
-      .badge {
-        width: fit-content;
-        border-radius: 999px;
-        padding: 0.2rem 0.5rem;
-        font-size: 0.76rem;
-        font-weight: 800;
-        color: #0f766e;
-        background: rgba(15, 118, 110, 0.1);
       }
 
       dl div {
@@ -914,16 +856,6 @@ import { DocumentsSummaryPanelComponent } from './documents-summary-panel.compon
         display: flex;
         flex-wrap: wrap;
         gap: 0.35rem;
-      }
-
-      .detail-badges span {
-        width: fit-content;
-        border-radius: 999px;
-        padding: 0.22rem 0.55rem;
-        font-size: 0.76rem;
-        font-weight: 800;
-        color: #0f766e;
-        background: rgba(15, 118, 110, 0.1);
       }
 
       .priority-detail {

@@ -1207,20 +1207,6 @@ type FinancialsTab = 'summary' | 'permits' | 'credits' | 'commissions' | 'renewa
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .hero-card,
-      .filter-card,
-      .form-card,
-      .list-card,
-      .detail-card,
-      .empty-card {
-        min-width: 0;
-        padding: 1.15rem;
-        border-radius: 0.9rem;
-        background: rgba(255, 255, 255, 0.82);
-        border: 1px solid rgba(29, 45, 42, 0.08);
-        box-shadow: 0 12px 24px rgba(32, 44, 41, 0.05);
-      }
-
       .hero-card {
         display: flex;
         justify-content: space-between;
@@ -1241,45 +1227,6 @@ type FinancialsTab = 'summary' | 'permits' | 'credits' | 'commissions' | 'renewa
         box-shadow: 0 18px 36px rgba(18, 63, 59, 0.1);
       }
 
-      .tab-nav {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.55rem;
-        padding: 0.35rem;
-        border-radius: 0.9rem;
-        background: rgba(18, 63, 59, 0.06);
-      }
-
-      .tab-nav button {
-        border-radius: 999px;
-        padding: 0.65rem 0.85rem;
-        background: transparent;
-        color: #17423d;
-      }
-
-      .tab-nav button.is-active {
-        background: #123f3b;
-        color: #f6f6f2;
-      }
-
-      .modal {
-        position: fixed;
-        inset: 0;
-        z-index: 30;
-        display: grid;
-        place-items: center;
-        padding: 1rem;
-        background: rgba(29, 45, 42, 0.42);
-      }
-
-      .modal-panel {
-        width: min(100%, 46rem);
-        max-height: min(92vh, 48rem);
-        overflow: auto;
-        background: #fffdf8;
-        box-shadow: 0 24px 60px rgba(18, 63, 59, 0.2);
-      }
-
       .page-kicker {
         margin: 0 0 0.5rem;
         letter-spacing: 0.12em;
@@ -1287,25 +1234,6 @@ type FinancialsTab = 'summary' | 'permits' | 'credits' | 'commissions' | 'renewa
         font-size: 0.78rem;
         font-weight: 700;
         color: #0f766e;
-      }
-
-      h2,
-      h3,
-      h4,
-      p,
-      dd {
-        margin: 0;
-        overflow-wrap: anywhere;
-      }
-
-      .hero-card p:last-child,
-      .meta,
-      .detail-notes,
-      .empty-state,
-      .inline-note {
-        margin-top: 0.75rem;
-        line-height: 1.6;
-        color: #4d615c;
       }
 
       .card-header,
@@ -1321,19 +1249,14 @@ type FinancialsTab = 'summary' | 'permits' | 'credits' | 'commissions' | 'renewa
         margin-bottom: 1rem;
       }
 
-      .detail-badges,
-      .permit-stats,
-      .row-actions {
+      .summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .permit-stats {
         display: flex;
         flex-wrap: wrap;
         gap: 0.55rem;
-      }
-
-      .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.75rem;
-        margin-top: 1rem;
       }
 
       .chain-summary-grid {
@@ -1362,106 +1285,12 @@ type FinancialsTab = 'summary' | 'permits' | 'credits' | 'commissions' | 'renewa
         line-height: 1.5;
       }
 
-      .summary-grid article {
-        padding: 0.9rem;
-        border-radius: 1rem;
-        background: #f6f5ef;
-      }
-
-      .summary-grid h4 {
-        font-size: 0.82rem;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: #5b6b68;
-      }
-
-      .summary-grid p {
-        margin-top: 0.4rem;
-        font-size: 1.05rem;
-        font-weight: 700;
-        color: #203734;
-      }
-
-      .form-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.75rem;
-      }
-
-      label {
-        display: grid;
-        gap: 0.4rem;
-        font-size: 0.92rem;
-        font-weight: 600;
-        color: #29403b;
-        min-width: 0;
-      }
-
-      input,
-      select,
-      textarea {
-        width: 100%;
-        min-width: 0;
-        padding: 0.7rem 0.8rem;
-        border-radius: 0.75rem;
-        border: 1px solid rgba(29, 45, 42, 0.14);
-        background: #fbfbf8;
-        color: #1d2d2a;
-        font: inherit;
-      }
-
-      textarea {
-        resize: vertical;
-      }
-
-      .toggle {
-        grid-template-columns: auto 1fr;
-        align-items: center;
-        gap: 0.7rem;
-        padding: 0.7rem 0.8rem;
-        border-radius: 0.75rem;
-        background: #f6f5ef;
-      }
-
-      .toggle input {
-        width: auto;
-        margin: 0;
-      }
-
-      .full-width {
-        grid-column: 1 / -1;
-      }
-
-      .form-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-      }
-
-      button,
       .permit-card,
       .entity-button {
         border: none;
         border-radius: 0.75rem;
         padding: 0.72rem 0.9rem;
         font: inherit;
-      }
-
-      button {
-        cursor: pointer;
-        font-weight: 700;
-        background: #123f3b;
-        color: #f6f6f2;
-      }
-
-      button.ghost {
-        background: rgba(15, 118, 110, 0.08);
-        color: #17423d;
-      }
-
-      button:disabled {
-        opacity: 0.75;
-        cursor: wait;
       }
 
       .permit-card,
@@ -1514,18 +1343,6 @@ type FinancialsTab = 'summary' | 'permits' | 'credits' | 'commissions' | 'renewa
         color: #41514e;
       }
 
-      .status-pill {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0.5rem 0.72rem;
-        border-radius: 999px;
-        font-size: 0.82rem;
-        font-weight: 700;
-        background: rgba(15, 118, 110, 0.08);
-        color: #17423d;
-      }
-
       .status-pill.permit-open,
       .status-pill.alert-valid {
         background: rgba(15, 118, 110, 0.12);
@@ -1553,22 +1370,6 @@ type FinancialsTab = 'summary' | 'permits' | 'credits' | 'commissions' | 'renewa
       .status-pill.neutral {
         background: rgba(79, 70, 229, 0.1);
         color: #4338ca;
-      }
-
-      .alert {
-        padding: 0.9rem 1rem;
-        border-radius: 0.9rem;
-        font-weight: 600;
-      }
-
-      .alert.error {
-        background: rgba(190, 24, 93, 0.1);
-        color: #9d174d;
-      }
-
-      .alert.success {
-        background: rgba(15, 118, 110, 0.1);
-        color: #0f766e;
       }
 
       .conflict-action {
@@ -1606,11 +1407,6 @@ type FinancialsTab = 'summary' | 'permits' | 'credits' | 'commissions' | 'renewa
         .detail-badges button {
           width: 100%;
           white-space: normal;
-        }
-
-        .tab-nav {
-          display: grid;
-          grid-template-columns: 1fr;
         }
 
         .modal {

@@ -766,42 +766,12 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .hero-card,
-      .filter-card,
-      .form-card,
-      .list-card,
-      .detail-card,
-      .empty-card {
-        min-width: 0;
-        padding: 1.15rem;
-        border-radius: 0.9rem;
-        background: rgba(255, 255, 255, 0.82);
-        border: 1px solid rgba(29, 45, 42, 0.08);
-        box-shadow: 0 12px 24px rgba(32, 44, 41, 0.05);
-      }
-
       .hero-card {
         display: flex;
         justify-content: space-between;
         gap: 1rem;
         align-items: flex-start;
         border-top: 4px solid #a8302d;
-      }
-
-      .modal {
-        position: fixed;
-        inset: 0;
-        z-index: 30;
-        display: grid;
-        place-items: center;
-        padding: 1rem;
-        background: rgba(29, 45, 42, 0.42);
-      }
-
-      .modal-panel {
-        width: min(46rem, 100%);
-        max-height: 90vh;
-        overflow: auto;
       }
 
       .page-kicker {
@@ -813,20 +783,7 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
         color: #0f766e;
       }
 
-      h2,
-      h3,
-      h4,
-      p,
-      dd {
-        margin: 0;
-      }
-
-      .hero-card p:last-child,
-      .meta,
-      .detail-notes,
-      .empty-state,
-      .description,
-      .inline-note {
+      .description {
         margin-top: 0.75rem;
         line-height: 1.6;
         color: #4d615c;
@@ -845,7 +802,6 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
         margin-bottom: 0.85rem;
       }
 
-      .detail-badges,
       .market-stats,
       .row-actions {
         display: flex;
@@ -854,32 +810,7 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
       }
 
       .summary-grid {
-        display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.65rem;
-        margin-top: 0.85rem;
-      }
-
-      .summary-grid article {
-        min-width: 0;
-        padding: 0.75rem;
-        border-radius: 0.75rem;
-        background: #f6f5ef;
-      }
-
-      .summary-grid h4 {
-        font-size: 0.82rem;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: #5b6b68;
-      }
-
-      .summary-grid p {
-        margin-top: 0.4rem;
-        font-size: 1rem;
-        font-weight: 700;
-        color: #203734;
-        overflow-wrap: anywhere;
       }
 
       .filter-grid {
@@ -888,29 +819,7 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
       }
 
       .form-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.9rem;
-      }
-
-      label {
-        display: grid;
-        gap: 0.4rem;
-        font-size: 0.92rem;
-        font-weight: 600;
-        color: #29403b;
-      }
-
-      input,
-      select,
-      textarea {
-        width: 100%;
-        padding: 0.8rem 0.9rem;
-        border-radius: 0.9rem;
-        border: 1px solid rgba(29, 45, 42, 0.14);
-        background: #fbfbf8;
-        color: #1d2d2a;
-        font: inherit;
       }
 
       input:focus,
@@ -922,57 +831,20 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
         outline-offset: 1px;
       }
 
-      textarea {
-        resize: vertical;
-      }
-
       .toggle {
-        grid-template-columns: auto 1fr;
-        align-items: center;
-        gap: 0.7rem;
         padding: 0.8rem 0.9rem;
         border-radius: 0.9rem;
-        background: #f6f5ef;
-      }
-
-      .toggle input {
-        width: auto;
-        margin: 0;
-      }
-
-      .full-width {
-        grid-column: 1 / -1;
       }
 
       .form-actions {
-        display: flex;
-        flex-wrap: wrap;
         gap: 0.75rem;
       }
 
-      button,
       .market-card {
         border: none;
         border-radius: 0.75rem;
         padding: 0.72rem 0.9rem;
         font: inherit;
-      }
-
-      button {
-        cursor: pointer;
-        font-weight: 700;
-        background: #123f3b;
-        color: #f6f6f2;
-      }
-
-      button.ghost {
-        background: rgba(15, 118, 110, 0.08);
-        color: #17423d;
-      }
-
-      button:disabled {
-        opacity: 0.75;
-        cursor: wait;
       }
 
       .market-card,
@@ -1006,26 +878,6 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
         text-decoration: none;
       }
 
-      .tab-nav {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.55rem;
-        padding: 0.35rem;
-        border-radius: 0.9rem;
-        background: rgba(18, 63, 59, 0.06);
-      }
-
-      .tab-nav button {
-        border-radius: 999px;
-        background: transparent;
-        color: #17423d;
-      }
-
-      .tab-nav button.is-active {
-        background: #123f3b;
-        color: #f6f6f2;
-      }
-
       .signal-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1057,18 +909,6 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
         max-height: 62vh;
         overflow: auto;
         padding-right: 0.2rem;
-      }
-
-      .status-pill {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0.5rem 0.72rem;
-        border-radius: 999px;
-        font-size: 0.82rem;
-        font-weight: 700;
-        background: rgba(15, 118, 110, 0.08);
-        color: #17423d;
       }
 
       .status-pill.market-active,
@@ -1105,12 +945,6 @@ type MarketTab = 'summary' | 'tenants' | 'issues' | 'documents';
       .status-pill.expired {
         background: rgba(180, 35, 24, 0.12);
         color: #b42318;
-      }
-
-      .alert {
-        padding: 0.85rem 0.95rem;
-        border-radius: 0.9rem;
-        font-weight: 600;
       }
 
       .alert.error {

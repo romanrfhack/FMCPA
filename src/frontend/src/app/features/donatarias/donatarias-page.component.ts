@@ -1520,26 +1520,6 @@ interface PresentationReadiness {
         gap: 0.8rem;
       }
 
-      .tab-nav {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.6rem;
-        padding: 0.35rem;
-        border-radius: 1rem;
-        background: rgba(18, 63, 59, 0.06);
-      }
-
-      .tab-nav button {
-        border-radius: 999px;
-        background: transparent;
-        color: #17423d;
-      }
-
-      .tab-nav button.is-active {
-        background: #123f3b;
-        color: #f6f6f2;
-      }
-
       .transparency-header {
         display: grid;
         gap: 0.75rem;
@@ -1547,29 +1527,6 @@ interface PresentationReadiness {
 
       .signal-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      .signal-card {
-        padding: 0.85rem;
-        border-radius: 0.8rem;
-        border: 1px solid rgba(29, 45, 42, 0.08);
-        background: #fbfbf8;
-      }
-
-      .signal-card h4,
-      .signal-card strong {
-        display: block;
-      }
-
-      .signal-card strong {
-        margin-top: 0.35rem;
-        color: #203734;
-      }
-
-      .signal-card p {
-        margin-top: 0.45rem;
-        color: #4d615c;
-        line-height: 1.5;
       }
 
       .wide-card {
@@ -1612,65 +1569,6 @@ interface PresentationReadiness {
         color: #f6f6f2;
       }
 
-      .application-table {
-        overflow-x: auto;
-      }
-
-      .application-row {
-        display: grid;
-        grid-template-columns:
-          minmax(9rem, 1.3fr)
-          minmax(7rem, 0.8fr)
-          minmax(9rem, 1fr)
-          minmax(8rem, 0.8fr)
-          minmax(7rem, 0.7fr)
-          minmax(8rem, 0.8fr)
-          minmax(9rem, 0.9fr)
-          minmax(8rem, 0.8fr)
-          minmax(6rem, 0.6fr)
-          minmax(10rem, 1fr)
-          minmax(12rem, 1.4fr);
-        gap: 0.6rem;
-        align-items: center;
-        min-width: 92rem;
-        padding: 0.85rem;
-        border-radius: 0.85rem;
-        background: #f6f5ef;
-        color: #203734;
-        text-align: left;
-      }
-
-      .application-row.table-head {
-        background: rgba(18, 63, 59, 0.08);
-        color: #29403b;
-        font-weight: 800;
-        cursor: default;
-      }
-
-      .report-distribution-table .application-row {
-        grid-template-columns:
-          minmax(10rem, 1.3fr)
-          minmax(7rem, 0.7fr)
-          minmax(9rem, 1fr)
-          minmax(8rem, 0.8fr)
-          minmax(8rem, 0.8fr)
-          minmax(8rem, 0.8fr)
-          minmax(8rem, 0.8fr)
-          minmax(8rem, 0.8fr)
-          minmax(12rem, 1.2fr);
-        min-width: 84rem;
-      }
-
-      button.application-row {
-        width: 100%;
-        border: 0;
-      }
-
-      button.application-row.is-selected,
-      .entity-row.is-selected {
-        outline: 2px solid rgba(15, 118, 110, 0.35);
-      }
-
       .report-preview {
         display: grid;
         gap: 1.2rem;
@@ -1687,42 +1585,9 @@ interface PresentationReadiness {
         justify-content: flex-end;
       }
 
-      .report-scope-note {
-        border-left: 4px solid #0f766e;
-        padding: 0.85rem 1rem;
-        border-radius: 0.85rem;
-        background: rgba(15, 118, 110, 0.08);
-        color: #17423d;
-        font-weight: 700;
-      }
-
       .readiness-card {
         padding: 1rem;
         border-radius: 1rem;
-      }
-
-      .modal {
-        position: fixed;
-        inset: 0;
-        z-index: 30;
-        display: grid;
-        place-items: center;
-        padding: 1rem;
-        background: #1d2d2a6b;
-      }
-
-      .hero-card,
-      .filter-card,
-      .form-card,
-      .list-card,
-      .detail-card,
-      .empty-card {
-        min-width: 0;
-        padding: 1.15rem;
-        border-radius: 0.9rem;
-        background: rgba(255, 255, 255, 0.82);
-        border: 1px solid rgba(29, 45, 42, 0.08);
-        box-shadow: 0 12px 24px rgba(32, 44, 41, 0.05);
       }
 
       .transparency-header,
@@ -1737,24 +1602,6 @@ interface PresentationReadiness {
         font-size: 0.78rem;
         font-weight: 700;
         color: #0f766e;
-      }
-
-      h2,
-      h3,
-      h4,
-      p,
-      dd {
-        margin: 0;
-      }
-
-      .hero-card p:last-child,
-      .meta,
-      .detail-notes,
-      .empty-state,
-      .inline-note {
-        margin-top: 0.55rem;
-        line-height: 1.5;
-        color: #4d615c;
       }
 
       .card-header,
@@ -1776,7 +1623,6 @@ interface PresentationReadiness {
         margin-bottom: 0.7rem;
       }
 
-      .detail-badges,
       .donation-stats,
       .row-actions {
         display: flex;
@@ -1789,35 +1635,16 @@ interface PresentationReadiness {
       }
 
       .summary-grid {
-        display: grid;
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
-        gap: 0.55rem;
-        margin-top: 0.65rem;
-      }
-
-      .summary-grid article {
-        min-width: 0;
-        padding: 0.62rem 0.7rem;
-        border-radius: 0.7rem;
-        background: #f6f5ef;
       }
 
       .summary-grid h4 {
-        overflow-wrap: anywhere;
         font-size: 0.72rem;
         letter-spacing: 0.03em;
-        line-height: 1.25;
-        text-transform: uppercase;
-        color: #5b6b68;
       }
 
       .summary-grid p {
-        overflow-wrap: anywhere;
-        margin-top: 0.3rem;
         font-size: 0.98rem;
-        line-height: 1.2;
-        font-weight: 700;
-        color: #203734;
       }
 
       .summary-grid.header-metrics,
@@ -1830,58 +1657,25 @@ interface PresentationReadiness {
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
       }
 
-      .form-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.75rem;
-      }
-
       label {
-        display: grid;
-        min-width: 0;
         gap: 0.35rem;
         font-size: 0.9rem;
-        font-weight: 600;
-        color: #29403b;
       }
 
       input,
       select,
       textarea {
-        width: 100%;
         padding: 0.68rem 0.78rem;
         border-radius: 0.7rem;
-        border: 1px solid rgba(29, 45, 42, 0.14);
-        background: #fbfbf8;
-        color: #1d2d2a;
-        font: inherit;
-      }
-
-      textarea {
-        resize: vertical;
       }
 
       .toggle {
-        grid-template-columns: auto 1fr;
-        align-items: center;
         gap: 0.55rem;
         padding: 0.68rem 0.78rem;
         border-radius: 0.7rem;
-        background: #f6f5ef;
-      }
-
-      .toggle input {
-        width: auto;
-        margin: 0;
-      }
-
-      .full-width {
-        grid-column: 1 / -1;
       }
 
       .form-actions {
-        display: flex;
-        flex-wrap: wrap;
         gap: 0.55rem;
       }
 
@@ -1908,157 +1702,6 @@ interface PresentationReadiness {
 
       .filter-actions button {
         white-space: nowrap;
-      }
-
-      button,
-      .donation-card,
-      .entity-button {
-        border: none;
-        border-radius: 0.7rem;
-        padding: 0.68rem 0.88rem;
-        font: inherit;
-      }
-
-      button {
-        cursor: pointer;
-        font-weight: 700;
-        background: #123f3b;
-        color: #f6f6f2;
-      }
-
-      button.ghost {
-        background: rgba(15, 118, 110, 0.08);
-        color: #17423d;
-      }
-
-      button:disabled {
-        opacity: 0.75;
-        cursor: wait;
-      }
-
-      .donation-card,
-      .entity-row,
-      .entity-button,
-      .alert-row {
-        display: grid;
-        min-width: 0;
-        gap: 0.55rem;
-        padding: 0.8rem;
-        border-radius: 0.75rem;
-        background: #f6f5ef;
-      }
-
-      .donation-card,
-      .entity-button {
-        text-align: left;
-        cursor: pointer;
-      }
-
-      .donation-card.is-selected,
-      .entity-button.is-selected {
-        outline: 2px solid rgba(15, 118, 110, 0.35);
-      }
-
-      .donation-stats span,
-      .row-actions span,
-      .row-actions a {
-        padding: 0.35rem 0.55rem;
-        border-radius: 999px;
-        background: rgba(15, 118, 110, 0.08);
-        color: #17423d;
-        font-size: 0.82rem;
-        text-decoration: none;
-        overflow-wrap: anywhere;
-      }
-
-      .status-pill {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        max-width: 100%;
-        padding: 0.36rem 0.58rem;
-        border-radius: 999px;
-        font-size: 0.82rem;
-        line-height: 1.2;
-        font-weight: 700;
-        background: rgba(15, 118, 110, 0.08);
-        color: #17423d;
-        overflow-wrap: anywhere;
-        text-align: center;
-      }
-
-      .status-pill.donation-open,
-      .status-pill.application-open,
-      .status-pill.alert-partial {
-        background: rgba(15, 118, 110, 0.12);
-        color: #0f766e;
-      }
-
-      .status-pill.donation-closed,
-      .status-pill.application-closed {
-        background: rgba(70, 85, 82, 0.14);
-        color: #41514e;
-      }
-
-      .status-pill.alert-pending {
-        background: rgba(148, 98, 0, 0.12);
-        color: #7a5400;
-      }
-
-      .status-pill.neutral {
-        background: rgba(79, 70, 229, 0.1);
-        color: #4338ca;
-      }
-
-      .status-pill.signal-warning,
-      .signal-card.signal-warning,
-      .readiness-card.signal-warning {
-        background: rgba(148, 98, 0, 0.12);
-        color: #7a5400;
-      }
-
-      .status-pill.signal-partial,
-      .signal-card.signal-partial,
-      .readiness-card.signal-partial {
-        background: rgba(15, 118, 110, 0.12);
-        color: #0f766e;
-      }
-
-      .status-pill.signal-complete,
-      .signal-card.signal-complete,
-      .readiness-card.signal-complete {
-        background: rgba(22, 101, 52, 0.1);
-        color: #166534;
-      }
-
-      .status-pill.signal-open,
-      .signal-card.signal-open {
-        background: rgba(15, 118, 110, 0.08);
-        color: #17423d;
-      }
-
-      .status-pill.signal-closed,
-      .status-pill.signal-neutral,
-      .signal-card.signal-closed,
-      .signal-card.signal-neutral {
-        background: rgba(70, 85, 82, 0.14);
-        color: #41514e;
-      }
-
-      .alert {
-        padding: 0.9rem 1rem;
-        border-radius: 0.9rem;
-        font-weight: 600;
-      }
-
-      .alert.error {
-        background: rgba(190, 24, 93, 0.1);
-        color: #9d174d;
-      }
-
-      .alert.success {
-        background: rgba(15, 118, 110, 0.1);
-        color: #0f766e;
       }
 
       @media (max-width: 1080px) {

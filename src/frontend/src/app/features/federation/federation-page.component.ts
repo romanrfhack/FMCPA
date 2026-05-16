@@ -1302,55 +1302,9 @@ interface FederationVisibleMetrics {
         grid-template-columns: 1fr;
       }
 
-      .modal {
-        position: fixed;
-        inset: 0;
-        z-index: 30;
-        display: grid;
-        place-items: center;
-        padding: 1rem;
-        background: #1d2d2a6b;
-      }
-
       .modal-panel {
         width: min(44rem, 100%);
         max-height: 90vh;
-        overflow: auto;
-      }
-
-      .hero-card,
-      .filter-card,
-      .form-card,
-      .list-card,
-      .detail-card,
-      .empty-card {
-        min-width: 0;
-        padding: 1.5rem;
-        border-radius: 0.9rem;
-        background: rgba(255, 255, 255, 0.82);
-        border: 1px solid rgba(29, 45, 42, 0.08);
-        box-shadow: 0 12px 24px rgba(32, 44, 41, 0.05);
-      }
-
-      .tab-nav {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.55rem;
-        padding: 0.35rem;
-        border-radius: 0.9rem;
-        background: rgba(18, 63, 59, 0.06);
-      }
-
-      .tab-nav button {
-        border-radius: 999px;
-        padding: 0.65rem 0.85rem;
-        background: transparent;
-        color: #17423d;
-      }
-
-      .tab-nav button.is-active {
-        background: #123f3b;
-        color: #f6f6f2;
       }
 
       .summary-domain-grid {
@@ -1397,24 +1351,6 @@ interface FederationVisibleMetrics {
         color: #0f766e;
       }
 
-      h2,
-      h3,
-      h4,
-      p {
-        margin: 0;
-      }
-
-      .hero-card p:last-child,
-      .meta,
-      .detail-notes,
-      .empty-state,
-      .inline-note {
-        margin-top: 0.75rem;
-        line-height: 1.6;
-        color: #4d615c;
-      }
-
-      .detail-badges,
       .entity-stats,
       .row-actions {
         display: flex;
@@ -1423,94 +1359,23 @@ interface FederationVisibleMetrics {
       }
 
       .summary-grid {
-        display: grid;
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
-        gap: 0.6rem;
-        margin-top: 0.9rem;
       }
 
       .executive-grid {
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
       }
 
-      .summary-grid article {
-        min-width: 0;
-        padding: 0.75rem;
-        border-radius: 0.75rem;
-        background: #f6f5ef;
-      }
-
       .summary-grid h4 {
-        overflow-wrap: anywhere;
         font-size: 0.74rem;
         letter-spacing: 0.03em;
-        line-height: 1.25;
-        text-transform: uppercase;
-        color: #5b6b68;
-      }
-
-      .summary-grid p {
-        overflow-wrap: anywhere;
-        margin-top: 0.4rem;
-        font-size: 1rem;
-        line-height: 1.2;
-        font-weight: 700;
-        color: #203734;
       }
 
       .form-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.9rem;
       }
 
-      label {
-        display: grid;
-        min-width: 0;
-        gap: 0.4rem;
-        font-size: 0.92rem;
-        font-weight: 600;
-        color: #29403b;
-      }
-
-      input,
-      select,
-      textarea {
-        width: 100%;
-        min-width: 0;
-        padding: 0.7rem 0.8rem;
-        border-radius: 0.75rem;
-        border: 1px solid rgba(29, 45, 42, 0.14);
-        background: #fbfbf8;
-        color: #1d2d2a;
-        font: inherit;
-      }
-
-      textarea {
-        resize: vertical;
-      }
-
-      .toggle {
-        grid-template-columns: auto 1fr;
-        align-items: center;
-        gap: 0.7rem;
-        padding: 0.7rem 0.8rem;
-        border-radius: 0.75rem;
-        background: #f6f5ef;
-      }
-
-      .toggle input {
-        width: auto;
-        margin: 0;
-      }
-
-      .full-width {
-        grid-column: 1 / -1;
-      }
-
       .form-actions {
-        display: flex;
-        flex-wrap: wrap;
         gap: 0.6rem;
       }
 
@@ -1522,29 +1387,11 @@ interface FederationVisibleMetrics {
         margin-bottom: 0.6rem;
       }
 
-      button,
       .entity-button {
         border: none;
         border-radius: 0.75rem;
         padding: 0.7rem 0.9rem;
         font: inherit;
-      }
-
-      button {
-        cursor: pointer;
-        font-weight: 700;
-        background: #123f3b;
-        color: #f6f6f2;
-      }
-
-      button.ghost {
-        background: rgba(15, 118, 110, 0.08);
-        color: #17423d;
-      }
-
-      button:disabled {
-        opacity: 0.75;
-        cursor: wait;
       }
 
       .entity-row,
@@ -1585,22 +1432,6 @@ interface FederationVisibleMetrics {
         text-decoration: none;
       }
 
-      .status-pill {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        max-width: 100%;
-        padding: 0.42rem 0.62rem;
-        border-radius: 999px;
-        font-size: 0.82rem;
-        line-height: 1.2;
-        font-weight: 700;
-        background: rgba(15, 118, 110, 0.08);
-        color: #17423d;
-        overflow-wrap: anywhere;
-        text-align: center;
-      }
-
       .status-pill.action-open,
       .status-pill.donation-open,
       .status-pill.application-open,
@@ -1632,22 +1463,6 @@ interface FederationVisibleMetrics {
         color: #4338ca;
       }
 
-      .alert {
-        padding: 0.9rem 1rem;
-        border-radius: 0.9rem;
-        font-weight: 600;
-      }
-
-      .alert.error {
-        background: rgba(190, 24, 93, 0.1);
-        color: #9d174d;
-      }
-
-      .alert.success {
-        background: rgba(15, 118, 110, 0.1);
-        color: #0f766e;
-      }
-
       @media (max-width: 1080px) {
         .page-grid,
         .detail-grid,
@@ -1665,11 +1480,6 @@ interface FederationVisibleMetrics {
         .row-top,
         .detail-header {
           flex-direction: column;
-        }
-
-        .tab-nav {
-          display: grid;
-          grid-template-columns: 1fr;
         }
 
         .form-actions,

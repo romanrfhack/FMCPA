@@ -136,15 +136,6 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       }
 
       .page-header,
-      .filters-panel,
-      .panel {
-        border: 1px solid rgba(35, 51, 47, 0.12);
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.9);
-        box-shadow: 0 14px 26px rgba(32, 44, 41, 0.06);
-      }
-
-      .page-header,
       .panel {
         padding: 1.25rem;
       }
@@ -177,46 +168,6 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
         grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
         gap: 0.7rem;
         align-items: end;
-      }
-
-      label {
-        display: grid;
-        gap: 0.35rem;
-        font-weight: 700;
-      }
-
-      input,
-      select {
-        width: 100%;
-        min-width: 0;
-        box-sizing: border-box;
-        border: 1px solid rgba(35, 51, 47, 0.16);
-        border-radius: 8px;
-        padding: 0.58rem 0.7rem;
-        font: inherit;
-        background: #fff;
-      }
-
-      button,
-      a {
-        min-width: 0;
-        border: 0;
-        border-radius: 8px;
-        padding: 0.68rem 0.9rem;
-        font-weight: 800;
-        color: #fff;
-        background: #0f766e;
-        text-decoration: none;
-        cursor: pointer;
-      }
-
-      button.ghost {
-        color: #0f766e;
-        background: rgba(15, 118, 110, 0.1);
-      }
-
-      button.compact {
-        padding: 0.58rem 0.8rem;
       }
 
       .filter-actions,
@@ -268,15 +219,6 @@ import { getApiErrorMessage } from '../../core/utils/api-error-message';
       .empty-state,
       small {
         color: #60716d;
-      }
-
-      .badges span {
-        border-radius: 999px;
-        padding: 0.2rem 0.5rem;
-        color: #0f766e;
-        background: rgba(15, 118, 110, 0.1);
-        font-size: 0.76rem;
-        font-weight: 800;
       }
 
       .badges .severity {

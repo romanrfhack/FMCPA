@@ -3,6 +3,7 @@
 ## Principios de la siguiente fase
 
 - Donatarias, login, header y navegacion principal son la referencia visual vigente.
+- Los patrones compartidos de pantallas redisenadas viven en utilidades/alias globales `fmcpa-*`; nuevas pantallas deben reutilizarlos antes de copiar CSS local.
 - Priorizar layout, copy e interaccion local antes que cambios de datos.
 - No introducir dependencias backend para resolver problemas visuales.
 - Mover captura secundaria a modales/drawers cuando la pantalla principal deba ser de consulta.
@@ -80,4 +81,4 @@
 
 ## Siguiente fase recomendada
 
-Continuar con `/contacts` y catalogos simples como siguientes pantallas densas pendientes. `/documents`, `/documents/work-queue`, `/admin/users`, `/financials`, `/federation` y `/markets` ya recibieron mejoras de densidad; `/federation` ya incluye Etapa A y Etapa B. La siguiente fase debe limitarse a frontend visual/interaccion local: copy, responsive, modales, drawers, menus de acciones y compactacion de tarjetas. La validacion minima debe repetir Playwright en `390px`, `768px` y `1366px`, confirmando sin overflow horizontal y sin cambios en `src/backend`.
+Continuar con `/contacts` y catalogos simples como siguientes pantallas densas pendientes. `/documents`, `/documents/work-queue`, `/admin/users`, `/financials`, `/federation` y `/markets` ya recibieron mejoras de densidad; `/federation` ya incluye Etapa A y Etapa B. La deuda de CSS budget de Donatarias, Documents, Financials, Federation y Markets quedo limpiada mediante utilidades `fmcpa-*` globales, por lo que la siguiente fase debe reutilizar esos patrones antes de agregar CSS local nuevo. La validacion minima debe repetir Playwright en `390px`, `768px` y `1366px`, confirmando sin overflow horizontal, sin warnings de CSS budget y sin cambios en `src/backend`.
