@@ -18,11 +18,12 @@ import {
   DonationTransparencyEvidence,
   DonationTransparencyReport
 } from '../../core/models/donations.models';
-import { Contact, CatalogItem, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
+import { Contact, CatalogItem, ContactIntervention, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
 import { AuthService } from '../../core/services/auth.service';
 import { DonationsService } from '../../core/services/donations.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
+import { ContactInterventionLauncherComponent } from '../../shared/contact-interventions/contact-intervention-launcher.component';
 import { RelatedDocumentsPanelComponent } from '../documents/related-documents-panel.component';
 
 type DonatariasTab = 'summary' | 'donations' | 'applications' | 'evidences' | 'report';
@@ -45,10 +46,26 @@ interface PresentationReadiness {
   description: string;
 }
 
+interface ApplicationContactInterventionsState {
+  isOpen: boolean;
+  isLoading: boolean;
+  hasLoaded: boolean;
+  error: string | null;
+  interventions: ContactIntervention[];
+}
+
+const emptyApplicationContactInterventionsState: ApplicationContactInterventionsState = {
+  isOpen: false,
+  isLoading: false,
+  hasLoaded: false,
+  error: null,
+  interventions: []
+};
+
 @Component({
   selector: 'app-donatarias-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RelatedDocumentsPanelComponent],
+  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, ContactInterventionLauncherComponent, RelatedDocumentsPanelComponent],
   template: `
     <section class="page-shell">
       <article class="hero-card">
@@ -751,6 +768,130 @@ interface PresentationReadiness {
                     </button>
                   }
                 </div>
+              }
+
+              @if (selectedApplication(); as selectedApplicationDetail) {
+                @if (
+                  canLinkContactSupportForDonationApplication(selectedApplicationDetail)
+                  || canViewContactSupportForDonationApplication(selectedApplicationDetail)
+                ) {
+                  <section class="application-support-panel" aria-label="Apoyos de contacto de la aplicación seleccionada">
+                    <div class="row-top">
+                      <div>
+                        <h4>{{ selectedApplicationDetail.beneficiaryName }}</h4>
+                        <p class="meta">
+                          {{ donationDetail.reference }} · {{ selectedApplicationDetail.applicationDate }}
+                          · {{ selectedApplicationDetail.statusName }}
+                        </p>
+                      </div>
+                      <span class="status-pill" [class]="applicationStatusClass(selectedApplicationDetail.statusCode)">
+                        {{ selectedApplicationDetail.statusName }}
+                      </span>
+                    </div>
+
+                    <p class="inline-note">
+                      Este apoyo no cambia al responsable de la aplicación; solo registra quién ayudó en esta gestión.
+                    </p>
+
+                    <div class="row-actions application-support-actions">
+                      @if (canLinkContactSupportForDonationApplication(selectedApplicationDetail)) {
+                        <app-contact-intervention-launcher
+                          class="application-support-launcher"
+                          moduleKey="DONATARIAS"
+                          originType="DONATION_APPLICATION"
+                          [originId]="selectedApplicationDetail.id"
+                          [originDisplayName]="buildDonationApplicationOriginDisplayName(donationDetail, selectedApplicationDetail)"
+                          [defaultSubject]="buildDonationApplicationDefaultSubject(selectedApplicationDetail)"
+                          buttonLabel="Vincular apoyo de contacto"
+                          [disabled]="!canLinkContactSupportForDonationApplication(selectedApplicationDetail)"
+                          (saved)="onDonationApplicationContactInterventionSaved($event, selectedApplicationDetail)">
+                        </app-contact-intervention-launcher>
+                      }
+                      @if (canViewContactSupportForDonationApplication(selectedApplicationDetail)) {
+                        <button
+                          type="button"
+                          class="ghost compact"
+                          [disabled]="getDonationApplicationContactInterventionsState(selectedApplicationDetail.id).isLoading"
+                          (click)="toggleDonationApplicationContactInterventions(selectedApplicationDetail)">
+                          @if (isDonationApplicationContactInterventionsOpen(selectedApplicationDetail.id)) {
+                            Ocultar apoyos
+                          } @else {
+                            Ver apoyos
+                          }
+                        </button>
+                      }
+                    </div>
+
+                    @if (
+                      canViewContactSupportForDonationApplication(selectedApplicationDetail)
+                      && isDonationApplicationContactInterventionsOpen(selectedApplicationDetail.id)
+                    ) {
+                      @if (getDonationApplicationContactInterventionsState(selectedApplicationDetail.id); as supportHistory) {
+                        <section class="application-support-history" aria-label="Historial de apoyos de contacto">
+                          <div class="row-top">
+                            <div>
+                              <h4>Apoyos de contacto</h4>
+                              <p class="meta">Intervenciones asociadas a esta aplicación.</p>
+                            </div>
+                            <button
+                              type="button"
+                              class="ghost compact"
+                              [disabled]="supportHistory.isLoading"
+                              (click)="loadDonationApplicationContactInterventions(selectedApplicationDetail, true)">
+                              Actualizar
+                            </button>
+                          </div>
+
+                          @if (supportHistory.error) {
+                            <p class="alert error">{{ supportHistory.error }}</p>
+                          } @else if (supportHistory.isLoading) {
+                            <p class="empty-state">Cargando apoyos de contacto...</p>
+                          } @else if (supportHistory.hasLoaded && supportHistory.interventions.length === 0) {
+                            <p class="empty-state">No hay apoyos de contacto registrados para esta aplicación.</p>
+                          } @else {
+                            <div class="application-support-history-list">
+                              @for (intervention of supportHistory.interventions; track intervention.id) {
+                                <article class="application-support-history-item">
+                                  <div class="row-top">
+                                    <div>
+                                      <p class="meta">
+                                        {{ intervention.occurredUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}
+                                      </p>
+                                      <h4>{{ intervention.contactName }}</h4>
+                                    </div>
+                                    <span class="status-pill neutral">{{ getOutcomeLabel(intervention.outcome) }}</span>
+                                  </div>
+
+                                  <dl class="application-support-details">
+                                    <div>
+                                      <dt>Tipo de ayuda</dt>
+                                      <dd>{{ getHelpTypeLabel(intervention.helpType) }}</dd>
+                                    </div>
+                                    <div>
+                                      <dt>Resultado</dt>
+                                      <dd>{{ getOutcomeLabel(intervention.outcome) }}</dd>
+                                    </div>
+                                    <div>
+                                      <dt>Registró</dt>
+                                      <dd>
+                                        {{ intervention.createdByUserName || 'Sin usuario' }}
+                                        · {{ intervention.createdUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}
+                                      </dd>
+                                    </div>
+                                  </dl>
+
+                                  @if (intervention.notes) {
+                                    <p class="meta application-support-notes">{{ intervention.notes }}</p>
+                                  }
+                                </article>
+                              }
+                            </div>
+                          }
+                        </section>
+                      }
+                    }
+                  </section>
+                }
               }
             </article>
           </section>
@@ -1569,6 +1710,54 @@ interface PresentationReadiness {
         color: #f6f6f2;
       }
 
+      .application-support-panel {
+        display: grid;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(15, 118, 110, 0.16);
+      }
+
+      .application-support-history,
+      .application-support-history-list {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .application-support-history {
+        padding-top: 0.8rem;
+        border-top: 1px solid rgba(15, 118, 110, 0.12);
+      }
+
+      .application-support-history-item {
+        display: grid;
+        gap: 0.65rem;
+        padding: 0.85rem;
+        border: 1px solid rgba(15, 118, 110, 0.14);
+        border-radius: 0.75rem;
+        background: rgba(15, 118, 110, 0.04);
+      }
+
+      .application-support-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+        gap: 0.65rem;
+        margin: 0;
+      }
+
+      .application-support-details dt {
+        color: #66756f;
+        font-size: 0.76rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .application-support-details dd {
+        margin: 0;
+        color: #203734;
+        font-size: 0.9rem;
+      }
+
       .report-preview {
         display: grid;
         gap: 1.2rem;
@@ -1767,6 +1956,8 @@ export class DonatariasPageComponent {
   private hasAppliedInitialQuerySelection = false;
 
   protected readonly canWrite = this.authService.canWriteDonations;
+  protected readonly canReadDonations = this.authService.canReadDonations;
+  protected readonly canReadContacts = this.authService.canReadContacts;
   protected readonly canAdminister = this.authService.canAdministerFormalClose;
   protected readonly isBootstrapping = signal(true);
   protected readonly pageError = signal<string | null>(null);
@@ -1784,6 +1975,7 @@ export class DonatariasPageComponent {
   protected readonly selectedDocumentaryStatus = signal<DonationDocumentaryStatus | null>(null);
   protected readonly selectedTransparencyReport = signal<DonationTransparencyReport | null>(null);
   protected readonly selectedApplicationId = signal<string | null>(null);
+  protected readonly applicationContactInterventions = signal<Record<string, ApplicationContactInterventionsState>>({});
   protected readonly applicationSort = signal<ApplicationSortMode>('dateAsc');
 
   protected readonly isSubmittingDonation = signal(false);
@@ -2288,6 +2480,108 @@ export class DonatariasPageComponent {
     this.evidenceFormSuccess.set(null);
   }
 
+  protected canLinkContactSupportForDonationApplication(application: DonationApplication | null): boolean {
+    const donation = this.selectedDonation();
+    return this.canReadContacts()
+      && this.canWrite()
+      && !!donation
+      && !donation.statusIsClosed
+      && !!application
+      && !application.statusIsClosed;
+  }
+
+  protected canViewContactSupportForDonationApplication(application: DonationApplication | null): boolean {
+    return this.canReadContacts() && this.canReadDonations() && !!application;
+  }
+
+  protected getDonationApplicationContactInterventionsState(applicationId: string) {
+    return this.applicationContactInterventions()[applicationId] ?? emptyApplicationContactInterventionsState;
+  }
+
+  protected isDonationApplicationContactInterventionsOpen(applicationId: string) {
+    return this.getDonationApplicationContactInterventionsState(applicationId).isOpen;
+  }
+
+  protected async toggleDonationApplicationContactInterventions(application: DonationApplication): Promise<void> {
+    if (!this.canViewContactSupportForDonationApplication(application)) {
+      return;
+    }
+
+    const currentState = this.getDonationApplicationContactInterventionsState(application.id);
+    if (currentState.isOpen) {
+      this.patchDonationApplicationContactInterventionsState(application.id, { isOpen: false });
+      return;
+    }
+
+    this.patchDonationApplicationContactInterventionsState(application.id, { isOpen: true });
+
+    if (!currentState.hasLoaded) {
+      await this.loadDonationApplicationContactInterventions(application);
+    }
+  }
+
+  protected async loadDonationApplicationContactInterventions(application: DonationApplication, force = false): Promise<void> {
+    if (!this.canViewContactSupportForDonationApplication(application)) {
+      return;
+    }
+
+    const currentState = this.getDonationApplicationContactInterventionsState(application.id);
+    if ((currentState.isLoading && !force) || (currentState.hasLoaded && !force)) {
+      return;
+    }
+
+    this.patchDonationApplicationContactInterventionsState(application.id, {
+      isOpen: true,
+      isLoading: true,
+      error: null,
+      interventions: currentState.hasLoaded ? currentState.interventions : []
+    });
+
+    try {
+      const interventions = await firstValueFrom(
+        this.sharedCatalogsService.getContactInterventionsByOrigin({
+          moduleKey: 'DONATARIAS',
+          originType: 'DONATION_APPLICATION',
+          originId: application.id
+        })
+      );
+
+      this.patchDonationApplicationContactInterventionsState(application.id, {
+        isLoading: false,
+        hasLoaded: true,
+        error: null,
+        interventions
+      });
+    } catch (error) {
+      this.patchDonationApplicationContactInterventionsState(application.id, {
+        isLoading: false,
+        hasLoaded: true,
+        error: getApiErrorMessage(error, 'No fue posible cargar los apoyos de contacto.'),
+        interventions: []
+      });
+    }
+  }
+
+  protected buildDonationApplicationOriginDisplayName(donation: DonationDetail, application: DonationApplication): string {
+    return `${donation.donorEntityName} · ${donation.reference} · ${application.beneficiaryName} · ${application.applicationDate}`;
+  }
+
+  protected buildDonationApplicationDefaultSubject(application: DonationApplication): string {
+    return `Apoyo en aplicación de donación: ${application.beneficiaryName}`;
+  }
+
+  protected async onDonationApplicationContactInterventionSaved(
+    _intervention: ContactIntervention,
+    application: DonationApplication
+  ): Promise<void> {
+    this.pageError.set(null);
+    this.pageSuccess.set(`Apoyo de contacto vinculado a la aplicación: ${application.beneficiaryName}.`);
+
+    if (this.isDonationApplicationContactInterventionsOpen(application.id)) {
+      await this.loadDonationApplicationContactInterventions(application, true);
+    }
+  }
+
   protected setApplicationSort(sortMode: ApplicationSortMode): void {
     this.applicationSort.set(sortMode);
   }
@@ -2663,6 +2957,29 @@ export class DonatariasPageComponent {
     }
   }
 
+  protected getHelpTypeLabel(helpType: string): string {
+    return this.resolveLabel(helpType, {
+      INFORMATION: 'Información',
+      FACILITATION: 'Facilitación',
+      VALIDATION: 'Validación',
+      ESCALATION: 'Escalamiento',
+      FOLLOW_UP: 'Seguimiento',
+      UNBLOCKING: 'Desbloqueo',
+      OTHER: 'Otro'
+    });
+  }
+
+  protected getOutcomeLabel(outcome: string): string {
+    return this.resolveLabel(outcome, {
+      USEFUL: 'Útil',
+      SUCCESSFUL: 'Exitoso',
+      PENDING: 'Pendiente',
+      NO_RESPONSE: 'Sin respuesta',
+      NOT_APPLICABLE: 'No aplica',
+      OTHER: 'Otro'
+    });
+  }
+
   protected async downloadEvidence(evidence: DonationApplicationEvidence): Promise<void> {
     this.pageError.set(null);
 
@@ -2892,6 +3209,26 @@ export class DonatariasPageComponent {
     return this.applicationStatuses().find((status) => status.statusCode === 'PARTIALLY_APPLIED')?.id
       ?? this.applicationStatuses()[0]?.id
       ?? 0;
+  }
+
+  private patchDonationApplicationContactInterventionsState(
+    applicationId: string,
+    patch: Partial<ApplicationContactInterventionsState>
+  ): void {
+    this.applicationContactInterventions.update((currentStates) => {
+      const currentState = currentStates[applicationId] ?? emptyApplicationContactInterventionsState;
+      return {
+        ...currentStates,
+        [applicationId]: {
+          ...currentState,
+          ...patch
+        }
+      };
+    });
+  }
+
+  private resolveLabel(code: string, labels: Record<string, string>): string {
+    return labels[code] ?? code;
   }
 
   private normalizeOptional(value: string | null | undefined): string | null {
