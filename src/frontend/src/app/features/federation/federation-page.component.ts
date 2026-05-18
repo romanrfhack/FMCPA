@@ -19,11 +19,12 @@ import {
   FederationDonationDetail,
   FederationDonationSummary
 } from '../../core/models/federation.models';
-import { CatalogItem, Contact, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
+import { CatalogItem, Contact, ContactIntervention, ModuleStatusCatalogEntry } from '../../core/models/shared-catalogs.models';
 import { AuthService } from '../../core/services/auth.service';
 import { FederationService } from '../../core/services/federation.service';
 import { SharedCatalogsService } from '../../core/services/shared-catalogs.service';
 import { getApiErrorMessage } from '../../core/utils/api-error-message';
+import { ContactInterventionLauncherComponent } from '../../shared/contact-interventions/contact-intervention-launcher.component';
 import { RelatedDocumentsPanelComponent } from '../documents/related-documents-panel.component';
 
 type FederationTab = 'summary' | 'actions' | 'donations' | 'applications' | 'evidences';
@@ -46,10 +47,26 @@ interface FederationVisibleMetrics {
   alertCount: number;
 }
 
+interface ActionContactInterventionsState {
+  isOpen: boolean;
+  isLoading: boolean;
+  hasLoaded: boolean;
+  error: string | null;
+  interventions: ContactIntervention[];
+}
+
+const emptyActionContactInterventionsState: ActionContactInterventionsState = {
+  isOpen: false,
+  isLoading: false,
+  hasLoaded: false,
+  error: null,
+  interventions: []
+};
+
 @Component({
   selector: 'app-federation-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RelatedDocumentsPanelComponent],
+  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, ContactInterventionLauncherComponent, RelatedDocumentsPanelComponent],
   template: `
     <section class="page-shell">
       <article class="hero-card">
@@ -805,6 +822,32 @@ interface FederationVisibleMetrics {
                   <span class="status-pill" [class]="actionAlertClass(actionDetail.alertState)">
                     {{ actionAlertLabel(actionDetail.alertState) }}
                   </span>
+                  @if (canLinkContactSupportForFederationAction(actionDetail)) {
+                    <app-contact-intervention-launcher
+                      class="action-support-launcher"
+                      moduleKey="FEDERATION"
+                      originType="FEDERATION_ACTION"
+                      [originId]="actionDetail.id"
+                      [originDisplayName]="buildFederationActionOriginDisplayName(actionDetail)"
+                      [defaultSubject]="buildFederationActionDefaultSubject(actionDetail)"
+                      buttonLabel="Vincular apoyo de contacto"
+                      [disabled]="!canLinkContactSupportForFederationAction(actionDetail)"
+                      (saved)="onFederationActionContactInterventionSaved($event, actionDetail)">
+                    </app-contact-intervention-launcher>
+                  }
+                  @if (canViewContactSupportForFederationAction(actionDetail)) {
+                    <button
+                      type="button"
+                      class="ghost"
+                      [disabled]="getFederationActionContactInterventionsState(actionDetail.id).isLoading"
+                      (click)="toggleFederationActionContactInterventions(actionDetail)">
+                      @if (isFederationActionContactInterventionsOpen(actionDetail.id)) {
+                        Ocultar apoyos
+                      } @else {
+                        Ver apoyos
+                      }
+                    </button>
+                  }
                   <button
                     type="button"
                     class="ghost"
@@ -824,6 +867,84 @@ interface FederationVisibleMetrics {
 
                 @if (actionDetail.notes) {
                   <p class="detail-notes">{{ actionDetail.notes }}</p>
+                }
+
+                @if (
+                  canLinkContactSupportForFederationAction(actionDetail)
+                  || canViewContactSupportForFederationAction(actionDetail)
+                ) {
+                  <p class="inline-note">
+                    Este apoyo no cambia los participantes de la gestión; solo registra quién ayudó en esta ocasión.
+                  </p>
+                }
+
+                @if (
+                  canViewContactSupportForFederationAction(actionDetail)
+                  && isFederationActionContactInterventionsOpen(actionDetail.id)
+                ) {
+                  @if (getFederationActionContactInterventionsState(actionDetail.id); as supportHistory) {
+                    <section class="action-support-history" aria-label="Historial de apoyos de contacto">
+                      <div class="row-top">
+                        <div>
+                          <h4>Apoyos de contacto</h4>
+                          <p class="meta">Intervenciones asociadas a esta gestión federativa.</p>
+                        </div>
+                        <button
+                          type="button"
+                          class="ghost"
+                          [disabled]="supportHistory.isLoading"
+                          (click)="loadFederationActionContactInterventions(actionDetail, true)">
+                          Actualizar
+                        </button>
+                      </div>
+
+                      @if (supportHistory.error) {
+                        <p class="alert error">{{ supportHistory.error }}</p>
+                      } @else if (supportHistory.isLoading) {
+                        <p class="empty-state">Cargando apoyos de contacto...</p>
+                      } @else if (supportHistory.hasLoaded && supportHistory.interventions.length === 0) {
+                        <p class="empty-state">No hay apoyos de contacto registrados para esta gestión.</p>
+                      } @else {
+                        <div class="action-support-history-list">
+                          @for (intervention of supportHistory.interventions; track intervention.id) {
+                            <article class="action-support-history-item">
+                              <div class="row-top">
+                                <div>
+                                  <p class="meta">
+                                    {{ intervention.occurredUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}
+                                  </p>
+                                  <h4>{{ intervention.contactName }}</h4>
+                                </div>
+                                <span class="status-pill neutral">{{ getOutcomeLabel(intervention.outcome) }}</span>
+                              </div>
+
+                              <dl class="action-support-details">
+                                <div>
+                                  <dt>Tipo de ayuda</dt>
+                                  <dd>{{ getHelpTypeLabel(intervention.helpType) }}</dd>
+                                </div>
+                                <div>
+                                  <dt>Resultado</dt>
+                                  <dd>{{ getOutcomeLabel(intervention.outcome) }}</dd>
+                                </div>
+                                <div>
+                                  <dt>Registró</dt>
+                                  <dd>
+                                    {{ intervention.createdByUserName || 'Sin usuario' }}
+                                    · {{ intervention.createdUtc | date: 'yyyy-MM-dd HH:mm':'UTC' }}
+                                  </dd>
+                                </div>
+                              </dl>
+
+                              @if (intervention.notes) {
+                                <p class="meta action-support-notes">{{ intervention.notes }}</p>
+                              }
+                            </article>
+                          }
+                        </div>
+                      }
+                    </section>
+                  }
                 }
 
                 <div class="summary-grid">
@@ -1332,6 +1453,14 @@ interface FederationVisibleMetrics {
         gap: 0.6rem;
       }
 
+      .detail-badges {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.55rem;
+        align-items: center;
+      }
+
       .card-header {
         margin-bottom: 1rem;
       }
@@ -1432,6 +1561,62 @@ interface FederationVisibleMetrics {
         text-decoration: none;
       }
 
+      :host ::ng-deep app-contact-intervention-launcher.action-support-launcher .intervention-launcher {
+        border-radius: 0.7rem;
+        padding: 0.62rem 0.78rem;
+        background: rgba(15, 118, 110, 0.08);
+        color: #17423d;
+        font-size: 0.9rem;
+      }
+
+      .action-support-history {
+        display: grid;
+        gap: 0.75rem;
+        margin: 0.85rem 0 1rem;
+        padding: 0.85rem;
+        border: 1px solid rgba(29, 45, 42, 0.08);
+        border-radius: 0.75rem;
+        background: #fbfbf8;
+      }
+
+      .action-support-history-list {
+        display: grid;
+        gap: 0.65rem;
+      }
+
+      .action-support-history-item {
+        display: grid;
+        min-width: 0;
+        gap: 0.7rem;
+        padding: 0.75rem;
+        border-radius: 0.7rem;
+        background: #f6f5ef;
+      }
+
+      .action-support-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+        gap: 0.65rem;
+        margin: 0;
+      }
+
+      .action-support-details dt {
+        color: #66756f;
+        font-size: 0.76rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .action-support-details dd {
+        margin: 0;
+        color: #203734;
+        font-size: 0.9rem;
+      }
+
+      .action-support-notes {
+        overflow-wrap: anywhere;
+      }
+
       .status-pill.action-open,
       .status-pill.donation-open,
       .status-pill.application-open,
@@ -1504,6 +1689,8 @@ export class FederationPageComponent {
   private readonly federationService = inject(FederationService);
   private readonly sharedCatalogsService = inject(SharedCatalogsService);
 
+  protected readonly canReadContacts = this.authService.canReadContacts;
+  protected readonly canReadFederation = this.authService.canReadFederation;
   protected readonly canWrite = this.authService.canWriteFederation;
   protected readonly canAdminister = this.authService.canAdministerFormalClose;
   protected readonly actionTypes = [
@@ -1540,6 +1727,7 @@ export class FederationPageComponent {
   protected readonly actionAlerts = signal<FederationActionAlert[]>([]);
   protected readonly selectedActionId = signal<string | null>(null);
   protected readonly selectedAction = signal<FederationActionDetail | null>(null);
+  protected readonly actionContactInterventions = signal<Record<string, ActionContactInterventionsState>>({});
 
   protected readonly donations = signal<FederationDonationSummary[]>([]);
   protected readonly donationAlerts = signal<FederationDonationAlert[]>([]);
@@ -2025,6 +2213,105 @@ export class FederationPageComponent {
       globalThis.alert('Cierre formal registrado en bitácora.');
     } catch (error) {
       this.pageError.set(getApiErrorMessage(error, 'No fue posible registrar el cierre formal de la gestión.'));
+    }
+  }
+
+  protected canLinkContactSupportForFederationAction(action: FederationActionDetail | null): boolean {
+    return this.canReadContacts()
+      && this.canWrite()
+      && !!action
+      && !action.statusIsClosed;
+  }
+
+  protected canViewContactSupportForFederationAction(action: FederationActionDetail | null): boolean {
+    return this.canReadContacts() && this.canReadFederation() && !!action;
+  }
+
+  protected getFederationActionContactInterventionsState(actionId: string) {
+    return this.actionContactInterventions()[actionId] ?? emptyActionContactInterventionsState;
+  }
+
+  protected isFederationActionContactInterventionsOpen(actionId: string) {
+    return this.getFederationActionContactInterventionsState(actionId).isOpen;
+  }
+
+  protected async toggleFederationActionContactInterventions(action: FederationActionDetail): Promise<void> {
+    if (!this.canViewContactSupportForFederationAction(action)) {
+      return;
+    }
+
+    const currentState = this.getFederationActionContactInterventionsState(action.id);
+    if (currentState.isOpen) {
+      this.patchFederationActionContactInterventionsState(action.id, { isOpen: false });
+      return;
+    }
+
+    this.patchFederationActionContactInterventionsState(action.id, { isOpen: true });
+
+    if (!currentState.hasLoaded) {
+      await this.loadFederationActionContactInterventions(action);
+    }
+  }
+
+  protected async loadFederationActionContactInterventions(action: FederationActionDetail, force = false): Promise<void> {
+    if (!this.canViewContactSupportForFederationAction(action)) {
+      return;
+    }
+
+    const currentState = this.getFederationActionContactInterventionsState(action.id);
+    if ((currentState.isLoading && !force) || (currentState.hasLoaded && !force)) {
+      return;
+    }
+
+    this.patchFederationActionContactInterventionsState(action.id, {
+      isOpen: true,
+      isLoading: true,
+      error: null,
+      interventions: currentState.hasLoaded ? currentState.interventions : []
+    });
+
+    try {
+      const interventions = await firstValueFrom(
+        this.sharedCatalogsService.getContactInterventionsByOrigin({
+          moduleKey: 'FEDERATION',
+          originType: 'FEDERATION_ACTION',
+          originId: action.id
+        })
+      );
+
+      this.patchFederationActionContactInterventionsState(action.id, {
+        isLoading: false,
+        hasLoaded: true,
+        error: null,
+        interventions
+      });
+    } catch (error) {
+      this.patchFederationActionContactInterventionsState(action.id, {
+        isLoading: false,
+        hasLoaded: true,
+        error: getApiErrorMessage(error, 'No fue posible cargar los apoyos de contacto.'),
+        interventions: []
+      });
+    }
+  }
+
+  protected buildFederationActionOriginDisplayName(action: FederationActionDetail): string {
+    return `${action.actionTypeName} · ${action.counterpartyOrInstitution} · ${action.actionDate}`;
+  }
+
+  protected buildFederationActionDefaultSubject(action: FederationActionDetail): string {
+    return `Apoyo en gestión federativa: ${action.actionTypeName}`;
+  }
+
+  protected async onFederationActionContactInterventionSaved(
+    _intervention: ContactIntervention,
+    action: FederationActionDetail
+  ): Promise<void> {
+    this.pageError.set(null);
+    this.pageSuccess.set(`Apoyo de contacto vinculado a la gestión: ${action.actionTypeName}.`);
+
+    if (this.isFederationActionContactInterventionsOpen(action.id)) {
+      await this.loadFederationActionContactInterventions(action, true);
     }
   }
 
@@ -2559,6 +2846,29 @@ export class FederationPageComponent {
     }
   }
 
+  protected getHelpTypeLabel(helpType: string): string {
+    return this.resolveLabel(helpType, {
+      INFORMATION: 'Información',
+      FACILITATION: 'Facilitación',
+      VALIDATION: 'Validación',
+      ESCALATION: 'Escalamiento',
+      FOLLOW_UP: 'Seguimiento',
+      UNBLOCKING: 'Desbloqueo',
+      OTHER: 'Otro'
+    });
+  }
+
+  protected getOutcomeLabel(outcome: string): string {
+    return this.resolveLabel(outcome, {
+      USEFUL: 'Útil',
+      SUCCESSFUL: 'Exitoso',
+      PENDING: 'Pendiente',
+      NO_RESPONSE: 'Sin respuesta',
+      NOT_APPLICABLE: 'No aplica',
+      OTHER: 'Otro'
+    });
+  }
+
   protected async downloadEvidence(evidence: FederationDonationApplicationEvidence): Promise<void> {
     this.pageError.set(null);
 
@@ -2725,6 +3035,27 @@ export class FederationPageComponent {
 
   private defaultApplicationStatusId(): number {
     return this.applicationStatuses().find((status) => status.statusCode === 'PARTIALLY_APPLIED')?.id ?? 0;
+  }
+
+  private patchFederationActionContactInterventionsState(
+    actionId: string,
+    patch: Partial<ActionContactInterventionsState>
+  ): void {
+    this.actionContactInterventions.update((currentStates) => {
+      const currentState = currentStates[actionId] ?? emptyActionContactInterventionsState;
+      return {
+        ...currentStates,
+        [actionId]: {
+          ...currentState,
+          ...patch
+        }
+      };
+    });
+  }
+
+  private resolveLabel(code: string, labels: Record<string, string>): string {
+    const normalizedCode = code.trim().toUpperCase();
+    return labels[normalizedCode] ?? normalizedCode;
   }
 
   private todayIso(): string {
